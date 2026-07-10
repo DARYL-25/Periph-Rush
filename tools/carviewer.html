@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Périph' Rush — visionneuse de véhicules</title>
+  <style>body { background: #202830; margin: 0; } canvas { display: block; }</style>
+</head>
+<body>
+<script type="module">
+// Outil de dev : planches-contact des véhicules (profil / avant 3-4 / arrière 3-4)
+// Usage : /tools/carviewer.html?ids=clio3,p208&sheet=nom  (défaut : tous les jouables)
+import * as THREE from '../vendor/three.module.min.js';
+import { CATALOG, PLAYER_IDS, TRAFFIC_IDS, VehicleFactory } from '../js/vehicles.js';
+import { PlatePool } from '../js/plates.js';
+import { rng } from '../js/utils.js';
+
+const params = new URLSearchParams(location.search);
+const ids = params.get('ids') ? params.get('ids').split(',')
+  : [...new Set([...PLAYER_IDS, ...TRAFFIC_IDS])];
+const sheetName = params.get('sheet') || 'sheet';
+const CELL_W = 300, CELL_H = 150;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(CELL_W, CELL_H);
+renderer.setPixelRatio(1);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x39424c);
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const env = new THREE.Scene();
+  env.background = new THREE.Color(0x445566);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ color: 0xdfe8f2 }));
+  top.position.y = 12; top.rotation.x = Math.PI / 2;
+  env.add(top);
+  scene.environment = pmrem.fromScene(env, 0.04).texture;
+}
+scene.add(new THREE.HemisphereLight(0xcdd8e6, 0x30343a, 1.1));
+const sun = new THREE.DirectionalLight(0xfff2dd, 2.0);
+sun.position.set(5, 8, 6);
+scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30).rotateX(-Math.PI / 2),
+  new THREE.MeshLambertMaterial({ color: 0x4a525c }));
+scene.add(floor);
+
+const plates = new PlatePool(THREE, rng(42), 8);
+const factory = new VehicleFactory(THREE, plates);
+const cam = new THREE.PerspectiveCamera(30, CELL_W / CELL_H, 0.1, 100);
+
+// vues : [nom, azimut°, hauteur, distance en longueurs de véhicule]
+const VIEWS = [
+  ['profil', 90, 0.45, 2.1],
+  ['avant34', 35, 0.55, 2.2],
+  ['arriere34', 145, 0.6, 2.2],
+];
+
+async function main() {
+  const cols = VIEWS.length;
+  const perSheet = 8;
+  for (let start = 0; start < ids.length; start += perSheet) {
+    const batch = ids.slice(start, start + perSheet);
+    const sheet = document.createElement('canvas');
+    sheet.width = CELL_W * cols;
+    sheet.height = (CELL_H + 18) * batch.length;
+    const ctx = sheet.getContext('2d');
+    ctx.fillStyle = '#181c22';
+    ctx.fillRect(0, 0, sheet.width, sheet.height);
+    for (let r = 0; r < batch.length; r++) {
+      const id = batch[r];
+      const bundle = factory.build(id, { forPlayer: false });
+      scene.add(bundle.group);
+      const L = bundle.ud.L;
+      for (let c = 0; c < cols; c++) {
+        const [, az, hF, dF] = VIEWS[c];
+        const a = (az * Math.PI) / 180;
+        const d = Math.max(L * dF, 4.6);
+        cam.position.set(Math.sin(a) * d, d * hF, Math.cos(a) * d);
+        cam.lookAt(0, bundle.ud.H * 0.45, 0);
+        renderer.render(scene, cam);
+        ctx.drawImage(renderer.domElement, c * CELL_W, r * (CELL_H + 18));
+      }
+      ctx.fillStyle = '#ffd12b';
+      ctx.font = 'bold 13px Arial';
+      ctx.fillText(`${id} — ${CATALOG[id].name}`, 8, r * (CELL_H + 18) + CELL_H + 13);
+      scene.remove(bundle.group);
+    }
+    await fetch(`/__snap__?name=${sheetName}_${start / perSheet}`, {
+      method: 'POST', body: sheet.toDataURL('image/jpeg', 0.72),
+    });
+  }
+  document.title = 'DONE';
+  document.body.dataset.done = '1';
+}
+main();
+</script>
+</body>
+</html>

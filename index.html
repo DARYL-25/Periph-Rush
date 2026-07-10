@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Périph' Rush</title>
+  <meta name="description" content="Endless runner au volant sur le boulevard périphérique parisien.">
+  <meta name="theme-color" content="#0c1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Périph' Rush">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-180.png">
+  <link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="vignette"></div>
+  <div id="crack" class="hidden"></div>
+  <div id="flash" class="hidden"></div>
+
+  <!-- ===================== HUD en jeu ===================== -->
+  <div id="hud" class="hidden">
+    <div id="hud-top">
+      <div class="chip" id="hud-lap">TOUR 1</div>
+      <div class="chip big" id="hud-score">0</div>
+      <div class="chip" id="hud-coins">🪙 0</div>
+    </div>
+    <div id="hud-porte"></div>
+    <div id="hud-warning" class="hidden"></div>
+    <div id="hud-popups"></div>
+    <div id="hud-speedo">
+      <div id="speed-val">50</div>
+      <div class="unit">km/h</div>
+      <div id="hud-mult">×1,0</div>
+    </div>
+    <div id="hud-limit"><span>50</span></div>
+    <button id="btn-pause" aria-label="Pause">II</button>
+    <div id="controls">
+      <div id="steer">
+        <button id="btn-left" aria-label="Gauche">◀</button>
+        <button id="btn-right" aria-label="Droite">▶</button>
+      </div>
+      <div id="pedals">
+        <button id="btn-brake" aria-label="Frein">FREIN</button>
+        <button id="btn-gas" aria-label="Accélérer">GAZ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Menu principal ===================== -->
+  <div id="menu" class="overlay">
+    <div class="menu-inner">
+      <div id="logo">
+        <div id="logo-cartouche">BD PÉRIPHÉRIQUE</div>
+        <h1>PÉRIPH’<span>RUSH</span></h1>
+        <div id="logo-sub">Porte Maillot → l’infini</div>
+      </div>
+      <div class="menu-buttons">
+        <button class="btn primary" id="m-play">JOUER</button>
+        <button class="btn" id="m-garage">GARAGE</button>
+        <button class="btn" id="m-defis">DÉFIS</button>
+        <button class="btn" id="m-reglages">RÉGLAGES</button>
+      </div>
+      <div id="menu-records"></div>
+      <div id="menu-hint">Ajoute ce jeu à ton écran d’accueil pour jouer plein écran 📲</div>
+    </div>
+  </div>
+
+  <!-- ===================== Garage ===================== -->
+  <div id="garage" class="overlay hidden">
+    <div class="topbar">
+      <button class="btn small" id="g-back">← RETOUR</button>
+      <div class="chip" id="g-coins">🪙 0</div>
+    </div>
+    <button class="garage-arrow left" id="g-prev">◀</button>
+    <button class="garage-arrow right" id="g-next">▶</button>
+    <div id="garage-panel">
+      <div id="g-name">Clio 3</div>
+      <div id="g-status"></div>
+      <div id="g-colors"></div>
+      <div id="g-stats">
+        <div class="stat"><label>Vitesse</label><div class="bar"><div id="st-vmax"></div></div></div>
+        <div class="stat"><label>Accélération</label><div class="bar"><div id="st-acc"></div></div></div>
+        <div class="stat"><label>Maniabilité</label><div class="bar"><div id="st-man"></div></div></div>
+        <div class="stat"><label>Freinage</label><div class="bar"><div id="st-frein"></div></div></div>
+      </div>
+      <button class="btn primary" id="g-action">CHOISIR</button>
+    </div>
+  </div>
+
+  <!-- ===================== Défis ===================== -->
+  <div id="defis" class="overlay hidden">
+    <div class="topbar">
+      <button class="btn small" id="d-back">← RETOUR</button>
+      <div class="chip">DÉFIS DU JOUR</div>
+    </div>
+    <div class="panel" id="defis-list"></div>
+    <div class="panel" id="stats-globales"></div>
+  </div>
+
+  <!-- ===================== Réglages ===================== -->
+  <div id="reglages" class="overlay hidden">
+    <div class="topbar">
+      <button class="btn small" id="r-back">← RETOUR</button>
+      <div class="chip">RÉGLAGES</div>
+    </div>
+    <div class="panel settings">
+      <label class="row"><span>Sons</span><input type="checkbox" id="set-audio"></label>
+      <label class="row"><span>Vibrations</span><input type="checkbox" id="set-haptics"></label>
+      <label class="row"><span>Accélération automatique</span><input type="checkbox" id="set-auto"></label>
+      <label class="row"><span>Sensibilité direction</span>
+        <input type="range" id="set-sens" min="0.6" max="1.5" step="0.05"></label>
+      <label class="row"><span>Qualité graphique</span>
+        <select id="set-quality">
+          <option value="auto">Auto</option>
+          <option value="high">Haute</option>
+          <option value="med">Moyenne</option>
+          <option value="low">Basse</option>
+        </select></label>
+    </div>
+  </div>
+
+  <!-- ===================== Pause ===================== -->
+  <div id="pause" class="overlay hidden">
+    <div class="menu-inner">
+      <h2>PAUSE</h2>
+      <div class="menu-buttons">
+        <button class="btn primary" id="p-resume">REPRENDRE</button>
+        <button class="btn" id="p-restart">RECOMMENCER</button>
+        <button class="btn" id="p-menu">MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Fin de partie ===================== -->
+  <div id="gameover" class="overlay hidden">
+    <div class="menu-inner wide">
+      <h2 id="go-title">ACCIDENT</h2>
+      <div id="go-damage"></div>
+      <div id="go-grid">
+        <div class="go-cell"><label>Score</label><div id="go-score"></div></div>
+        <div class="go-cell"><label>Distance</label><div id="go-dist"></div></div>
+        <div class="go-cell"><label>Tours</label><div id="go-laps"></div></div>
+        <div class="go-cell"><label>Frôlements</label><div id="go-near"></div></div>
+        <div class="go-cell"><label>Meilleur combo</label><div id="go-combo"></div></div>
+        <div class="go-cell"><label>Pièces gagnées</label><div id="go-coins"></div></div>
+      </div>
+      <div id="go-extra"></div>
+      <div class="menu-buttons row2">
+        <button class="btn primary" id="go-retry">REJOUER</button>
+        <button class="btn" id="go-garage">GARAGE</button>
+        <button class="btn" id="go-menu">MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Chargement ===================== -->
+  <div id="loading">
+    <div id="loading-logo">PÉRIPH’ RUSH</div>
+    <div id="loading-bar"><div id="loading-fill"></div></div>
+    <div id="loading-txt">Construction du périphérique…</div>
+  </div>
+
+  <script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
