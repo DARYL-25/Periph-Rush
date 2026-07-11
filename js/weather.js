@@ -11,37 +11,37 @@ const PRESETS = {
     skyTop: 0x4e93d6, skyHor: 0xd8e6f2, fog: 0xc9d8e6, fogFar: 1050,
     hemiSky: 0xcaddee, hemiGrd: 0x8a8f84, hemiInt: 1.2,
     sunCol: 0xfff3d8, sunInt: 1.9, sunY: 0.8, sunX: 0.45,
-    lamps: 0, windows: 0, wet: 0, rain: 0, head: 0, expo: 1.12,
+    lamps: 0, windows: 0, wet: 0, rain: 0, head: 0, expo: 1.12, clouds: 0.8,
   },
   coucher: {
     skyTop: 0x4b5d8c, skyHor: 0xf2a35c, fog: 0xdba97e, fogFar: 900,
     hemiSky: 0xd8a880, hemiGrd: 0x584a42, hemiInt: 0.7,
     sunCol: 0xffa860, sunInt: 1.1, sunY: 0.16, sunX: -0.7,
-    lamps: 0.75, windows: 0.45, wet: 0, rain: 0, head: 1, expo: 1.05,
+    lamps: 0.75, windows: 0.45, wet: 0, rain: 0, head: 1, expo: 1.05, clouds: 0.55,
   },
   nuit: {
     skyTop: 0x0a1422, skyHor: 0x27354d, fog: 0x141d2c, fogFar: 780,
     hemiSky: 0x2a3a54, hemiGrd: 0x0d1014, hemiInt: 0.55,
     sunCol: 0x9fb6d8, sunInt: 0.28, sunY: 0.6, sunX: -0.3,
-    lamps: 1, windows: 1, wet: 0, rain: 0, head: 1, expo: 1.15,
+    lamps: 1, windows: 1, wet: 0, rain: 0, head: 1, expo: 1.15, clouds: 0.12,
   },
   nuitPluie: {
     skyTop: 0x0a1018, skyHor: 0x1e2836, fog: 0x10171f, fogFar: 560,
     hemiSky: 0x27364a, hemiGrd: 0x0d1014, hemiInt: 0.5,
     sunCol: 0x8ea6c8, sunInt: 0.22, sunY: 0.6, sunX: -0.3,
-    lamps: 1, windows: 0.9, wet: 1, rain: 1, head: 1, expo: 1.15,
+    lamps: 1, windows: 0.9, wet: 1, rain: 1, head: 1, expo: 1.15, clouds: 0.5,
   },
   brouillard: {
     skyTop: 0xb7c2cb, skyHor: 0xc9d2d8, fog: 0xc3ccd3, fogFar: 300,
     hemiSky: 0xc3ccd3, hemiGrd: 0x84888a, hemiInt: 0.8,
     sunCol: 0xe8e0d0, sunInt: 0.45, sunY: 0.5, sunX: 0.2,
-    lamps: 0.8, windows: 0.3, wet: 0.4, rain: 0, head: 1, expo: 1.0,
+    lamps: 0.8, windows: 0.3, wet: 0.4, rain: 0, head: 1, expo: 1.0, clouds: 0,
   },
   pluie: {
     skyTop: 0x6f7d8a, skyHor: 0xa8b2ba, fog: 0x9aa5ae, fogFar: 640,
     hemiSky: 0xa8b2ba, hemiGrd: 0x5e625e, hemiInt: 0.8,
     sunCol: 0xdde4ea, sunInt: 0.55, sunY: 0.7, sunX: 0.3,
-    lamps: 0.35, windows: 0.25, wet: 1, rain: 1, head: 1, expo: 1.0,
+    lamps: 0.35, windows: 0.25, wet: 1, rain: 1, head: 1, expo: 1.0, clouds: 1.0,
   },
 };
 // séquence au fil des tours (l'heure avance à chaque tour)
@@ -62,17 +62,78 @@ export class Ambience {
     scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xfff3d8, 1.5);
     this.sun.position.set(300, 500, 150);
+    // ombres portées : caméra orthographique serrée qui suit le joueur
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    const sc = this.sun.shadow.camera;
+    sc.left = -55; sc.right = 55; sc.top = 55; sc.bottom = -55;
+    sc.near = 60; sc.far = 1100;
+    this.sun.shadow.bias = -0.0004;
+    this.sun.shadow.normalBias = 0.7;
+    this.sunTarget = new THREE.Object3D();
+    scene.add(this.sunTarget);
+    this.sun.target = this.sunTarget;
     scene.add(this.sun);
     scene.fog = new THREE.Fog(0xc4d4e2, 60, 1050);
 
-    // dôme de ciel en dégradé (shader minimal, insensible au fog)
-    const skyGeo = new THREE.SphereGeometry(3800, 20, 12);
+    // dôme de ciel : dégradé + nuages procéduraux + disque solaire
+    const cloudCv = document.createElement('canvas');
+    cloudCv.width = 512; cloudCv.height = 256;
+    {
+      const cc = cloudCv.getContext('2d');
+      cc.fillStyle = '#000';
+      cc.fillRect(0, 0, 512, 256);
+      // amas floconneux superposés (octaves grossières)
+      for (let o = 0; o < 3; o++) {
+        const nb = [26, 60, 140][o], r0 = [34, 16, 7][o], a = [0.16, 0.12, 0.09][o];
+        for (let i = 0; i < nb; i++) {
+          const x = Math.random() * 512, y = 40 + Math.random() * 130, r = r0 * (0.5 + Math.random());
+          const g2 = cc.createRadialGradient(x, y, 0, x, y, r);
+          g2.addColorStop(0, `rgba(255,255,255,${a})`);
+          g2.addColorStop(1, 'rgba(255,255,255,0)');
+          cc.fillStyle = g2;
+          cc.fillRect(x - r, y - r, r * 2, r * 2);
+        }
+      }
+    }
+    const cloudTex = new THREE.CanvasTexture(cloudCv);
+    cloudTex.wrapS = THREE.RepeatWrapping;
+    const skyGeo = new THREE.SphereGeometry(3800, 24, 14);
     this.skyMat = new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: new THREE.Color(0x5f9bd8) }, hor: { value: new THREE.Color(0xcfe0ee) } },
+      uniforms: {
+        top: { value: new THREE.Color(0x5f9bd8) },
+        hor: { value: new THREE.Color(0xcfe0ee) },
+        clouds: { value: 0.8 },
+        cloudTint: { value: new THREE.Color(0xffffff) },
+        sunDir: { value: new THREE.Vector3(0.4, 0.6, 0.2) },
+        sunCol: { value: new THREE.Color(0xfff3d8) },
+        sunAmt: { value: 1.0 },
+        drift: { value: 0 },
+        cloudMap: { value: cloudTex },
+      },
       vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-      fragmentShader: `varying vec3 vP; uniform vec3 top; uniform vec3 hor;
-        void main(){ float h = clamp(normalize(vP).y*1.6, 0.0, 1.0); gl_FragColor = vec4(mix(hor, top, pow(h,0.75)), 1.0); }`,
+      fragmentShader: `
+        varying vec3 vP;
+        uniform vec3 top; uniform vec3 hor; uniform vec3 cloudTint; uniform vec3 sunCol;
+        uniform vec3 sunDir; uniform float clouds; uniform float sunAmt; uniform float drift;
+        uniform sampler2D cloudMap;
+        void main(){
+          vec3 d = normalize(vP);
+          float h = clamp(d.y * 1.6, 0.0, 1.0);
+          vec3 col = mix(hor, top, pow(h, 0.75));
+          // nuages projetés sur le dôme (drift lent)
+          if (d.y > 0.02) {
+            vec2 uv = vec2(atan(d.z, d.x) / 6.2831 + drift, clamp(d.y * 1.35, 0.0, 1.0));
+            float c = texture2D(cloudMap, uv).r * clouds;
+            c *= smoothstep(0.02, 0.18, d.y);
+            col = mix(col, cloudTint, clamp(c, 0.0, 0.85));
+          }
+          // soleil : disque net + halo large
+          float sd = max(dot(d, normalize(sunDir)), 0.0);
+          col += sunCol * sunAmt * (pow(sd, 900.0) * 1.6 + pow(sd, 24.0) * 0.18);
+          gl_FragColor = vec4(col, 1.0);
+        }`,
     });
     this.sky = new THREE.Mesh(skyGeo, this.skyMat);
     this.sky.frustumCulled = false;
@@ -123,6 +184,12 @@ export class Ambience {
     const sky = mix('skyTop'), hor = mix('skyHor'), fogC = mix('fog');
     this.skyMat.uniforms.top.value.copy(sky);
     this.skyMat.uniforms.hor.value.copy(hor);
+    this.skyMat.uniforms.clouds.value = c.clouds ?? 0.7;
+    this.skyMat.uniforms.cloudTint.value.copy(mix('sunCol')).lerp(new T.Color(0xffffff), 0.5);
+    this.skyMat.uniforms.sunAmt.value = clamp(c.sunInt, 0, 1.4);
+    this.skyMat.uniforms.drift.value += dt * 0.0012;
+    this.skyMat.uniforms.sunDir.value.set(c.sunX * 600, 200 + c.sunY * 500, 200).normalize();
+    this.skyMat.uniforms.sunCol.value.copy(mix('sunCol'));
     const fog = this.scene.fog;
     fog.color.copy(fogC).lerp(this._tunnelFog || (this._tunnelFog = new T.Color(0x191410)), tb);
     fog.far = lerp(c.fogFar, 300, tb);
@@ -132,7 +199,12 @@ export class Ambience {
     this.hemi.intensity = c.hemiInt * (1 - tb * 0.25);
     this.sun.color.copy(mix('sunCol'));
     this.sun.intensity = c.sunInt * (1 - tb * 0.75);
-    this.sun.position.set(c.sunX * 600, 200 + c.sunY * 500, 200);
+    // le soleil (et sa caméra d'ombre) suivent le joueur
+    const px2 = playerPos ? playerPos.x : 0, pz2 = playerPos ? playerPos.z : 0;
+    const sl = Math.hypot(c.sunX * 600, 200 + c.sunY * 500, 200) || 1;
+    const sd = 520 / sl;
+    this.sun.position.set(px2 + c.sunX * 600 * sd, (200 + c.sunY * 500) * sd, pz2 + 200 * sd);
+    this.sunTarget.position.set(px2, 0, pz2);
 
     // matériaux du monde
     const H = this.hooks;
@@ -141,7 +213,8 @@ export class Ambience {
       H.lampMat.color.setHex(0x40454c).lerp(new T.Color(0xffc46a), c.lamps);
       H.lampMat.color.multiplyScalar(1 + c.lamps * 1.2);
     }
-    if (H.buildingMat) H.buildingMat.emissiveIntensity = c.windows;
+    if (H.buildingMats) for (const bm of H.buildingMats) bm.emissiveIntensity = c.windows;
+    if (H.lampGlowMat) H.lampGlowMat.opacity = c.lamps * 0.85;
     if (H.roadMat) {
       H.roadMat.shininess = 6 + c.wet * 80;
       H.roadMat.specular.setScalar(0.06 + c.wet * 0.45);

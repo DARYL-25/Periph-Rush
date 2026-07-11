@@ -15,40 +15,64 @@ const GROUND_Y = 0;              // niveau « ville » ; la route plonge en tran
 
 // ---------- textures canvas partagées --------------------------------
 function roadTexture(THREE) {
+  const Wt = 2048, Ht = 512;
   const cv = document.createElement('canvas');
-  cv.width = 1024; cv.height = 256;
+  cv.width = Wt; cv.height = Ht;
   const c = cv.getContext('2d');
-  const px = (x) => ((x + ROAD_HALF) / (ROAD_HALF * 2)) * 1024;
-  // asphalte + grain
-  c.fillStyle = '#4b4f57';
-  c.fillRect(0, 0, 1024, 256);
-  for (let i = 0; i < 2600; i++) {
-    c.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.07)';
-    c.fillRect(Math.random() * 1024, Math.random() * 256, 2, 2);
+  const px = (x) => ((x + ROAD_HALF) / (ROAD_HALF * 2)) * Wt;
+  // asphalte multi-grain
+  c.fillStyle = '#43464d';
+  c.fillRect(0, 0, Wt, Ht);
+  for (let i = 0; i < 14000; i++) {
+    const a = Math.random();
+    c.fillStyle = a < 0.45 ? 'rgba(255,255,255,0.045)' : a < 0.85 ? 'rgba(0,0,0,0.06)' : 'rgba(150,160,175,0.05)';
+    const s = 1 + Math.random() * 2.2;
+    c.fillRect(Math.random() * Wt, Math.random() * Ht, s, s);
+  }
+  // rustines d'enrobé plus sombres
+  for (let i = 0; i < 7; i++) {
+    c.fillStyle = `rgba(20,22,26,${0.10 + Math.random() * 0.1})`;
+    const w = 60 + Math.random() * 240, h = 40 + Math.random() * 140;
+    c.fillRect(Math.random() * Wt, Math.random() * Ht, w, h);
+  }
+  // joints de bitume sinueux
+  c.strokeStyle = 'rgba(12,13,16,0.5)';
+  for (let i = 0; i < 5; i++) {
+    c.lineWidth = 2 + Math.random() * 2;
+    c.beginPath();
+    let x = Math.random() * Wt;
+    c.moveTo(x, 0);
+    for (let y = 0; y < Ht; y += 24) { x += (Math.random() - 0.5) * 26; c.lineTo(x, y); }
+    c.stroke();
   }
   // traces de roulement plus sombres au centre des voies
   for (const side of [-1, 1]) {
     for (let l = 0; l < CFG.LANES; l++) {
       const cx = side * (CFG.INNER_EDGE + CFG.LANE_WIDTH * (l + 0.5));
       for (const o of [-0.8, 0.8]) {
-        const g = c.createLinearGradient(px(cx + o) - 14, 0, px(cx + o) + 14, 0);
-        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(10,10,14,0.18)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        const g = c.createLinearGradient(px(cx + o) - 26, 0, px(cx + o) + 26, 0);
+        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(8,9,12,0.22)'); g.addColorStop(1, 'rgba(0,0,0,0)');
         c.fillStyle = g;
-        c.fillRect(px(cx + o) - 14, 0, 28, 256);
+        c.fillRect(px(cx + o) - 26, 0, 52, Ht);
       }
     }
   }
   // zone du séparateur central
-  c.fillStyle = '#53565c';
-  c.fillRect(px(-CFG.INNER_EDGE), 0, px(CFG.INNER_EDGE) - px(-CFG.INNER_EDGE), 256);
-  // marquages : rive continue + pointillés (3 m plein / 7 m vide sur 10 m = 256 px)
-  const line = (x, w) => { c.fillRect(px(x) - w / 2, 0, w, 256); };
-  const dashes = (x, w) => { c.fillRect(px(x) - w / 2, 0, w, Math.round(256 * 0.3)); };
-  c.fillStyle = '#e2e6ea';
+  c.fillStyle = '#515459';
+  c.fillRect(px(-CFG.INNER_EDGE), 0, px(CFG.INNER_EDGE) - px(-CFG.INNER_EDGE), Ht);
+  // marquages usés : rive continue + pointillés (3 m plein / 7 m vide sur 10 m)
+  const paint = (x, w, y0, y1) => {
+    c.fillStyle = '#dfe3e8';
+    c.fillRect(px(x) - w / 2, y0, w, y1 - y0);
+    for (let i = 0; i < (y1 - y0) / 3; i++) { // usure
+      c.fillStyle = 'rgba(67,70,77,0.5)';
+      c.fillRect(px(x) - w / 2 + Math.random() * w, y0 + Math.random() * (y1 - y0), 2, 3);
+    }
+  };
   for (const side of [-1, 1]) {
-    line(side * CFG.INNER_EDGE, 4);
-    line(side * (CFG.INNER_EDGE + CFG.LANE_WIDTH * CFG.LANES), 4);
-    for (let l = 1; l < CFG.LANES; l++) dashes(side * (CFG.INNER_EDGE + CFG.LANE_WIDTH * l), 4);
+    paint(side * CFG.INNER_EDGE, 7, 0, Ht);
+    paint(side * (CFG.INNER_EDGE + CFG.LANE_WIDTH * CFG.LANES), 7, 0, Ht);
+    for (let l = 1; l < CFG.LANES; l++) paint(side * (CFG.INNER_EDGE + CFG.LANE_WIDTH * l), 7, 0, Ht * 0.3);
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -57,39 +81,97 @@ function roadTexture(THREE) {
   return tex;
 }
 
-function facadeTextures(THREE) {
-  const day = document.createElement('canvas');
-  day.width = day.height = 256;
-  const d = day.getContext('2d');
-  const glow = document.createElement('canvas');
-  glow.width = glow.height = 256;
-  const g = glow.getContext('2d');
-  d.fillStyle = '#ffffff'; d.fillRect(0, 0, 256, 256);          // base blanche (teintée par vertex color)
-  g.fillStyle = '#000000'; g.fillRect(0, 0, 256, 256);
-  const rand = rng(1234);
-  for (let i = 0; i < 6; i++) {
-    for (let j = 0; j < 6; j++) {
-      const x = 12 + i * 40, y = 12 + j * 40;
-      d.fillStyle = 'rgba(52,64,84,0.72)';
-      d.fillRect(x, y, 24, 30);
-      d.fillStyle = 'rgba(255,255,255,0.25)';
-      d.fillRect(x, y, 24, 4);
-      if (rand() < 0.34) {
-        g.fillStyle = ['#ffd28a', '#ffe9bd', '#cfe0ff'][(rand() * 3) | 0];
-        g.fillRect(x + 2, y + 2, 20, 26);
-      }
-    }
+// relief de l'asphalte (bump map indépendante, neutre en teinte)
+function roadBumpTexture(THREE) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 512;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#808080';
+  c.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 22000; i++) {
+    const v = 96 + (Math.random() * 64) | 0;
+    c.fillStyle = `rgb(${v},${v},${v})`;
+    c.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
   }
-  // coin réservé (toits) : uni sombre
-  d.fillStyle = '#3a3d41'; d.fillRect(248, 248, 8, 8);
-  g.fillStyle = '#000'; g.fillRect(248, 248, 8, 8);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// 3 variantes de façades (jour + fenêtres allumées) : haussmannien,
+// bureaux vitrés, barre d'habitation. Base claire teintée par vertex color.
+function facadeTextures(THREE) {
   const mk = (cv) => {
     const t = new THREE.CanvasTexture(cv);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   };
-  return { day: mk(day), glow: mk(glow) };
+  const variants = [];
+  const rand = rng(1234);
+  for (let v = 0; v < 3; v++) {
+    const day = document.createElement('canvas');
+    day.width = day.height = 256;
+    const d = day.getContext('2d');
+    const glow = document.createElement('canvas');
+    glow.width = glow.height = 256;
+    const g = glow.getContext('2d');
+    d.fillStyle = '#ffffff'; d.fillRect(0, 0, 256, 256);
+    g.fillStyle = '#000000'; g.fillRect(0, 0, 256, 256);
+    if (v === 0) {
+      // haussmannien : hautes fenêtres à meneaux, balcons filants, corniche
+      for (let j = 0; j < 6; j++) {
+        const y = 8 + j * 41;
+        if (j === 1 || j === 4) { d.fillStyle = 'rgba(30,32,36,0.85)'; d.fillRect(0, y + 32, 256, 3); } // balcon
+        for (let i = 0; i < 6; i++) {
+          const x = 10 + i * 41;
+          d.fillStyle = 'rgba(58,66,80,0.8)';
+          d.fillRect(x, y, 20, 34);
+          d.fillStyle = 'rgba(255,255,255,0.35)';
+          d.fillRect(x + 9, y, 2, 34);
+          d.fillRect(x, y + 16, 20, 2);
+          d.fillStyle = 'rgba(20,22,26,0.5)';
+          d.fillRect(x - 2, y + 30, 24, 3); // garde-corps
+          if (rand() < 0.3) { g.fillStyle = '#ffd28a'; g.fillRect(x + 1, y + 1, 18, 32); }
+        }
+      }
+    } else if (v === 1) {
+      // bureaux : rideau de verre en bandes horizontales
+      for (let j = 0; j < 8; j++) {
+        const y = 4 + j * 31;
+        d.fillStyle = 'rgba(70,90,110,0.85)';
+        d.fillRect(0, y, 256, 22);
+        d.fillStyle = 'rgba(255,255,255,0.28)';
+        d.fillRect(0, y + 2, 256, 3);
+        d.fillStyle = 'rgba(24,28,34,0.9)';
+        d.fillRect(0, y + 22, 256, 9);
+        for (let i = 0; i < 10; i++) {
+          d.fillStyle = 'rgba(24,28,34,0.5)';
+          d.fillRect(6 + i * 25, y, 2, 22);
+          if (rand() < 0.4) { g.fillStyle = ['#cfe0ff', '#ffeccc'][(rand() * 2) | 0]; g.fillRect(8 + i * 25, y + 2, 21, 18); }
+        }
+      }
+    } else {
+      // barre 60-70s : petites fenêtres serrées + loggias
+      for (let j = 0; j < 8; j++) {
+        for (let i = 0; i < 8; i++) {
+          const x = 6 + i * 31, y = 6 + j * 31;
+          const loggia = (i % 4) === 2;
+          d.fillStyle = loggia ? 'rgba(20,22,28,0.75)' : 'rgba(52,60,74,0.78)';
+          d.fillRect(x, y, loggia ? 26 : 20, 24);
+          d.fillStyle = 'rgba(255,255,255,0.22)';
+          d.fillRect(x, y, loggia ? 26 : 20, 3);
+          if (rand() < 0.3) { g.fillStyle = ['#ffd28a', '#ffe9bd'][(rand() * 2) | 0]; g.fillRect(x + 1, y + 4, 18, 19); }
+        }
+      }
+    }
+    // coin réservé (toits) : zinc parisien
+    d.fillStyle = v === 0 ? '#5d6670' : '#3a3d41';
+    d.fillRect(244, 244, 12, 12);
+    g.fillStyle = '#000'; g.fillRect(244, 244, 12, 12);
+    variants.push({ day: mk(day), glow: mk(glow) });
+  }
+  return variants;
 }
 
 // panneau : plane + texture (cache par texture)
@@ -123,15 +205,33 @@ export class World {
 
   makeMaterials() {
     const T = this.T;
-    const facade = facadeTextures(T);
+    const facades = facadeTextures(T);
+    // halo lumineux (sprites additifs des lampadaires la nuit)
+    const glowCv = document.createElement('canvas');
+    glowCv.width = glowCv.height = 64;
+    const gc = glowCv.getContext('2d');
+    const gg = gc.createRadialGradient(32, 32, 2, 32, 32, 31);
+    gg.addColorStop(0, 'rgba(255,196,110,0.9)');
+    gg.addColorStop(0.35, 'rgba(255,170,80,0.32)');
+    gg.addColorStop(1, 'rgba(255,160,60,0)');
+    gc.fillStyle = gg;
+    gc.fillRect(0, 0, 64, 64);
+    const glowTex = new T.CanvasTexture(glowCv);
     return {
-      road: new T.MeshPhongMaterial({ map: roadTexture(T), shininess: 6, specular: 0x111111 }),
+      road: new T.MeshPhongMaterial({
+        map: roadTexture(T), shininess: 6, specular: 0x111111,
+        bumpMap: roadBumpTexture(T), bumpScale: 0.012,
+      }),
       // DoubleSide : les profils extrudés (GBA, murs, tunnels) sont vus des deux côtés
       concrete: new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide }),
       lamp: new T.MeshBasicMaterial({ color: 0x3a3f45 }),
-      building: new T.MeshLambertMaterial({
-        vertexColors: true, map: facade.day, emissiveMap: facade.glow,
+      buildings: facades.map((f) => new T.MeshLambertMaterial({
+        vertexColors: true, map: f.day, emissiveMap: f.glow,
         emissive: 0xffffff, emissiveIntensity: 0,
+      })),
+      lampGlow: new T.PointsMaterial({
+        map: glowTex, size: 4.2, transparent: true, opacity: 0,
+        blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
       }),
       trunk: new T.MeshLambertMaterial({ color: 0x5a4632 }),
       canopy: new T.MeshLambertMaterial({ color: 0x4e7a3a }),
@@ -144,7 +244,11 @@ export class World {
 
   // matériaux à exposer à l'ambiance
   ambienceHooks() {
-    return { roadMat: this.mats.road, buildingMat: this.mats.building, lampMat: this.mats.lamp, tunnelLightMat: this.mats.tunnelLight };
+    return {
+      roadMat: this.mats.road, buildingMats: this.mats.buildings,
+      lampMat: this.mats.lamp, tunnelLightMat: this.mats.tunnelLight,
+      lampGlowMat: this.mats.lampGlow,
+    };
   }
 
   // ---------- monuments parisiens (silhouettes stylisées) ------------
@@ -275,6 +379,7 @@ export class World {
       geo.setIndex(idb);
       geo.computeVertexNormals();
       const mesh = new T.Mesh(geo, this.mats.road);
+      mesh.receiveShadow = true;
       group.add(mesh);
       geoms.push(geo);
     }
@@ -337,6 +442,7 @@ export class World {
 
     // lampadaires doubles sur le séparateur (tous les 25 m) — pas en tunnel
     const lampHeads = [];
+    const glowPos = [];
     if (!tunnel) {
       for (let d = 12; d < len; d += 25) {
         const s = s0 + d;
@@ -348,8 +454,17 @@ export class World {
           statics.push(colorize(T, arm, 0x51565c));
           const head = xform(new T.BoxGeometry(0.5, 0.12, 0.22), { x: p.x + p.rx * side * 2.6, y: p.y + 9.2, z: p.z + p.rz * side * 2.6, ry: Math.atan2(p.tx, p.tz) });
           lampHeads.push(head);
+          glowPos.push(p.x + p.rx * side * 2.6, p.y + 9.1, p.z + p.rz * side * 2.6);
         }
       }
+    }
+    if (glowPos.length) {
+      const gg = new T.BufferGeometry();
+      gg.setAttribute('position', new T.Float32BufferAttribute(glowPos, 3));
+      const pts = new T.Points(gg, this.mats.lampGlow);
+      pts.frustumCulled = false;
+      group.add(pts);
+      geoms.push(gg);
     }
 
     // — sorties / échangeurs aux portes —
@@ -405,6 +520,8 @@ export class World {
     if (statics.length) {
       const merged = mergeGeoms(T, statics);
       const mesh = new T.Mesh(merged, this.mats.concrete);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       group.add(mesh);
       geoms.push(merged);
       for (const s of statics) s.dispose();
@@ -603,14 +720,16 @@ export class World {
     geo.setAttribute('color', new T.Float32BufferAttribute(col, 3));
     geo.setIndex(idxA);
     geo.computeVertexNormals();
-    group.add(new T.Mesh(geo, this.mats.ground));
+    const mesh = new T.Mesh(geo, this.mats.ground);
+    mesh.receiveShadow = true;
+    group.add(mesh);
     geoms.push(geo);
   }
 
   buildBuildings(s0, len, rand, group, geoms, roadDepth) {
     const T = this.T, track = this.track;
     const p = {};
-    const g = [];
+    const byVariant = [[], [], []];
     const parisTints = [0xefe6d4, 0xf4ecdd, 0xe4dbc9, 0xdcd2bf];
     const outTints = [0xc3c9d0, 0xb4bbc3, 0xd0cabf, 0xa8afb7, 0xd8d4cc];
     const n = 2 + (rand() * 4 | 0);
@@ -620,27 +739,35 @@ export class World {
       const side = rand() < 0.45 ? 1 : -1; // 1 = côté Paris (droite)
       const dist = 30 + rand() * 45;
       const w = 14 + rand() * 22, d = 12 + rand() * 16;
-      const h = side === 1 ? 15 + rand() * 12 : 10 + rand() * (rand() < 0.25 ? 38 : 18);
+      const tall = side === -1 && rand() < 0.28;
+      const h = side === 1 ? 15 + rand() * 12 : tall ? 30 + rand() * 26 : 10 + rand() * 16;
+      // variante : Paris = haussmannien ; banlieue = bureaux (tours) ou barres
+      const variant = side === 1 ? (rand() < 0.8 ? 0 : 2) : tall ? 1 : (rand() < 0.4 ? 1 : 2);
       const tint = side === 1 ? pick(rand, parisTints) : pick(rand, outTints);
       const bx = p.x + p.rx * side * dist, bz = p.z + p.rz * side * dist;
       const geo = new T.BoxGeometry(w, h, d);
-      // UV façades à l'échelle (fenêtres ~3,3 m) ; toits sur le texel sombre
+      // UV façades à l'échelle (étages ~3,1 m) ; toits sur le texel zinc
       const uvA = geo.getAttribute('uv');
       for (let v = 0; v < uvA.count; v++) {
         const face = Math.floor(v / 4);
         if (face === 2 || face === 3) { uvA.setXY(v, 0.984, 0.984); continue; }
-        const du = (face < 2 ? d : w) / 3.3, dv = h / 3.3;
+        const du = (face < 2 ? d : w) / 3.1, dv = h / 3.1;
         uvA.setXY(v, uvA.getX(v) * du, uvA.getY(v) * dv);
       }
       xform(geo, { x: bx, y: GROUND_Y + h / 2, z: bz, ry: rand() * Math.PI });
       colorize(T, geo, tint);
-      g.push(geo);
+      byVariant[variant].push(geo);
     }
-    if (!g.length) return;
-    const merged = mergeGeoms(T, g);
-    group.add(new T.Mesh(merged, this.mats.building));
-    geoms.push(merged);
-    for (const gg of g) gg.dispose();
+    byVariant.forEach((list, vi) => {
+      if (!list.length) return;
+      const merged = mergeGeoms(T, list);
+      const mesh = new T.Mesh(merged, this.mats.buildings[vi]);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+      geoms.push(merged);
+      for (const gg of list) gg.dispose();
+    });
   }
 
   buildTrees(s0, len, rand, group, geoms, count, roadDepth) {

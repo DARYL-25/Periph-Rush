@@ -122,8 +122,8 @@ export class Player {
       this.latVel = Math.max(this.latVel, 0) * 0.3;
     }
 
-    // — attitude visuelle —
-    this.yaw = damp(this.yaw, Math.atan2(this.latVel, Math.max(this.v, 4)) * 1.15, 10, dt);
+    // — attitude visuelle — (lat croît vers la droite = -X local → lacet négatif)
+    this.yaw = damp(this.yaw, -Math.atan2(this.latVel, Math.max(this.v, 4)) * 1.15, 10, dt);
     this.roll = damp(this.roll, -this.latVel * 0.028, 8, dt);
     this.pitch = damp(this.pitch, clamp(-a * 0.011, -0.05, 0.075), 6, dt);
     this.wheelSpin += (this.v / (this.spec.wr || 0.3)) * dt;
@@ -143,8 +143,13 @@ export class Player {
     if (this.bundle.wheels) {
       for (let i = 0; i < this.bundle.wheels.length; i++) {
         const w = this.bundle.wheels[i];
+        // braquage des roues AVANT (ordre YXZ : pivot vertical avant la rotation
+        // de roulement), signe négatif car la droite du véhicule = -X local
+        if (i < 2 || this.bundle.wheels.length <= 2) {
+          w.rotation.order = 'YXZ';
+          w.rotation.y = -this.steerCmd * 0.42;
+        }
         w.rotation.x = this.wheelSpin;
-        if (i < 2 || this.bundle.wheels.length <= 2) w.rotation.y = this.steerCmd * 0.28;
       }
     }
     // phares

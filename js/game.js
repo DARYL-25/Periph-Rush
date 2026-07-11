@@ -112,6 +112,7 @@ export class Game {
   applyNight() {
     const night = this.ambience.headlightsOn;
     this.player.setHeadlights(night);
+    this.player.factory.setNight(night); // lentilles émissives de tout le parc
     this.traffic.setNightGlows(night);
   }
 

@@ -33,31 +33,41 @@ async function boot() {
 
   await step(5, 'Allumage des moteurs…');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setSize(innerWidth, innerHeight);
+  // dimensions de secours si la fenêtre démarre repliée/cachée
+  const W0 = innerWidth || 390, H0 = innerHeight || 844;
+  renderer.setSize(W0, H0);
   renderer.setPixelRatio(Math.min(devicePixelRatio, CFG.PIXEL_RATIO_MAX));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(CFG.FOV_BASE, innerWidth / innerHeight, 0.3, 4200);
+  const camera = new THREE.PerspectiveCamera(CFG.FOV_BASE, W0 / H0, 0.3, 4200);
 
   // environnement de réflexion (studio simple) pour les carrosseries
   await step(12, 'Polissage des carrosseries…');
   {
+    // studio d'environnement : ciel dégradé + longues bandes lumineuses
+    // (donne aux carrosseries les reflets étirés d'un HDRI automobile)
     const pmrem = new THREE.PMREMGenerator(renderer);
     const env = new THREE.Scene();
-    env.background = new THREE.Color(0x445566);
-    const top = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ color: 0xdfe8f2 }));
-    top.position.y = 12; top.rotation.x = Math.PI / 2;
-    env.add(top);
-    const side = new THREE.Mesh(new THREE.PlaneGeometry(30, 8), new THREE.MeshBasicMaterial({ color: 0x8fa4bd }));
-    side.position.set(0, 4, -14);
-    env.add(side);
-    const warm = new THREE.Mesh(new THREE.PlaneGeometry(16, 5), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
-    warm.position.set(-12, 5, 6); warm.rotation.y = Math.PI / 2.4;
-    env.add(warm);
-    scene.environment = pmrem.fromScene(env, 0.04).texture;
+    env.background = new THREE.Color(0x2e3944);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(40, 16, 10),
+      new THREE.MeshBasicMaterial({ color: 0x9fb6cc, side: THREE.BackSide }));
+    env.add(dome);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x22282e }));
+    ground.position.y = -1;
+    env.add(ground);
+    for (const [y, z, c2, w] of [[10, -16, 0xffffff, 34], [7, 16, 0xdfe8f2, 30], [13, 0, 0xfff1d8, 20]]) {
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, 2.2), new THREE.MeshBasicMaterial({ color: c2 }));
+      strip.position.set(0, y, z);
+      strip.lookAt(0, 0, 0);
+      env.add(strip);
+    }
+    scene.environment = pmrem.fromScene(env, 0.05).texture;
     pmrem.dispose();
   }
 
@@ -119,7 +129,7 @@ async function boot() {
     ring.position.y = 0.01;
     garageScene.add(ring);
   }
-  const garageCam = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.2, 100);
+  const garageCam = new THREE.PerspectiveCamera(38, W0 / H0, 0.2, 100);
   let garageBundle = null;
   let garageEnv = null;
   function showGarageCar(id, colorIdx) {
@@ -215,8 +225,10 @@ async function boot() {
 
   // ---------- redimensionnement ----------
   function resize() {
-    renderer.setSize(innerWidth, innerHeight);
-    camera.aspect = innerWidth / innerHeight;
+    const w = innerWidth, h = innerHeight;
+    if (!w || !h) return; // fenêtre repliée/cachée : on garde la taille courante
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
     garageCam.aspect = camera.aspect;
     garageCam.updateProjectionMatrix();
@@ -265,6 +277,11 @@ async function boot() {
     fps: () => fpsEMA, state: () => state, tier: () => qualityTier,
     // mini-capture : rend une frame et renvoie un JPEG data-URL (test hors écran)
     snap: (w = 420, q = 0.6) => {
+      if (!renderer.domElement.width) renderer.setSize(390, 844);
+      if (!Number.isFinite(camera.aspect)) {
+        camera.aspect = 390 / 844;
+        camera.updateProjectionMatrix();
+      }
       if (state === 'garage') renderer.render(garageScene, garageCam);
       else renderer.render(scene, camera);
       const src = renderer.domElement;

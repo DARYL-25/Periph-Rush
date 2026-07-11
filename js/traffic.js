@@ -263,8 +263,8 @@ export class Traffic {
         if (this.rand() < dt * 0.06) n.gap = n.gap === 0 ? 1 : 0;
       }
 
-      // lacet visuel
-      const targetYaw = n.laneT < 1 ? (laneCenter(n.laneTo) - laneCenter(n.laneFrom)) * 0.035 * Math.sin(n.laneT * Math.PI) : 0;
+      // lacet visuel (déport à droite = -X local → signe négatif)
+      const targetYaw = n.laneT < 1 ? -(laneCenter(n.laneTo) - laneCenter(n.laneFrom)) * 0.035 * Math.sin(n.laneT * Math.PI) : 0;
       n.yaw = lerp(n.yaw, targetYaw + (n.interfile ? Math.sin(this.time * 2.2 + n.s) * 0.02 : 0), Math.min(1, dt * 6));
     }
 
