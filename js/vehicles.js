@@ -37,7 +37,8 @@ export const CATALOG = {
     perf: { vmax: 150, acc: 0.38, man: 0.62, frein: 0.5 }, unlock: { km: 15 } },
   clio3:  { name: 'Clio 3', kind: 'hatch', dims: [3.99, 1.72, 1.49], wb: 2.58, wr: 0.30,
     prof: { nose: 0.33, hood: 0.47, hoodX: 0.27, roofX: 0.45, roofH: 0.98, roofEndX: 0.76, tailH: 0.64 },
-    glass: { belt: 0.55, endX: 0.94 }, lights: 'oval', cols: [...commonCols, P.rougeVif, P.grisBleu], w: 8,
+    glass: { belt: 0.55, endX: 0.94 }, lights: 'teardrop', cols: [P.argent, ...commonCols, P.rougeVif, P.grisBleu], w: 8,
+    strip: true, antennaFront: true, spokes: 12, plateHigh: true,
     perf: { vmax: 160, acc: 0.45, man: 0.66, frein: 0.55 }, unlock: { start: true } },
   clio4:  { name: 'Clio 4', kind: 'hatch', dims: [4.06, 1.73, 1.45], wb: 2.59, wr: 0.30,
     prof: { nose: 0.36, hood: 0.46, hoodX: 0.26, roofX: 0.44, roofH: 0.97, roofEndX: 0.74, tailH: 0.66 },
@@ -284,22 +285,22 @@ function quad4(T, a, b, c, d) {
 }
 
 // jante à bâtons + disque de frein (géométrie partagée, matériau « bright »)
+// spokes élevé (ex. 12 pour la Clio 3) → branches plus fines
 function rimGeometry(T, wr, spokes = 6) {
   const parts = [];
   const rr = wr * 0.62;
   parts.push(xform(new T.CylinderGeometry(rr, rr, 0.06, 18).rotateZ(Math.PI / 2), { x: 0 })); // voile
   parts.push(xform(new T.CylinderGeometry(rr * 0.22, rr * 0.22, 0.1, 10).rotateZ(Math.PI / 2), {})); // moyeu
+  const th = 0.055 * Math.sqrt(6 / spokes);
   for (let i = 0; i < spokes; i++) {
     const a = (i / spokes) * Math.PI * 2;
-    const sp = new T.BoxGeometry(0.055, rr * 0.95, 0.055 + rr * 0.16);
+    const sp = new T.BoxGeometry(th, rr * 0.95, th + rr * 0.14);
     sp.translate(0, rr * 0.48, 0);
     sp.rotateX(a);
     parts.push(sp);
   }
   const g = mergeGeoms(T, parts);
   for (const p2 of parts) p2.dispose();
-  // axe le long de X (transversal véhicule)
-  g.rotateY(0);
   return g;
 }
 function tireGeometry(T, wr, tw = 0.245) {
@@ -350,9 +351,10 @@ export class VehicleFactory {
     return m;
   }
 
-  rim(wr, sport) {
-    const key = `${wr}:${sport ? 1 : 0}`;
-    if (!this.rimCache.has(key)) this.rimCache.set(key, rimGeometry(this.T, wr, sport ? 10 : 6));
+  rim(wr, sport, spokes) {
+    const n = spokes ?? (sport ? 10 : 6);
+    const key = `${wr}:${n}`;
+    if (!this.rimCache.has(key)) this.rimCache.set(key, rimGeometry(this.T, wr, n));
     return this.rimCache.get(key);
   }
 
@@ -517,7 +519,7 @@ export class VehicleFactory {
     }
 
     // — roues fusionnées (PNJ) : pneu (mat) + jante à bâtons (chrome/anthracite) —
-    const rimG = this.rim(wr, sport);
+    const rimG = this.rim(wr, sport, m.spokes);
     for (const ax of [fx, rx]) {
       for (const side of [-1, 1]) {
         const tire = tireGeometry(T, wr * 1.04);
@@ -534,25 +536,58 @@ export class VehicleFactory {
 
     // — face avant : calandre, optiques (habillage chrome + lentille émissive) —
     const noseY = Y(p.nose);
-    box(det, 0.08, noseY * 0.42, W * 0.52, { x: L / 2 - 0.02, y: noseY * 0.66 }, 0x101316);
+    const ls = m.lights || 'oval';
+    if (ls === 'teardrop') {
+      // Clio 3 : fente de calandre étroite sous le capot + grande entrée basse + antibrouillards
+      box(det, 0.08, 0.07, W * 0.36, { x: L / 2 - 0.015, y: noseY + 0.13 }, 0x101316);
+      box(det, 0.09, 0.17, W * 0.46, { x: L / 2 - 0.02, y: gc + 0.16 }, 0x101316);
+      for (const side of [-1, 1]) {
+        bright.push(xform(new T.CylinderGeometry(0.05, 0.05, 0.05, 10).rotateZ(Math.PI / 2),
+          { x: L / 2 - 0.01, y: gc + 0.17, z: side * W * 0.3 }));
+      }
+    } else {
+      box(det, 0.08, noseY * 0.42, W * 0.52, { x: L / 2 - 0.02, y: noseY * 0.66 }, 0x101316);
+    }
     box(det, 0.1, 0.12, W * 0.9, { x: L / 2 - 0.03, y: gc + 0.1 }, 0x1c1f23);         // lame av
     box(det, 0.1, 0.12, W * 0.9, { x: -L / 2 + 0.03, y: gc + 0.1 }, 0x1c1f23);        // lame ar
-    const ls = m.lights || 'oval';
-    const lw = { round: [0.3, 0.17], oval: [0.35, 0.13], feline: [0.46, 0.115], slim: [0.42, 0.085], blade: [0.44, 0.07], split: [0.36, 0.06] }[ls];
+    const lw = { round: [0.3, 0.17], oval: [0.35, 0.13], feline: [0.46, 0.115], slim: [0.42, 0.085], blade: [0.44, 0.07], split: [0.36, 0.06], teardrop: [0.4, 0.15] }[ls];
     const hlY = noseY + 0.09;
     for (const side of [-1, 1]) {
       const zz = side * (secW(L / 2 - 0.03, 0.86) - lw[0] / 2);
-      const ry = ls === 'feline' ? -side * 0.4 : -side * 0.12;
-      bright.push(xform(new T.BoxGeometry(0.05, lw[1] + 0.03, lw[0] + 0.03), { x: L / 2 - 0.035, y: hlY, z: zz, ry }));
-      lensF.push(xform(new T.BoxGeometry(0.05, lw[1], lw[0]), { x: L / 2 - 0.012, y: hlY, z: zz, ry }));
-      if (ls === 'split' || ls === 'blade') {
-        lensF.push(xform(new T.BoxGeometry(0.04, 0.035, lw[0] * 0.7), { x: L / 2 - 0.01, y: hlY + lw[1] / 2 + 0.05, z: zz, ry }));
+      if (ls === 'teardrop') {
+        // optique en goutte d'eau : lentille au coin, pointe couchée SUR l'aile
+        // (ancrée à la surface réelle du capot via deckY)
+        const xMain = L / 2 - 0.14;
+        const zc = side * (secW(xMain, 0.94) - 0.17);
+        const yMain = Math.min(hlY + 0.03, deckY(xMain) - 0.07);
+        bright.push(xform(new T.BoxGeometry(0.22, 0.18, 0.26), { x: xMain - 0.02, y: yMain, z: zc, ry: -side * 0.22 }));
+        lensF.push(xform(new T.BoxGeometry(0.22, 0.15, 0.24), { x: xMain, y: yMain + 0.01, z: zc, ry: -side * 0.22 }));
+        // pointe effilée à demi noyée dans le capot, remontant vers l'aile
+        const xTail = L / 2 - 0.36;
+        const zTail = side * (secW(xTail, 1) - 0.15);
+        lensF.push(xform(new T.BoxGeometry(0.3, 0.07, 0.13), {
+          x: xTail, y: deckY(xTail) - 0.015, z: zTail, ry: -side * 0.42, rz: -0.1,
+        }));
+      } else {
+        const ry = ls === 'feline' ? -side * 0.4 : -side * 0.12;
+        bright.push(xform(new T.BoxGeometry(0.05, lw[1] + 0.03, lw[0] + 0.03), { x: L / 2 - 0.035, y: hlY, z: zz, ry }));
+        lensF.push(xform(new T.BoxGeometry(0.05, lw[1], lw[0]), { x: L / 2 - 0.012, y: hlY, z: zz, ry }));
+        if (ls === 'split' || ls === 'blade') {
+          lensF.push(xform(new T.BoxGeometry(0.04, 0.035, lw[0] * 0.7), { x: L / 2 - 0.01, y: hlY + lw[1] / 2 + 0.05, z: zz, ry }));
+        }
       }
       // feux arrière (bien à plat sur la face arrière, à l'intérieur du pincement)
       const tall = isHatch && m.kind !== 'wagon';
       const wRear = secW(-L / 2 + 0.02, 0.84);
-      lensR.push(xform(new T.BoxGeometry(0.06, tall ? 0.26 : 0.11, tall ? 0.13 : 0.3),
-        { x: -L / 2 + 0.015, y: Y(p.tailH) - 0.13, z: side * (wRear - (tall ? 0.26 : 0.34)) }));
+      if (ls === 'teardrop') {
+        // Clio 3 : blocs verticaux en goutte qui enveloppent l'angle, insert blanc central
+        const zr = side * (wRear - 0.17);
+        lensR.push(xform(new T.BoxGeometry(0.1, 0.32, 0.15), { x: -L / 2 + 0.03, y: Y(p.tailH) - 0.19, z: zr, ry: side * 0.3 }));
+        bright.push(xform(new T.BoxGeometry(0.05, 0.11, 0.07), { x: -L / 2 + 0.005, y: Y(p.tailH) - 0.2, z: zr - side * 0.02, ry: side * 0.3 }));
+      } else {
+        lensR.push(xform(new T.BoxGeometry(0.06, tall ? 0.26 : 0.11, tall ? 0.13 : 0.3),
+          { x: -L / 2 + 0.015, y: Y(p.tailH) - 0.13, z: side * (wRear - (tall ? 0.26 : 0.34)) }));
+      }
     }
     // rétroviseurs peints + poignées chromées
     for (const side of [-1, 1]) {
@@ -573,7 +608,21 @@ export class VehicleFactory {
       box(det, 0.32, 0.13, 0.2, { x: X(p.roofX + 0.06), y: Y(p.roofH) + 0.08 }, 0xf2f2ea);
       box(det, 0.05, 0.05, 0.05, { x: X(p.roofX + 0.06) + 0.17, y: Y(p.roofH) + 0.08 }, 0x2fbf4f);
     }
-    box(det, 0.16, 0.05, 0.03, { x: X(p.roofEndX + 0.02), y: roofY(X(p.roofEndX + 0.02)) + 0.03 }, 0x17191c); // antenne aileron
+    // baguettes de protection latérales (Clio 3 et modèles des années 2000)
+    if (m.strip) {
+      const sLen = (fx - rx) - archR * 2 - 0.15;
+      for (const side of [-1, 1]) {
+        box(det, sLen, 0.045, 0.02, { x: (fx + rx) / 2, y: Y(m.glass.belt) * 0.62, z: side * (W / 2 + 0.008) }, 0x1c1f22);
+      }
+    }
+    if (m.antennaFront) {
+      // antenne tige inclinée à l'avant du pavillon
+      const ax2 = X(p.roofX + 0.03);
+      det.push(colorize(T, xform(new T.CylinderGeometry(0.012, 0.016, 0.3, 6),
+        { x: ax2 - 0.06, y: roofY(ax2) + 0.13, rz: 0.55 }), 0x17191c));
+    } else {
+      box(det, 0.16, 0.05, 0.03, { x: X(p.roofEndX + 0.02), y: roofY(X(p.roofEndX + 0.02)) + 0.03 }, 0x17191c); // antenne aileron
+    }
 
     const geom = this.assemble({ paint, glass, det, bright, lensF, lensR });
     geom.userData = { fx, rx, wr, W, L, H, yBot: gc };
@@ -796,7 +845,8 @@ export class VehicleFactory {
     // plaques
     const plate = this.plates.get();
     const rearPlate = new T.Mesh(this.plateGeom, plate.mat);
-    rearPlate.position.set(0, ud.yBot + 0.26, -ud.L / 2 - 0.02);
+    // plaque arrière sur le hayon (Clio 3…) ou sur le bouclier selon le modèle
+    rearPlate.position.set(0, m.plateHigh ? ud.H * 0.37 : ud.yBot + 0.26, -ud.L / 2 - 0.02);
     rearPlate.rotation.y = Math.PI;
     if (ud.moto) { rearPlate.scale.setScalar(0.6); rearPlate.position.y = ud.wr + 0.35; }
     group.add(rearPlate);
@@ -833,7 +883,7 @@ export class VehicleFactory {
     if (forPlayer && !ud.moto) {
       wheels = [];
       const tireG = tireGeometry(T, ud.wr);
-      const rimG = this.rim(ud.wr, !!m.sport);
+      const rimG = this.rim(ud.wr, !!m.sport, m.spokes);
       const tireM = new T.MeshStandardMaterial({ color: 0x141619, roughness: 0.92 });
       const rimM = m.sport
         ? new T.MeshStandardMaterial({ color: 0x2b2e33, roughness: 0.4, metalness: 0.7 })
