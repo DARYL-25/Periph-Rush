@@ -153,6 +153,28 @@ L'utilisateur (Daryl) a explicitement autorisé un usage illimité de tokens/tem
 11. **PWA complète** : `manifest.webmanifest`, `sw.js` (service worker à cache versionné, actuellement `periph-v2`), icônes PNG générées sans dépendance (`tools/make-icons.js`), plein écran portrait, fonctionne hors-ligne après premier chargement.
 12. **Déploiement** : poussé sur GitHub, **GitHub Pages activé et fonctionnel** via un appel API direct (`POST /repos/DARYL-25/Periph-Rush/pages` avec token récupéré via `git credential fill`, car `gh` CLI n'est pas installé sur cette machine). Vérifié en production : boot OK, service worker enregistré, module JS chargés sans erreur 404.
 
+### Mise à jour post-rédaction (même session, v3 déployée)
+
+L'utilisateur a fourni des **photos de référence** (plaque SIV annotée, grille des identifiants
+territoriaux par département, Clio 3 avant + arrière) et demandé une fidélisation exacte :
+- **Plaques refaites** (`plates.js`, canvas 384×80) : layout SIV conforme — couronne de
+  12 étoiles + F à gauche, caractères bâtons noirs, fond blanc réfléchissant avec reflet
+  diagonal, et à droite **logo de région stylisé AU-DESSUS du numéro de département**
+  (fonction `drawRegionLogo` avec ~10 motifs régionaux mappés par département). Vérifié
+  visuellement conforme à la référence.
+- **Clio 3 fidélisée** (`vehicles.js`) via de nouveaux flags par modèle dans le CATALOG,
+  réutilisables pour fidéliser d'autres modèles : `lights: 'teardrop'` (optiques en goutte
+  d'eau ancrées à la surface du capot via `deckY(x)` — NE PAS positionner les optiques en
+  dur, toujours échantillonner la surface), `strip` (baguettes latérales), `antennaFront`
+  (antenne tige avant du pavillon au lieu de l'aileron), `spokes: 12` (jantes multibranches
+  fines via `rim(wr, sport, spokes)`), `plateHigh` (plaque arrière sur le hayon à 0.37·H).
+  Face avant spécifique teardrop : fente de calandre + grande entrée basse + antibrouillards
+  chromés. Feux arrière : blocs verticaux enveloppant l'angle (ry latéral) + insert blanc,
+  affleurant l'épaulement du hayon (y = Y(tailH)−0.19).
+- Déployé en **periph-v3**. Méthode de travail validée avec l'utilisateur : il fournit des
+  photos de référence d'un modèle → on fidélise ce modèle avec ces flags + ajustements du
+  prof. Prochains modèles à traiter au fil de ses retours.
+
 ### Ce qui vient d'être livré mais n'a PAS encore été validé par l'utilisateur sur son iPhone réel
 
 - La correction de direction (roues avant / lacet inversé) — **priorité n°1 à confirmer** avec l'utilisateur : "est-ce que ça tourne enfin dans le bon sens ?"
