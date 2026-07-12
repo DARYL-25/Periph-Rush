@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <title>Périph' Rush — visionneuse de véhicules</title>
   <style>body { background: #202830; margin: 0; } canvas { display: block; }</style>
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three.module.min.js" } }
+  </script>
 </head>
 <body>
 <script type="module">
@@ -48,6 +51,10 @@ scene.add(floor);
 
 const plates = new PlatePool(THREE, rng(42), 8);
 const factory = new VehicleFactory(THREE, plates);
+try {
+  const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
+  await factory.loadGLB('clio3', '../assets/clio3.glb', GLTFLoader);
+} catch (e) { console.warn('GLB indisponible', e); }
 const cam = new THREE.PerspectiveCamera(30, CELL_W / CELL_H, 0.1, 100);
 
 // vues : [nom, azimut°, hauteur, distance en longueurs de véhicule]

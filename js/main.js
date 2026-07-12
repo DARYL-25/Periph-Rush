@@ -78,6 +78,14 @@ async function boot() {
   const plates = new PlatePool(THREE, rng(777), 48);
   const factory = new VehicleFactory(THREE, plates);
 
+  await step(36, 'Chargement de la Clio 3 (modèle Blender)…');
+  try {
+    const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
+    await factory.loadGLB('clio3', 'assets/clio3.glb', GLTFLoader);
+  } catch (e) {
+    console.warn('GLB clio3 indisponible — repli sur le modèle procédural', e);
+  }
+
   await step(40, 'Assemblage des véhicules…');
   // pré-chauffe des géométries des modèles courants (évite les à-coups en jeu)
   const warm = Object.keys(CATALOG);

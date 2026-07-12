@@ -4,7 +4,7 @@
 // Les requêtes matchent en ignoreSearch (les ?v=N de index.html).
 // ============================================================
 
-const CACHE = 'periph-v3';
+const CACHE = 'periph-v4';
 const ASSETS = [
   '.',
   'index.html',
@@ -16,6 +16,7 @@ const ASSETS = [
   'js/events.js', 'js/player.js', 'js/score.js', 'js/progression.js',
   'js/audio.js', 'js/hud.js', 'js/game.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
+  'vendor/GLTFLoader.js', 'vendor/BufferGeometryUtils.js', 'assets/clio3.glb',
 ];
 
 self.addEventListener('install', (e) => {

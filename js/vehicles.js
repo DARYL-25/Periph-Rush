@@ -362,12 +362,112 @@ export class VehicleFactory {
     if (this.geomCache.has(id)) return this.geomCache.get(id);
     const m = CATALOG[id];
     let g;
-    if (m.kind === 'moto') g = this.motoGeometry(m);
+    if (this.glb?.has(id)) g = this.glbGeometry(id);
+    else if (m.kind === 'moto') g = this.motoGeometry(m);
     else if (m.kind === 'box' || m.kind === 'tow') g = this.boxTruckGeometry(m);
     else if (m.kind === 'bus') g = this.busGeometry(m);
     else g = this.carGeometry(m);
     this.geomCache.set(id, g);
     return g;
+  }
+
+  // ---------- modèles Blender (GLB, matériaux nommés) --------------------
+  // Charge un asset haute-fidélité : les matériaux du GLB sont remplacés
+  // par ceux du jeu d'après leur NOM (paint/glass/det/bright/lensF/lensR/
+  // tire/rim) ; les objets Wheel** deviennent les roues du joueur.
+  async loadGLB(id, url, GLTFLoaderClass) {
+    const T = this.T;
+    const gltf = await new GLTFLoaderClass().loadAsync(url);
+    gltf.scene.updateMatrixWorld(true);
+    const tpl = { parts: { paint: [], glass: [], det: [], bright: [], lensF: [], lensR: [] }, wheels: [] };
+    const wheelMap = new Map(); // nom → {center, geoms}
+    gltf.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      let wheelName = null;
+      for (let a = o; a; a = a.parent) if (/^Wheel/.test(a.name)) { wheelName = a.name; break; }
+      const g = o.geometry.clone();
+      g.applyMatrix4(o.matrixWorld);
+      for (const drop of ['color', 'tangent']) if (g.getAttribute(drop)) g.deleteAttribute(drop);
+      const matName = o.material?.name || 'paint';
+      if (wheelName) {
+        if (!wheelMap.has(wheelName)) wheelMap.set(wheelName, { geoms: [] });
+        wheelMap.get(wheelName).geoms.push({ g, matName });
+      } else {
+        const bucket = tpl.parts[matName] ? matName : matName === 'tire' || matName === 'rim' ? 'det' : 'paint';
+        tpl.parts[bucket].push(g);
+      }
+    });
+    // roues : géométrie recentrée sur le moyeu + centre mémorisé
+    const box3 = new T.Box3();
+    for (const [name, w] of wheelMap) {
+      box3.makeEmpty();
+      for (const { g } of w.geoms) { g.computeBoundingBox(); box3.union(g.boundingBox); }
+      const c = box3.getCenter(new T.Vector3());
+      const tireGs = [], rimGs = [];
+      for (const { g, matName } of w.geoms) {
+        g.translate(-c.x, -c.y, -c.z);
+        (matName === 'rim' ? rimGs : tireGs).push(g);
+      }
+      const merged = [];
+      const groups = [];
+      let off = 0;
+      for (const [list, mi] of [[tireGs, 0], [rimGs, 1]]) {
+        if (!list.length) continue;
+        const g = list.length > 1 ? mergeGeoms(T, list) : list[0];
+        const count = g.index ? g.index.count : g.getAttribute('position').count;
+        groups.push({ start: off, count, materialIndex: mi });
+        off += count;
+        merged.push(g);
+      }
+      const geom = mergeGeoms(T, merged);
+      geom.clearGroups();
+      for (const gr of groups) geom.addGroup(gr.start, gr.count, gr.materialIndex);
+      tpl.wheels.push({ name, center: c, geom, radius: (box3.max.y - box3.min.y) / 2 });
+    }
+    if (!this.glb) this.glb = new Map();
+    this.glb.set(id, tpl);
+    this.geomCache.delete(id); // force la reconstruction avec le GLB
+    return tpl;
+  }
+
+  glbGeometry(id) {
+    const T = this.T;
+    const tpl = this.glb.get(id);
+    const m = CATALOG[id];
+    // PNJ : tout fusionné (roues comprises, statiques) dans les 6 groupes
+    const parts = {};
+    for (const k of Object.keys(tpl.parts)) parts[k] = tpl.parts[k].map((g) => g.clone());
+    for (const w of tpl.wheels) {
+      const g = w.geom.clone();
+      g.translate(w.center.x, w.center.y, w.center.z);
+      // groupes locaux 0=tire 1=rim → seaux det/bright
+      const pos = g.getAttribute('position');
+      for (const gr of g.groups) {
+        const sub = new T.BufferGeometry();
+        sub.setAttribute('position', pos);
+        if (g.getAttribute('normal')) sub.setAttribute('normal', g.getAttribute('normal'));
+        if (g.getAttribute('uv')) sub.setAttribute('uv', g.getAttribute('uv'));
+        const idxArr = [];
+        for (let i = gr.start; i < gr.start + gr.count; i++) idxArr.push(g.index.getX(i));
+        sub.setIndex(idxArr);
+        parts[gr.materialIndex === 1 ? 'bright' : 'det'].push(sub);
+      }
+    }
+    const geom = this.assemble(parts);
+    // dimensions réelles du modèle
+    geom.computeBoundingBox();
+    const bb = geom.boundingBox;
+    const xs = tpl.wheels.map((w) => w.center.x);
+    geom.userData = {
+      fx: Math.max(...xs), rx: Math.min(...xs),
+      wr: tpl.wheels[0]?.radius || m.wr,
+      // gabarit de collision borné à la caisse (rétros/antenne exclus)
+      W: Math.min(bb.max.z - bb.min.z, m.dims[1] + 0.05),
+      L: Math.min(bb.max.x - bb.min.x, m.dims[0] + 0.05),
+      H: Math.min(bb.max.y, m.dims[2] + 0.03),
+      yBot: Math.max(bb.min.y, 0.05) + 0.15, glb: true,
+    };
+    return geom;
   }
 
   // ---------- carrosserie par loft de sections -------------------------
@@ -880,7 +980,23 @@ export class VehicleFactory {
 
     // roues séparées (joueur : braquage + rotation visibles)
     let wheels = null;
-    if (forPlayer && !ud.moto) {
+    const glbTpl = this.glb?.get(id);
+    if (forPlayer && glbTpl?.wheels?.length === 4) {
+      // roues du modèle Blender : wrapper (braquage/rotation) + mesh orienté
+      wheels = [];
+      const tireM = new T.MeshStandardMaterial({ color: 0x141619, roughness: 0.92 });
+      const sorted = [...glbTpl.wheels].sort((a, b) => b.center.x - a.center.x);
+      for (const w of sorted) {
+        const wrap = new T.Group();
+        const wm = new T.Mesh(w.geom, [tireM, this.brightMat]);
+        wm.rotation.y = -Math.PI / 2; // axe de roue (z) → X du groupe
+        wm.castShadow = true;
+        wrap.add(wm);
+        wrap.position.set(-w.center.z, w.center.y, w.center.x);
+        wheels.push(wrap);
+        group.add(wrap);
+      }
+    } else if (forPlayer && !ud.moto) {
       wheels = [];
       const tireG = tireGeometry(T, ud.wr);
       const rimG = this.rim(ud.wr, !!m.sport, m.spokes);
