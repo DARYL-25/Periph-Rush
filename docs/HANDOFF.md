@@ -175,6 +175,35 @@ territoriaux par département, Clio 3 avant + arrière) et demandé une fidélis
   photos de référence d'un modèle → on fidélise ce modèle avec ces flags + ajustements du
   prof. Prochains modèles à traiter au fil de ses retours.
 
+### Mise à jour v4 : pipeline Blender → GLB (le plus important pour la suite)
+
+L'utilisateur a jugé la Clio 3 procédurale « très mauvaise » et fourni un **blueprint coté**
+(4027×1720×1493, empattement 2575, porte-à-faux AV 770 / AR 682). Réponse : un pipeline
+de modélisation **Blender headless** :
+
+- **Blender 4.2.22 LTS portable** installé dans `C:\Users\daryl\tools\blender-4.2.22-windows-x64`.
+- `tools/blender/clio3_build.py` : modélisation 100 % paramétrique de la Clio 3 (polylignes
+  TOPLINE/BELT/PLAN interpolées Catmull-Rom, loft 45 sections × 13 points, boucliers bombés
+  par convergence progressive, arches ouvertes PAR LE LOFT — pas de boolean —, vitrage et
+  montants A/B/C par classification de faces, blisters d'optiques, jantes 12 branches).
+  Lancement : `blender.exe --background --factory-startup --python tools/blender/clio3_build.py`
+  → rend 5 vues de contrôle dans `tools/snaps/bl_*.png` ET exporte `assets/clio3.glb`.
+- **Matériaux nommés** dans le GLB : paint/glass/det/bright/lensF/lensR/tire/rim ; roues =
+  objets séparés `WheelFL/FR/RL/RR`. Côté jeu, `VehicleFactory.loadGLB()` remplace les
+  matériaux par ceux du jeu d'après ces noms (la peinture est recolorée par instance, les
+  lentilles s'allument la nuit), fusionne tout en 6 groupes pour les PNJ, et crée des roues
+  braquables pour le joueur depuis les objets Wheel*. Repli procédural si le GLB échoue.
+- `vendor/GLTFLoader.js` + `vendor/BufferGeometryUtils.js` vendorisés (le loader importe
+  `../utils/BufferGeometryUtils.js` → patché en `./BufferGeometryUtils.js`) ; **import map**
+  `{"three": …}` requis dans `index.html` ET `tools/carviewer.html` (par document !).
+- Pièges bpy documentés dans le script et la mémoire : recalculer les normales du loft
+  (sinon les booleans fusionnent au lieu de couper), `rotation_euler=` écrase (appliquer
+  les transforms d'abord), Workbench rend `material.diffuse_color` pas les nodes.
+- **Méthode de travail établie avec l'utilisateur** : il fournit blueprint/photos d'un
+  modèle → on écrit/règle un script `tools/blender/<modele>_build.py` → itérations via les
+  rendus bl_*.png → export GLB → `loadGLB` dans main.js. La Clio 3 v1 est en ligne (v4) ;
+  d'autres itérations d'affinage sont attendues selon ses retours.
+
 ### Ce qui vient d'être livré mais n'a PAS encore été validé par l'utilisateur sur son iPhone réel
 
 - La correction de direction (roues avant / lacet inversé) — **priorité n°1 à confirmer** avec l'utilisateur : "est-ce que ça tourne enfin dans le bon sens ?"
