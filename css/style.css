@@ -326,3 +326,5 @@ html, body {
   #controls button { width: 78px; height: 82px; }
   #speed-val { font-size: 42px; }
 }
+
+#menu-credits { margin-top: 10px; font-size: 10px; opacity: 0.55; text-align: center; letter-spacing: 0.02em; }

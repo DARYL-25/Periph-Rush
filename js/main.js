@@ -11,6 +11,7 @@ import { Track } from './track.js';
 import { PlatePool } from './plates.js';
 import { VehicleFactory, CATALOG, PLAYER_IDS } from './vehicles.js';
 import { World } from './world.js';
+import { loadSignFont } from './signs.js';
 import { Ambience } from './weather.js';
 import { Traffic } from './traffic.js';
 import { Events } from './events.js';
@@ -95,6 +96,7 @@ async function boot() {
   }
 
   await step(62, 'Béton, bitume et panneaux…');
+  await loadSignFont();
   const world = new World(THREE, scene, track);
   const ambience = new Ambience(THREE, scene, camera);
   ambience.register(world.ambienceHooks());

@@ -86,7 +86,11 @@ export class Events {
     const L = this.track.length;
     const s0 = wrap(playerS + 1200 + this.rand() * 700, L);
     // pas d'événement en tunnel ni sur pont
-    if (this.track.inTunnel(s0) || this.track.onBridge(s0) || this.track.inTunnel(wrap(s0 + 250, L))) return;
+    const T0 = this.track;
+    for (const d of [0, 120, 250]) {
+      const q = wrap(s0 + d, L);
+      if (T0.coverAt(q) || T0.onBridge(q) || T0.lanesAt(q) < 4 || (T0.ramps && T0.ramps.at(q, 0).length)) return;
+    }
     const type = this.rand() < 0.62 ? 'travaux' : 'accident';
     if (type === 'travaux') this.spawnRoadworks(s0);
     else this.spawnAccident(s0);
@@ -148,7 +152,7 @@ export class Events {
     for (const dz of [150, 320]) {
       const sSign = wrap(s0 - dz, track.length);
       track.pointAt(sSign, p);
-      const lat2 = right ? ROAD_OUTER + 1.6 : -0.9;
+      const lat2 = right ? track.mainEdgeAt(sSign) + 1.6 : -0.9;
       const sign = new T.Mesh(new T.PlaneGeometry(2.2, 0.75),
         new T.MeshBasicMaterial({ map: worksPanelTexture(T, dz === 150 ? 'TRAVAUX' : `TRAVAUX ${dz} m`) }));
       sign.position.set(p.x + p.rx * lat2, p.y + 1.4, p.z + p.rz * lat2);
@@ -202,7 +206,8 @@ export class Events {
       track.pointAt(sSign, p);
       const sign = new T.Mesh(new T.PlaneGeometry(2.2, 0.75),
         new T.MeshBasicMaterial({ map: worksPanelTexture(T, 'ACCIDENT') }));
-      sign.position.set(p.x + p.rx * (ROAD_OUTER + 1.6), p.y + 1.4, p.z + p.rz * (ROAD_OUTER + 1.6));
+      const eo = track.mainEdgeAt(sSign) + 1.6;
+      sign.position.set(p.x + p.rx * eo, p.y + 1.4, p.z + p.rz * eo);
       sign.rotation.y = Math.atan2(p.tx, p.tz) + Math.PI;
       e.group.add(sign);
     }
