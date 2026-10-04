@@ -26,11 +26,27 @@ Jouable directement dans le navigateur, installable en PWA plein écran sur iPho
 
 ## 🚗 Le jeu
 
-- **Périphérique réel** : boucle de 35,04 km construite depuis les coordonnées GPS
-  des 30 portes (sens intérieur), tranchées, murs antibruit, tunnels (Lilas, Vanves,
-  Ternes), viaducs de la Seine, échangeurs, panneaux de sortie aux vraies portes,
-  PMV à messages variables, cartouches « BD PÉRIPHÉRIQUE », skyline (Tour Eiffel,
-  Sacré-Cœur, Montparnasse, La Défense, Mercuriales, Invalides).
+- **Périphérique réel (données OpenStreetMap)** : axe exact du sens intérieur
+  (34,95 km), nombre de voies réel (sections à 2, 3 et 4 voies, voies
+  d'entrecroisement), 35 couvertures et passages sous les portes, viaducs, les deux
+  franchissements de la Seine (Bercy, Garigliano), profil en long tranchée/remblai/viaduc.
+- **72 bretelles réelles** : voies de décélération/accélération, musoirs avec
+  atténuateurs de choc, zébras, rampes qui remontent vers les portes.
+- **Signalisation française** : présignalisation et portiques d'affectation
+  (fond blanc pour les portes, bleu pour les autoroutes, vert pour les itinéraires
+  principaux, cartouches A/N rouges et D jaunes) avec les textes réels des panneaux,
+  panneaux de musoir, PMV à LED ambre affichant les temps de parcours, losanges de
+  la voie réservée au covoiturage, 50 répétés, radars, bornes SOS, plaques PR,
+  signaux d'affectation verts dans les couvertures.
+- **Ouvrages** : séparateur béton (DBA) avec candélabres doubles et halos au sol la
+  nuit, murs de tranchée en béton (coulures, tags, lierre), couvertures éclairées
+  sur poteaux, parapets et piles de viaducs, talus, écrans antibruit (métal, verre,
+  bois-béton).
+- **Abords réels** : ~7 000 bâtiments OSM avec hauteurs (HBM en brique, haussmannien,
+  barres, bureaux, logements récents, entrepôts), bois de Boulogne et de Vincennes,
+  parcs, terrains de sport, voies ferrées, Seine et canaux, Tribunal de Paris,
+  tours Duo, Triangle, Mercuriales, Hyatt Porte Maillot ; ligne d'horizon (Tour Eiffel,
+  Sacré-Cœur, Montparnasse, La Défense, Invalides, Parc des Princes, Stade de France).
 - **35+ véhicules** modélisés procéduralement, sans logos : Clio 2→6, Mégane, Scénic,
   Trafic, 206→5008, C1/C3/C4, A 250, GLA, C 63 S, Série 1, M5, Yaris/Auris/Corolla,
   A1/A3/Q3, RS 6, T-Max 530/560, X-Max, GS 1250, X-ADV + génériques, taxis, bus,
@@ -68,7 +84,14 @@ python tools/devserver.py 8814     # http://localhost:8814 (Cache-Control: no-st
 1. Incrémenter `CACHE` dans `sw.js` (`periph-vN`) **et** les `?v=N` de `index.html`.
 2. `git push` (GitHub Pages sert `main` à la racine).
 
+### Régénérer les données du périphérique
+
+Les extraits OpenStreetMap sont dans `data/` ; `python3 tools/build_periph_data.py`
+régénère `js/periph-data.js`.
+
 ## 📄 Licence
 
-Jeu original créé avec Claude Code. Three.js © MIT. Aucune affiliation avec les
+Jeu original créé avec Claude. Three.js © MIT. Police des panneaux : Barlow Semi
+Condensed (SIL OFL, `fonts/`). **Tracé, voies, ouvrages, bâtiments et occupation du
+sol : © contributeurs OpenStreetMap, sous licence ODbL** (https://www.openstreetmap.org/copyright). Aucune affiliation avec les
 constructeurs automobiles : silhouettes stylisées sans logos ni badges.

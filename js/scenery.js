@@ -188,6 +188,7 @@ export class Scenery {
       const fac = this.pickFacade(type, side, h, w * d, r, rand());
       put(pr.s, { kind: 'box', cx, cz, w: Math.max(w, 3), d: Math.max(d, 3), ang, h, fac, dist: minLat, s: pr.s, seed: r });
     }
+    this.addCustomBuildings(put);
     // --- grands bâtiments polygonaux ---
     const seenBig = new Set();
     for (const [hRaw, type, flat, name] of BIG_BUILDINGS) {
@@ -210,6 +211,26 @@ export class Scenery {
       const h = hRaw > 2 ? hRaw : this.guessHeight(type, side, 3000, r);
       put(pr.s, { kind: 'poly', pts, h, fac: this.pickFacade(type, side, h, 3000, r, rand()), name, s: pr.s, dist: minLat, seed: r });
     }
+  }
+
+  // grands repères proches du périphérique, modélisés en volumes empilés (façades réelles de l'atlas)
+  addCustomBuildings(put) {
+    const t = this.track;
+    const add = (lat, lon, tiers, fac, angDeg, tint = null) => {
+      const { x, z } = geoToLocal(lat, lon);
+      const pr = this.index.project(x, z, 800);
+      if (!pr) return;
+      for (const [w, d, y0, h, dx = 0, dz = 0] of tiers) {
+        put(pr.s, { kind: 'box', cx: x + dx, cz: z + dz, w, d, ang: (angDeg * Math.PI) / 180, h: y0 + h, y0, fac, dist: Math.abs(pr.lat) - 40, s: pr.s, seed: 0.5, tint });
+      }
+    };
+    // Tribunal de Paris (R. Piano, 160 m) : socle + 3 gradins vitrés en retrait
+    add(48.8972, 2.3140, [[118, 58, 0, 38], [96, 46, 38, 52, -6, 0], [80, 40, 90, 40, -10, 0], [66, 32, 130, 30, -14, 0]], FAC.office, 18, [1.55, 1.62, 1.7]);
+    // Hôtel Hyatt Regency Paris Étoile (Porte Maillot, 137 m) + Palais des Congrès
+    add(48.8797, 2.2832, [[46, 28, 0, 137]], FAC.office, 28);
+    add(48.8784, 2.2826, [[150, 92, 0, 30]], FAC.modern, 28);
+    // Tours Mercuriales (Bagnolet, ~ 90 m)
+    add(48.8637, 2.4170, [[30, 30, 0, 92, -32, 0], [30, 30, 0, 92, 32, 0]], FAC.office, 0);
   }
 
   guessHeight(type, side, area, r) {
@@ -246,17 +267,17 @@ export class Scenery {
       if (b.dist < roadClear) continue; // ne jamais empiéter sur la chaussée
       const fac = FACADES[b.fac];
       const pal = TINTS[b.fac];
-      const tint = shade(rgb(pal[Math.floor(b.seed * 997) % pal.length]), 0.9 + b.seed * 0.14);
+      const tint = b.tint || shade(rgb(pal[Math.floor(b.seed * 997) % pal.length]), 0.9 + b.seed * 0.14);
       const pts = b.kind === 'box' ? rectPts(b) : b.pts;
-      const h = b.h, B = facB[b.fac];
+      const h = b.h, B = facB[b.fac], y0 = b.y0 || 0;
       // façades
       for (let i = 0; i < pts.length; i++) {
         const [x0, z0] = pts[i], [x1, z1] = pts[(i + 1) % pts.length];
         const L = Math.hypot(x1 - x0, z1 - z0);
         if (L < 0.3) continue;
-        const u1 = L / (fac.bay * 4), v1 = h / (fac.floor * 4);
+        const u1 = L / (fac.bay * 4), v1 = h / (fac.floor * 4), v0 = y0 / (fac.floor * 4);
         const c = shade(tint, 0.92 + ((i * 7) % 3) * 0.04);
-        const a0 = B.v(x0, 0, z0, 0, 0, c), a1 = B.v(x1, 0, z1, u1, 0, c);
+        const a0 = B.v(x0, y0, z0, 0, v0, c), a1 = B.v(x1, y0, z1, u1, v0, c);
         const a2 = B.v(x1, h, z1, u1, v1, c), a3 = B.v(x0, h, z0, 0, v1, c);
         B.quad(a0, a1, a2, a3);
       }
@@ -394,12 +415,6 @@ export function buildLandmarks(T, scene) {
     const a = at(48.8925, 2.2359);
     box(a.x, a.z - 45, 110, 10, 0, 110, 0xe4e7ea); box(a.x, a.z + 45, 110, 10, 0, 110, 0xe4e7ea); box(a.x, a.z, 110, 100, 100, 10, 0xe4e7ea);
   }
-  // Tours Mercuriales (Bagnolet)
-  { const { x, z } = at(48.8637, 2.4185); box(x - 30, z, 32, 32, 0, 95, 0x4c6a86); box(x + 30, z, 32, 32, 0, 95, 0x4c6a86); }
-  // Hôtel Hyatt Regency Porte Maillot + Palais des Congrès
-  { const { x, z } = at(48.8797, 2.2832); box(x, z, 46, 30, 0, 137, 0x8c96a0, 0.4); const pc = at(48.8784, 2.2830); box(pc.x, pc.z, 150, 90, 0, 32, 0xb9b3a8, 0.4); }
-  // Tribunal de Paris (Batignolles) — empilement de blocs
-  { const { x, z } = at(48.8972, 2.3140); box(x, z, 60, 50, 0, 38, 0xdfe4ea, 0.2); box(x, z, 52, 44, 38, 50, 0xe8edf2, 0.2); box(x, z, 46, 38, 88, 40, 0xe8edf2, 0.2); box(x, z, 40, 32, 128, 32, 0xf0f3f6, 0.2); }
   // Parc des Princes (anneau de béton nervuré) et Roland-Garros
   {
     const { x, z } = at(48.8414, 2.2530);
