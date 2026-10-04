@@ -102,7 +102,7 @@ class Ramps {
 
 // couronne d'arbre : 5 lobes déformés à normales radiales (aspect doux, 100 triangles)
 function makeTreeGeometry(T) {
-  const pos = [], nor = [], idx = [];
+  const pos = [], nor = [], idx = [], uvs = [];
   const rand = rng(99);
   const lobes = [[0, 4.7, 0, 1.9], [0.95, 4.0, 0.45, 1.45], [-0.85, 4.1, -0.55, 1.4], [0.25, 5.6, -0.3, 1.25], [-0.3, 3.7, 0.9, 1.2]];
   for (const [cx, cy, cz, r] of lobes) {
@@ -118,6 +118,7 @@ function makeTreeGeometry(T) {
         pos.push(cx + nx * k, cy + ny * k * 0.9, cz + nz * k);
         const l = Math.hypot(nx, ny + 0.35, nz);
         nor.push(nx / l, (ny + 0.35) / l, nz / l);
+        uvs.push((Math.atan2(nz, nx) / Math.PI + 1) * 1.5, (ny + 1) * 1.2 + cy * 0.3);
         map.set(key, base + map.size);
       }
       idx.push(map.get(key));
@@ -127,6 +128,7 @@ function makeTreeGeometry(T) {
   const geo = new T.BufferGeometry();
   geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
   geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+  geo.setAttribute('uv', new T.Float32BufferAttribute(uvs, 2));
   geo.setIndex(idx);
   return geo;
 }
@@ -141,7 +143,7 @@ export class World {
     this.mats = this.makeMaterials();
     this.ramps = new Ramps(track);
     track.ramps = this.ramps;
-    this.scenery = new Scenery(THREE, track, CFG.CHUNK_LEN);
+    this.scenery = new Scenery(THREE, track, CFG.CHUNK_LEN, this.ramps);
     this.features = this.planFeatures();
     this.vms = this.features.filter((f) => f.type === 'pmv').map((f) => ({ s: f.s, panel: new VMSPanel(THREE), override: 0 }));
     this.features.filter((f) => f.type === 'pmv').forEach((f, i) => { f.vms = this.vms[i]; });
@@ -183,7 +185,7 @@ export class World {
       water: new T.MeshPhongMaterial({ color: 0x35505e, shininess: 90, specular: 0x7799aa, side: DS }),
       bld: atlasify(new T.MeshLambertMaterial({ map: Bt.tex, emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, side: DS })),
       trunk: new T.MeshLambertMaterial({ color: 0x5b4a3a }),
-      canopy: new T.MeshLambertMaterial({ color: 0xffffff }),
+      canopy: new T.MeshLambertMaterial({ color: 0xffffff, map: TX.leavesTexture(T) }),
       dark: new T.MeshBasicMaterial({ color: 0x0c0e11 }),
     };
     m.tiles = S.tiles;
@@ -242,7 +244,13 @@ export class World {
     // voie réservée covoiturage : potences à losange tous les 1 600 m
     for (let s = 900; s < L; s += 1600) if (isFree(s, 10)) F.push({ type: 'hov', s });
     // radars fixes
-    for (const s of [2950, 9850, 16050, 22450, 29050]) if (isFree(s, 10)) F.push({ type: 'radar', s: s * t.kOSM });
+    // radars fixes (cabines grises et tourelles) annoncés ~250 m avant
+    [1850, 4550, 8300, 12950, 16450, 20250, 23950, 27300, 30900, 33650].forEach((s0, i) => {
+      let s = s0 * t.kOSM;
+      for (let k = 0; k < 10 && (!isFree(s, 30) || this.ramps.at(s, 0).length); k++) s += 35;
+      F.push({ type: 'radar', s, tower: i % 2 === 1 });
+      F.push({ type: 'radarSign', s: wrap(s - 240, L) });
+    });
     // bornes d'appel d'urgence tous les 500 m, plaques PR tous les 200 m
     for (let s = 250; s < L; s += 500) F.push({ type: 'sos', s });
     for (let s = 0; s < L; s += 500) F.push({ type: 'pr', s: wrap(t.prOrigin + s, L), km: (s / 1000).toFixed(1).replace('.', ',') });
@@ -281,7 +289,11 @@ export class World {
   }
 
   // halos au sol : suivent l'allumage des candélabres (piloté par l'ambiance)
-  tick() { this.mats.pool.opacity = this.mats.lampGlow.opacity * 0.85; }
+  tick() {
+    this.mats.pool.opacity = this.mats.lampGlow.opacity * 0.85;
+    // la tour Eiffel s'illumine (doré) la nuit
+    if (this.landmarks && this.landmarks.eiffelMat) this.landmarks.eiffelMat.emissiveIntensity = this.mats.lampGlow.opacity * 4.5;
+  }
 
   prebuild(playerS) {
     const n = this.chunkCount();
@@ -592,6 +604,9 @@ export class World {
     const nwH = (r) => (via(r) ? 2.6 : 3.6);
     band(B.noise, rows, (r) => (noiseOn(r) ? [L(nwX(r)), nwY0(r)] : null), (r) => (noiseOn(r) ? [L(nwX(r)), nwY0(r) + nwH(r)] : null), rgb(0xffffff), 4, 4);
 
+    // 5 bis. paroi de fond (terre) derrière les ouvrages en contrebas : aucun jour possible
+    band(B.wall, rows, (r) => (r.h < -0.8 ? [L(E(r) + 1.75), Math.min(r.h, H(r)) - 0.3] : null), (r) => (r.h < -0.8 ? [L(E(r) + 1.75), -0.04] : null), rgb(0x8a857c), 11, 7);
+
     // 6. sol de la ville : grille colorée par l'occupation du sol réelle
     const offs = [0, 3, 8, 16, 28, 45, 70, 105, 150, 210, 290];
     const lu = this.scenery.landuse;
@@ -813,7 +828,7 @@ export class World {
       m4.compose(v.set(x, y, z), q, sc.set(s, s * (0.9 + rand() * 0.3), s));
       trunks.setMatrixAt(i, m4);
       crowns.setMatrixAt(i, m4);
-      col.setHSL(0.22 + rand() * 0.1, 0.32 + rand() * 0.2, 0.22 + rand() * 0.12);
+      col.setHSL(0.2 + rand() * 0.1, 0.25 + rand() * 0.25, 0.62 + rand() * 0.25);
       crowns.setColorAt(i, col);
     });
     crowns.castShadow = true;
@@ -821,34 +836,38 @@ export class World {
   }
 
   // ---------- silhouette lointaine procédurale (au-delà des données OSM) ----------
+  // Au-delà des bâtiments OSM (> 270 m) : îlots continus façon Paris intra-muros
+  // (immeubles de 6-8 niveaux, toits en zinc) côté Paris, tissu de banlieue en face.
   buildFarSkyline(ctx) {
-    const { rows, rand } = ctx;
-    const t = this.track;
-    const facB = ctx.B.fac;
-    const n = 2 + ((rand() * 3) | 0);
-    const mid = rows[(rows.length / 2) | 0];
-    for (let i = 0; i < n; i++) {
-      const r = rows[(rand() * rows.length) | 0];
-      const side = rand() < 0.5 ? 1 : -1;
-      if (t.woodAt(r.s) && rand() < 0.85) continue;
-      const dist = 260 + rand() * 300;
-      const p = P(r, side * dist, 0);
-      const w = 18 + rand() * 30, d = 14 + rand() * 20;
-      const tall = rand() < 0.18;
-      const h = tall ? 40 + rand() * 50 : 16 + rand() * 14;
-      const fac = tall ? 2 + ((rand() * 2) | 0) : side > 0 ? (rand() < 0.6 ? 1 : 0) : (rand() < 0.5 ? 4 : 2);
-      const ang = Math.atan2(mid.tx, mid.tz) + (rand() - 0.5) * 0.3;
-      const ca = Math.cos(ang), sa = Math.sin(ang);
-      const pts = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([u, v]) => [p[0] + u * ca - v * sa, p[2] + u * sa + v * ca]);
-      const F = TX.FACADES[fac], B = facB[fac], c = shade([1, 1, 1], 0.85 + rand() * 0.15);
-      for (let k = 0; k < 4; k++) {
-        const [x0, z0] = pts[k], [x1, z1] = pts[(k + 1) % 4];
-        const Lw = Math.hypot(x1 - x0, z1 - z0);
-        B.quad(B.v(x0, 0, z0, 0, 0, c), B.v(x1, 0, z1, Lw / (F.bay * 4), 0, c), B.v(x1, h, z1, Lw / (F.bay * 4), h / (F.floor * 4), c), B.v(x0, h, z0, 0, h / (F.floor * 4), c));
+    const { s0, len, rand } = ctx;
+    const t = this.track, lu = this.scenery.landuse, p = {};
+    const blocked = new Set(['wood', 'park', 'water', 'rail', 'pitch', 'cemetery']);
+    for (const side of [1, -1]) {
+      for (const d0 of [275, 335, 405, 490]) {
+        let s = s0 + rand() * 6;
+        while (s < s0 + len) {
+          const w = 11 + rand() * 15;
+          if (rand() < 0.12) { s += 14 + rand() * 6; continue; } // rue transversale
+          const sm = s + w / 2;
+          t.pointAt(sm, p);
+          const dist = d0 + (rand() - 0.5) * 10, depth = 12 + rand() * 6;
+          const cx = p.x + p.rx * side * (dist + depth / 2), cz = p.z + p.rz * side * (dist + depth / 2);
+          s += w + (rand() < 0.15 ? 4 : 0.2);
+          if (t.woodAt(sm)) continue;
+          const k = lu.at(cx, cz);
+          if (k && blocked.has(k)) continue;
+          const r = rand();
+          let fac, h;
+          if (side > 0) {
+            fac = r < 0.6 ? 1 : r < 0.8 ? 0 : r < 0.92 ? 4 : 2;
+            h = fac === 2 ? 28 + rand() * 25 : 17 + rand() * 7;
+          } else {
+            fac = r < 0.3 ? 1 : r < 0.6 ? 4 : r < 0.82 ? 2 : 3;
+            h = fac === 2 ? 22 + rand() * 30 : fac === 3 ? 25 + rand() * 40 : 12 + rand() * 12;
+          }
+          this.scenery.drawBuilding({ kind: 'box', cx, cz, w, d: depth, ang: Math.atan2(p.tz, p.tx), h, fac, seed: rand() }, ctx.B.fac, ctx.B.roof);
+        }
       }
-      const R = ctx.B.roof;
-      const top = pts.map(([x, z]) => R.v(x, h, z, x / 6, z / 6, shade(c, 0.8)));
-      R.quad(top[0], top[1], top[2], top[3]);
     }
   }
 
@@ -978,11 +997,33 @@ export class World {
           break;
         }
         case 'radar': {
-          const lat = Eo + 1.5;
-          boxAt(B.metal, r, lat, r.h, 0.18, 1.6, 0.18, rgb(0x6d7177));
-          boxAt(B.metal, r, lat, r.h + 1.6, 0.75, 1.0, 0.55, rgb(0x5a5f64));
-          boxAt(B.metal, r, lat - 0.2, r.h + 1.95, 0.3, 0.3, 0.05, rgb(0x1a1c1e));
-          this.postedPanel(ctx, f.s - 220, Eo + 1.4, r.h + 2.0, { tex: radarTexture(T).tex, w: 0.9, h: 0.9 }, 1);
+          const lat = Eo + (trench ? 1.05 : 1.6);
+          const grey = rgb(0x8a8f94), dark = rgb(0x16181a);
+          const rr = this.rowAt(f.s - 0.36); // face vitrée tournée vers le trafic qui arrive
+          if (f.tower) {
+            // radar « tourelle » : fût de 4 m, vitres noires en partie haute
+            boxAt(B.metal, r, lat, r.h, 0.62, 0.35, 0.62, rgb(0x5d6166));
+            boxAt(B.metal, r, lat, r.h + 0.35, 0.5, 3.75, 0.5, grey);
+            boxAt(B.metal, rr, lat, r.h + 2.7, 0.44, 0.9, 0.06, dark);
+            boxAt(B.metal, r, lat, r.h + 4.1, 0.56, 0.1, 0.56, rgb(0x6a6e73));
+            boxAt(B.metal, rr, lat, r.h + 1.6, 0.3, 0.3, 0.06, rgb(0xf2f2f2)); // étiquette
+            for (const y of [0.6, 1.0]) boxAt(B.metal, rr, lat, r.h + y, 0.52, 0.12, 0.05, rgb(0xf2c500)); // bandes rétroréfléchissantes
+          } else {
+            // cabine classique sur mât
+            boxAt(B.metal, r, lat, r.h, 0.16, 2.2, 0.16, grey);
+            boxAt(B.metal, rr, lat, r.h + 0.5, 0.2, 0.5, 0.05, rgb(0xf2c500));
+            boxAt(B.metal, r, lat, r.h + 2.05, 0.95, 1.15, 0.75, grey);
+            boxAt(B.metal, rr, lat, r.h + 2.25, 0.8, 0.55, 0.06, dark);
+            boxAt(B.metal, rr, lat + 0.28, r.h + 2.9, 0.2, 0.16, 0.06, rgb(0xe8e8e8)); // flash
+            boxAt(B.metal, r, lat, r.h + 3.2, 1.0, 0.08, 0.85, rgb(0x6a6e73));
+          }
+          break;
+        }
+        case 'radarSign': {
+          const lat = Eo + (trench ? 1.0 : 1.5);
+          const rp = { tex: radarTexture(T, 50).tex, w: 1.5, h: 2.25 };
+          this.postedPanel(ctx, f.s, lat + 0.3, r.h + 1.2, rp, 2);
+          this.postedPanel(ctx, f.s + 25, 0.9, r.h + 1.3, { tex: rp.tex, w: 1.1, h: 1.65 }, 1); // rappel côté séparateur
           break;
         }
         case 'sos': {

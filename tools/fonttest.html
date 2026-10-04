@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#888">
+<canvas id="c" width="1400" height="640"></canvas>
+<script type="module">
+import { drawSignText, L1, L2 } from '../js/signfont.js';
+const c = document.getElementById('c').getContext('2d');
+c.fillStyle='#f6f7f4'; c.fillRect(20,20,1360,300);
+drawSignText(c,"ABCDEFGHIJKLMNOPQRSTUVWXYZ",40,70,56,'#111','left',L1);
+drawSignText(c,"0123456789 É È Ê À Ç Ô - ' / &",40,160,56,'#111','left',L1);
+drawSignText(c,"Porte de la Chapelle  D 911",40,250,56,'#111','left',L1);
+c.fillStyle='#1d4f9c'; c.fillRect(20,340,1360,280);
+drawSignText(c,"Metz - Nancy  Marne-la-Vallée",40,400,56,'#fff','left',L2);
+drawSignText(c,"Créteil  Orly - Rungis  Saint-Quentin",40,490,56,'#fff','left',L2);
+drawSignText(c,"Charles de Gaulle  Évry  Boulogne",40,575,56,'#fff','left',L2);
+window.done = true;
+</script>

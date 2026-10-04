@@ -244,6 +244,25 @@ signalisation, le plus réaliste possible ». Livré :
   proposées : véhicule original de style compact français, ou intégration d'un modèle
   3D que Daryl se procure lui-même (pipeline GLB `loadGLB` déjà prêt).
 
+### Mise à jour v6 (octobre 2026) : retours de Daryl sur la v5
+
+- **Lettrage des panneaux** : `js/signfont.js` — alphabet capitales dessiné au trait
+  façon « Caractères » L1 (gras, noir sur blanc) / L2 (plus fin, blanc sur bleu/vert),
+  TOUT EN MAJUSCULES (règle française), « m » minuscule des distances. Aucune police
+  externe (la Caractères « freeware » a une licence incertaine).
+- **Radars** : 10 radars fixes (cabines grises sur mât et tourelles de 4 m à bandes
+  jaunes) + panneaux d'annonce modèle 2017 (bordure jaune, 50 sur bandeau gris,
+  pictogrammes voiture/moto/ondes) ~240 m avant, rappel côté séparateur.
+- **Bâtiments sur la chaussée corrigés** : `Scenery.clearance()` projette chaque
+  coin/arête des emprises proches et rejette tout bâtiment qui mord sur la chaussée,
+  les bretelles ou les ouvrages (les repères modélisés sont décalés).
+- **Ville plus parisienne** : îlots continus au-delà des données OSM (270-500 m) —
+  immeubles 6-8 niveaux haussmanniens/HBM à toits zinc côté Paris, tissu de banlieue
+  en face ; arbres à feuillage texturé ; tour Eiffel ajourée (treillis, arches),
+  dorée la nuit ; brume longue distance (`haze`) pour voir les repères à plusieurs km.
+- Paroi de fond derrière les ouvrages en contrebas (plus de « jours » sur le ciel).
+- Cache SW `periph-v6`, `?v=6`.
+
 ## 4. Architecture technique détaillée (fichier par fichier)
 
 Aucun build, aucun bundler : HTML + modules ES natifs + Three.js vendorisé. Tout est servi tel quel.
