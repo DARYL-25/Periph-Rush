@@ -997,8 +997,8 @@ export class World {
           break;
         }
         case 'radar': {
-          const lat = Eo + (trench ? 1.05 : 1.6);
-          const grey = rgb(0x8a8f94), dark = rgb(0x16181a);
+          const lat = Eo + (trench ? 0.95 : 1.4);
+          const grey = rgb(0xc2c6ca), dark = rgb(0x16181a);
           const rr = this.rowAt(f.s - 0.36); // face vitrée tournée vers le trafic qui arrive
           if (f.tower) {
             // radar « tourelle » : fût de 4 m, vitres noires en partie haute
