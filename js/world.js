@@ -1,188 +1,134 @@
 // ============================================================
-// Périph' Rush — génération streamée du monde
-// Le périphérique est découpé en segments de 100 m générés/détruits
-// autour du joueur. Tout le décor statique d'un segment est fusionné
-// en très peu de draw calls (1 mesh « béton/métal » vertex-colored,
-// 1 route, 1 sol, 1 immeubles, 2 arbres, panneaux).
+// Périph' Rush — génération streamée du monde (refonte « réaliste »)
+// Le périphérique réel (axe, voies, tranchées, couvertures, viaducs,
+// bretelles, abords) est construit par segments de 100 m autour du
+// joueur. Profil en travers par rangée de 5 m :
+//   séparateur béton (DBA) + candélabres doubles — 2×(2 à 4) voies —
+//   bretelles d'entrée/sortie réelles (voies d'accélération, musoirs,
+//   zébras) — puis selon l'altitude : murs de tranchée tagués,
+//   couvertures avec plafonds éclairés, viaducs à parapets et piles,
+//   talus enherbés, écrans antibruit — et la ville réelle (OSM).
+// Chaque segment fusionne son décor par matériau (≈ 20 draw calls).
 // ============================================================
 
-import { CFG, ROAD_OUTER } from './config.js';
-import { rng, mergeGeoms, colorize, xform, wrap, pick } from './utils.js';
-import { exitPanelTexture, gantryPanelTexture, peripheriqueCartouche, speedLimitTexture, VMSPanel } from './signs.js';
+import { CFG } from './config.js';
+import { rng, wrap, clamp, lerp, smoothstep } from './utils.js';
+import { Batch, TileView, rgb, shade, P, band, boxAt, cylinder } from './geo.js';
+import { makeAtlas, makeAtlasLike, atlasify } from './atlas.js';
+import * as TX from './textures.js';
+import {
+  directionPanel, gantryPanel, speedLimitTexture, radarTexture, hovTexture, laneSignalTexture,
+  sosTexture, prPlateTexture, goreTexture, VMSPanel,
+} from './signs.js';
+import { Scenery, buildLandmarks } from './scenery.js';
 
-const ROAD_HALF = 18.4;          // demi-largeur du ruban de chaussée (2×4 voies + séparateur)
-const GROUND_Y = 0;              // niveau « ville » ; la route plonge en tranchée sous 0
+const ROW = 5;            // pas des rangées de construction (m)
+const MED = 0.31;         // demi-largeur de la DBA centrale
+const CEIL = 5.3;         // hauteur libre sous couverture
+const LW = CFG.LANE_WIDTH;
 
-// ---------- textures canvas partagées --------------------------------
-function roadTexture(THREE) {
-  const Wt = 2048, Ht = 512;
-  const cv = document.createElement('canvas');
-  cv.width = Wt; cv.height = Ht;
-  const c = cv.getContext('2d');
-  const px = (x) => ((x + ROAD_HALF) / (ROAD_HALF * 2)) * Wt;
-  // asphalte multi-grain
-  c.fillStyle = '#43464d';
-  c.fillRect(0, 0, Wt, Ht);
-  for (let i = 0; i < 14000; i++) {
-    const a = Math.random();
-    c.fillStyle = a < 0.45 ? 'rgba(255,255,255,0.045)' : a < 0.85 ? 'rgba(0,0,0,0.06)' : 'rgba(150,160,175,0.05)';
-    const s = 1 + Math.random() * 2.2;
-    c.fillRect(Math.random() * Wt, Math.random() * Ht, s, s);
-  }
-  // rustines d'enrobé plus sombres
-  for (let i = 0; i < 7; i++) {
-    c.fillStyle = `rgba(20,22,26,${0.10 + Math.random() * 0.1})`;
-    const w = 60 + Math.random() * 240, h = 40 + Math.random() * 140;
-    c.fillRect(Math.random() * Wt, Math.random() * Ht, w, h);
-  }
-  // joints de bitume sinueux
-  c.strokeStyle = 'rgba(12,13,16,0.5)';
-  for (let i = 0; i < 5; i++) {
-    c.lineWidth = 2 + Math.random() * 2;
-    c.beginPath();
-    let x = Math.random() * Wt;
-    c.moveTo(x, 0);
-    for (let y = 0; y < Ht; y += 24) { x += (Math.random() - 0.5) * 26; c.lineTo(x, y); }
-    c.stroke();
-  }
-  // traces de roulement plus sombres au centre des voies
-  for (const side of [-1, 1]) {
-    for (let l = 0; l < CFG.LANES; l++) {
-      const cx = side * (CFG.INNER_EDGE + CFG.LANE_WIDTH * (l + 0.5));
-      for (const o of [-0.8, 0.8]) {
-        const g = c.createLinearGradient(px(cx + o) - 26, 0, px(cx + o) + 26, 0);
-        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(8,9,12,0.22)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        c.fillStyle = g;
-        c.fillRect(px(cx + o) - 26, 0, 52, Ht);
+// ---------- bretelles réelles (géométrie paramétrique) ----------
+class Ramps {
+  constructor(track) {
+    this.track = track;
+    const L = track.length;
+    this.list = [];
+    const J = track.junctions;
+    for (const j of J) {
+      const W = LW * Math.min(Math.max(j.lanes, 1), 2);
+      const h = track.elevationAt(j.s);
+      const target = Math.abs(h) > 2 ? 0 : h;
+      if (j.kind === 'X') {
+        const taper = 60, par = j.lanes > 1 ? 110 : 80, div = 240;
+        this.list.push({ j, kind: 'X', W, target, taper, par, div, G: 12 + W, s0: j.s - par - taper, s1: j.s + div });
+      } else {
+        const taper = 70, par = 100, div = 240;
+        this.list.push({ j, kind: 'E', W, target, taper, par, div, G: 12 + W, s0: j.s - div, s1: j.s + par + taper });
       }
     }
-  }
-  // zone du séparateur central
-  c.fillStyle = '#515459';
-  c.fillRect(px(-CFG.INNER_EDGE), 0, px(CFG.INNER_EDGE) - px(-CFG.INNER_EDGE), Ht);
-  // marquages usés : rive continue + pointillés (3 m plein / 7 m vide sur 10 m)
-  const paint = (x, w, y0, y1) => {
-    c.fillStyle = '#dfe3e8';
-    c.fillRect(px(x) - w / 2, y0, w, y1 - y0);
-    for (let i = 0; i < (y1 - y0) / 3; i++) { // usure
-      c.fillStyle = 'rgba(67,70,77,0.5)';
-      c.fillRect(px(x) - w / 2 + Math.random() * w, y0 + Math.random() * (y1 - y0), 2, 3);
+    // entrecroisements : entrée suivie d'une sortie à moins de 420 m → voie continue
+    const sorted = [...J].sort((a, b) => a.s - b.s);
+    for (let i = 0; i < sorted.length; i++) {
+      const e = sorted[i], x = sorted[(i + 1) % sorted.length];
+      const d = wrap(x.s - e.s, L);
+      if (e.kind === 'E' && x.kind === 'X' && d < 420) this.list.push({ kind: 'W', W: LW, s0: e.s, s1: e.s + d });
     }
-  };
-  for (const side of [-1, 1]) {
-    paint(side * CFG.INNER_EDGE, 7, 0, Ht);
-    paint(side * (CFG.INNER_EDGE + CFG.LANE_WIDTH * CFG.LANES), 7, 0, Ht);
-    for (let l = 1; l < CFG.LANES; l++) paint(side * (CFG.INNER_EDGE + CFG.LANE_WIDTH * l), 7, 0, Ht * 0.3);
   }
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  return tex;
-}
-
-// relief de l'asphalte (bump map indépendante, neutre en teinte)
-function roadBumpTexture(THREE) {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 512;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#808080';
-  c.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 22000; i++) {
-    const v = 96 + (Math.random() * 64) | 0;
-    c.fillStyle = `rgb(${v},${v},${v})`;
-    c.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
-  }
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
-
-// 3 variantes de façades (jour + fenêtres allumées) : haussmannien,
-// bureaux vitrés, barre d'habitation. Base claire teintée par vertex color.
-function facadeTextures(THREE) {
-  const mk = (cv) => {
-    const t = new THREE.CanvasTexture(cv);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  };
-  const variants = [];
-  const rand = rng(1234);
-  for (let v = 0; v < 3; v++) {
-    const day = document.createElement('canvas');
-    day.width = day.height = 256;
-    const d = day.getContext('2d');
-    const glow = document.createElement('canvas');
-    glow.width = glow.height = 256;
-    const g = glow.getContext('2d');
-    d.fillStyle = '#ffffff'; d.fillRect(0, 0, 256, 256);
-    g.fillStyle = '#000000'; g.fillRect(0, 0, 256, 256);
-    if (v === 0) {
-      // haussmannien : hautes fenêtres à meneaux, balcons filants, corniche
-      for (let j = 0; j < 6; j++) {
-        const y = 8 + j * 41;
-        if (j === 1 || j === 4) { d.fillStyle = 'rgba(30,32,36,0.85)'; d.fillRect(0, y + 32, 256, 3); } // balcon
-        for (let i = 0; i < 6; i++) {
-          const x = 10 + i * 41;
-          d.fillStyle = 'rgba(58,66,80,0.8)';
-          d.fillRect(x, y, 20, 34);
-          d.fillStyle = 'rgba(255,255,255,0.35)';
-          d.fillRect(x + 9, y, 2, 34);
-          d.fillRect(x, y + 16, 20, 2);
-          d.fillStyle = 'rgba(20,22,26,0.5)';
-          d.fillRect(x - 2, y + 30, 24, 3); // garde-corps
-          if (rand() < 0.3) { g.fillStyle = '#ffd28a'; g.fillRect(x + 1, y + 1, 18, 32); }
+  // bretelles actives en s : [{gap, w, hr, parallel, r}]
+  at(s, hMain) {
+    const L = this.track.length, out = [];
+    for (const r of this.list) {
+      const u = wrap(s - r.s0, L);
+      if (u > wrap(r.s1 - r.s0, L)) continue;
+      let gap = 0, w = r.W, hr = hMain, t = 0;
+      if (r.kind === 'W') { out.push({ gap: 0, w, hr, parallel: true, r, t: 0 }); continue; }
+      if (r.kind === 'X') {
+        const v = s - r.j.s; const vv = v < -L / 2 ? v + L : v > L / 2 ? v - L : v;
+        if (vv < -r.par) w = r.W * smoothstep(-r.par - r.taper, -r.par, vv);
+        else if (vv > 0) {
+          t = vv / r.div;
+          gap = r.G * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(t, 1)));
+          hr = lerp(hMain, r.target, smoothstep(0.12, 0.95, t));
+        }
+      } else {
+        const v = r.j.s - s; const vv = v < -L / 2 ? v + L : v > L / 2 ? v - L : v; // >0 avant la jonction
+        if (vv < -r.par) w = r.W * smoothstep(-r.par - r.taper, -r.par, vv);
+        else if (vv > 0) {
+          t = vv / r.div;
+          gap = r.G * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(t, 1)));
+          hr = lerp(hMain, r.target, smoothstep(0.12, 0.95, t));
         }
       }
-    } else if (v === 1) {
-      // bureaux : rideau de verre en bandes horizontales
-      for (let j = 0; j < 8; j++) {
-        const y = 4 + j * 31;
-        d.fillStyle = 'rgba(70,90,110,0.85)';
-        d.fillRect(0, y, 256, 22);
-        d.fillStyle = 'rgba(255,255,255,0.28)';
-        d.fillRect(0, y + 2, 256, 3);
-        d.fillStyle = 'rgba(24,28,34,0.9)';
-        d.fillRect(0, y + 22, 256, 9);
-        for (let i = 0; i < 10; i++) {
-          d.fillStyle = 'rgba(24,28,34,0.5)';
-          d.fillRect(6 + i * 25, y, 2, 22);
-          if (rand() < 0.4) { g.fillStyle = ['#cfe0ff', '#ffeccc'][(rand() * 2) | 0]; g.fillRect(8 + i * 25, y + 2, 21, 18); }
-        }
-      }
-    } else {
-      // barre 60-70s : petites fenêtres serrées + loggias
-      for (let j = 0; j < 8; j++) {
-        for (let i = 0; i < 8; i++) {
-          const x = 6 + i * 31, y = 6 + j * 31;
-          const loggia = (i % 4) === 2;
-          d.fillStyle = loggia ? 'rgba(20,22,28,0.75)' : 'rgba(52,60,74,0.78)';
-          d.fillRect(x, y, loggia ? 26 : 20, 24);
-          d.fillStyle = 'rgba(255,255,255,0.22)';
-          d.fillRect(x, y, loggia ? 26 : 20, 3);
-          if (rand() < 0.3) { g.fillStyle = ['#ffd28a', '#ffe9bd'][(rand() * 2) | 0]; g.fillRect(x + 1, y + 4, 18, 19); }
-        }
-      }
+      if (w < 0.05) continue;
+      out.push({ gap, w, hr, parallel: gap < 0.35, r, t });
     }
-    // coin réservé (toits) : zinc parisien
-    d.fillStyle = v === 0 ? '#5d6670' : '#3a3d41';
-    d.fillRect(244, 244, 12, 12);
-    g.fillStyle = '#000'; g.fillRect(244, 244, 12, 12);
-    variants.push({ day: mk(day), glow: mk(glow) });
+    out.sort((a, b) => a.gap - b.gap);
+    // fusion des voies parallèles superposées (entrecroisement + bretelle)
+    const merged = [];
+    for (const o of out) {
+      const last = merged[merged.length - 1];
+      if (last && last.parallel && o.parallel) { last.w = Math.max(last.w, o.w); continue; }
+      merged.push(o);
+    }
+    return merged;
   }
-  return variants;
+  // largeur praticable supplémentaire à droite (voies parallèles) — pour le joueur
+  parallelWidth(s, hMain = 0) {
+    let w = 0;
+    for (const o of this.at(s, hMain)) if (o.parallel) w = Math.max(w, o.w);
+    return w;
+  }
 }
 
-// panneau : plane + texture (cache par texture)
-function makePanel(THREE, tex, w, h) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), panelMat(THREE, tex));
-  return m;
-}
-const _panelMats = new Map();
-function panelMat(THREE, tex) {
-  if (!_panelMats.has(tex)) _panelMats.set(tex, new THREE.MeshBasicMaterial({ map: tex }));
-  return _panelMats.get(tex);
+// couronne d'arbre : 5 lobes déformés à normales radiales (aspect doux, 100 triangles)
+function makeTreeGeometry(T) {
+  const pos = [], nor = [], idx = [];
+  const rand = rng(99);
+  const lobes = [[0, 4.7, 0, 1.9], [0.95, 4.0, 0.45, 1.45], [-0.85, 4.1, -0.55, 1.4], [0.25, 5.6, -0.3, 1.25], [-0.3, 3.7, 0.9, 1.2]];
+  for (const [cx, cy, cz, r] of lobes) {
+    const g = new T.IcosahedronGeometry(1, 0);
+    const p = g.getAttribute('position');
+    const base = pos.length / 3;
+    const map = new Map();
+    for (let i = 0; i < p.count; i++) {
+      const key = `${p.getX(i).toFixed(3)},${p.getY(i).toFixed(3)},${p.getZ(i).toFixed(3)}`;
+      if (!map.has(key)) {
+        const nx = p.getX(i), ny = p.getY(i), nz = p.getZ(i);
+        const k = r * (0.85 + rand() * 0.3);
+        pos.push(cx + nx * k, cy + ny * k * 0.9, cz + nz * k);
+        const l = Math.hypot(nx, ny + 0.35, nz);
+        nor.push(nx / l, (ny + 0.35) / l, nz / l);
+        map.set(key, base + map.size);
+      }
+      idx.push(map.get(key));
+    }
+    g.dispose();
+  }
+  const geo = new T.BufferGeometry();
+  geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+  geo.setIndex(idx);
+  return geo;
 }
 
 // ============================================================
@@ -191,130 +137,129 @@ export class World {
     this.T = THREE;
     this.scene = scene;
     this.track = track;
-    this.chunks = new Map();      // index → { group, geoms[] }
-    this.pending = [];
+    this.chunks = new Map();
     this.mats = this.makeMaterials();
-    this.vms = [];                // panneaux à messages variables
-    const vmsCount = 6;
-    for (let i = 0; i < vmsCount; i++) {
-      this.vms.push({ s: (track.length / vmsCount) * i + 900, panel: new VMSPanel(THREE) });
-    }
-    this.buildLandmarks();
-    this._v = new THREE.Vector3();
+    this.ramps = new Ramps(track);
+    track.ramps = this.ramps;
+    this.scenery = new Scenery(THREE, track, CFG.CHUNK_LEN);
+    this.features = this.planFeatures();
+    this.vms = this.features.filter((f) => f.type === 'pmv').map((f) => ({ s: f.s, panel: new VMSPanel(THREE), override: 0 }));
+    this.features.filter((f) => f.type === 'pmv').forEach((f, i) => { f.vms = this.vms[i]; });
+    this.landmarks = buildLandmarks(THREE, scene);
+    this._p = {};
   }
 
+  // ---------- matériaux ----------
   makeMaterials() {
     const T = this.T;
-    const facades = facadeTextures(T);
-    // halo lumineux (sprites additifs des lampadaires la nuit)
-    const glowCv = document.createElement('canvas');
-    glowCv.width = glowCv.height = 64;
-    const gc = glowCv.getContext('2d');
-    const gg = gc.createRadialGradient(32, 32, 2, 32, 32, 31);
-    gg.addColorStop(0, 'rgba(255,196,110,0.9)');
-    gg.addColorStop(0.35, 'rgba(255,170,80,0.32)');
-    gg.addColorStop(1, 'rgba(255,160,60,0)');
-    gc.fillStyle = gg;
-    gc.fillRect(0, 0, 64, 64);
-    const glowTex = new T.CanvasTexture(glowCv);
-    return {
-      road: new T.MeshPhongMaterial({
-        map: roadTexture(T), shininess: 6, specular: 0x111111,
-        bumpMap: roadBumpTexture(T), bumpScale: 0.012,
-      }),
-      // DoubleSide : les profils extrudés (GBA, murs, tunnels) sont vus des deux côtés
-      concrete: new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide }),
+    const asphalt = TX.asphaltTextures(T);
+    const facades = TX.facadeTextures(T);
+    const concrete = TX.concreteTextures(T);
+    const noise = TX.noiseWallTextures(T);
+    const DS = T.DoubleSide;
+    // atlas « ouvrages » : murs, DBA, écrans, talus, lierre, sol → 1 draw call
+    const S = makeAtlas(T, [
+      { name: 'wall0', image: concrete[0].image }, { name: 'wall1', image: concrete[1].image }, { name: 'wall2', image: concrete[2].image },
+      { name: 'gba', image: TX.gbaTexture(T).image },
+      { name: 'noise0', image: noise[0].image }, { name: 'noise1', image: noise[1].image }, { name: 'noise2', image: noise[2].image },
+      { name: 'grass', image: TX.grassTexture(T).image }, { name: 'ivy', image: TX.ivyTexture(T).image }, { name: 'ground', image: TX.groundTexture(T).image },
+    ]);
+    // atlas « bâti » : 6 façades + toitures (jour) et fenêtres allumées (nuit)
+    const roof = TX.roofTexture(T);
+    const bEntries = facades.map((f, i) => ({ name: 'f' + i, image: f.day.image })).concat([{ name: 'roof', image: roof.image }]);
+    const Bt = makeAtlas(T, bEntries);
+    const glow = makeAtlasLike(T, Bt, facades.map((f) => ({ image: f.glow.image })).concat([{ image: null }]));
+    const m = {
+      road: new T.MeshPhongMaterial({ map: asphalt.map, bumpMap: asphalt.bump, bumpScale: 0.6, vertexColors: true, shininess: 6, specular: 0x111111 }),
+      paint: new T.MeshPhongMaterial({ map: TX.paintTexture(T), side: DS, shininess: 18, specular: 0x222222, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }),
+      struct: atlasify(new T.MeshLambertMaterial({ map: S.tex, vertexColors: true, side: DS })),
+      concrete: new T.MeshLambertMaterial({ vertexColors: true, side: DS }), // compat. events.js
+      metal: new T.MeshPhongMaterial({ vertexColors: true, shininess: 50, specular: 0x444444, side: DS }),
       lamp: new T.MeshBasicMaterial({ color: 0x3a3f45 }),
-      buildings: facades.map((f) => new T.MeshLambertMaterial({
-        vertexColors: true, map: f.day, emissiveMap: f.glow,
-        emissive: 0xffffff, emissiveIntensity: 0,
-      })),
-      lampGlow: new T.PointsMaterial({
-        map: glowTex, size: 4.2, transparent: true, opacity: 0,
-        blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
-      }),
-      trunk: new T.MeshLambertMaterial({ color: 0x5a4632 }),
-      canopy: new T.MeshLambertMaterial({ color: 0x4e7a3a }),
-      ground: new T.MeshLambertMaterial({ vertexColors: true }),
-      water: new T.MeshPhongMaterial({ color: 0x3d5a6e, shininess: 90, specular: 0x668899 }),
+      lampGlow: new T.PointsMaterial({ map: TX.glowTexture(T, '255,226,190'), size: 5.5, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true }),
       tunnelLight: new T.MeshBasicMaterial({ color: 0xfff1c8 }),
+      pool: new T.MeshBasicMaterial({ map: TX.glowTexture(T, '255,214,160'), transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }),
+      tpool: new T.MeshBasicMaterial({ map: TX.glowTexture(T, '255,236,200'), transparent: true, opacity: 0.32, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }),
+      water: new T.MeshPhongMaterial({ color: 0x35505e, shininess: 90, specular: 0x7799aa, side: DS }),
+      bld: atlasify(new T.MeshLambertMaterial({ map: Bt.tex, emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, side: DS })),
+      trunk: new T.MeshLambertMaterial({ color: 0x5b4a3a }),
+      canopy: new T.MeshLambertMaterial({ color: 0xffffff }),
       dark: new T.MeshBasicMaterial({ color: 0x0c0e11 }),
     };
+    m.tiles = S.tiles;
+    m.btiles = Bt.tiles;
+    m.buildings = [m.bld];
+    m.signCache = new Map();
+    return m;
   }
-
-  // matériaux à exposer à l'ambiance
+  signMat(tex) {
+    if (!this.mats.signCache.has(tex)) {
+      this.mats.signCache.set(tex, new this.T.MeshLambertMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.32, transparent: false, alphaTest: 0.5, side: this.T.FrontSide }));
+    }
+    return this.mats.signCache.get(tex);
+  }
   ambienceHooks() {
     return {
       roadMat: this.mats.road, buildingMats: this.mats.buildings,
-      lampMat: this.mats.lamp, tunnelLightMat: this.mats.tunnelLight,
-      lampGlowMat: this.mats.lampGlow,
+      lampMat: this.mats.lamp, tunnelLightMat: this.mats.tunnelLight, lampGlowMat: this.mats.lampGlow,
     };
   }
 
-  // ---------- monuments parisiens (silhouettes stylisées) ------------
-  buildLandmarks() {
-    const T = this.T;
-    const lat0 = 48.8590, lon0 = 2.3400;
-    const mLat = 111132, mLon = 111320 * Math.cos((lat0 * Math.PI) / 180);
-    const at = (lat, lon) => ({ x: (lon - lon0) * mLon, z: -(lat - lat0) * mLat });
-    const g = [];
-    const box = (w, h, d, col, x, z, y = 0) => g.push(colorize(T, xform(new T.BoxGeometry(w, h, d), { x, y: y + h / 2, z }), col));
-    // Tour Eiffel (48.8584, 2.2945) : fût effilé en 3 tronçons + antenne
-    {
-      const p = at(48.8584, 2.2945);
-      box(124, 60, 124, 0x6e5a48, p.x, p.z);
-      box(70, 55, 70, 0x6e5a48, p.x, p.z, 58);
-      box(34, 90, 34, 0x64523f, p.x, p.z, 110);
-      box(12, 110, 12, 0x5a4a3a, p.x, p.z, 196);
-      box(3, 26, 3, 0x4a3d30, p.x, p.z, 304);
-    }
-    // Sacré-Cœur (48.8867, 2.3431)
-    {
-      const p = at(48.8867, 2.3431);
-      box(90, 34, 60, 0xe8e4da, p.x, p.z, 40);   // butte + basilique
-      g.push(colorize(T, xform(new T.SphereGeometry(20, 10, 8), { x: p.x, y: 92, z: p.z }), 0xf0ece2));
-      g.push(colorize(T, xform(new T.SphereGeometry(9, 8, 6), { x: p.x - 28, y: 82, z: p.z + 8 }), 0xf0ece2));
-      g.push(colorize(T, xform(new T.SphereGeometry(9, 8, 6), { x: p.x + 28, y: 82, z: p.z + 8 }), 0xf0ece2));
-      box(10, 40, 10, 0xe8e4da, p.x + 40, p.z - 10, 60);
-    }
-    // Tour Montparnasse (48.8421, 2.3220)
-    { const p = at(48.8421, 2.3220); box(48, 210, 30, 0x2c3138, p.x, p.z); }
-    // La Défense (48.8905, 2.2410) : grappe de tours
-    {
-      const p = at(48.8905, 2.2410);
-      const rand = rng(42);
-      for (let i = 0; i < 7; i++) {
-        box(40 + rand() * 30, 120 + rand() * 110, 40 + rand() * 25,
-          [0x5b6b7d, 0x6d7f92, 0x49586a, 0x7d8ea0][(rand() * 4) | 0],
-          p.x + (rand() - 0.5) * 600, p.z + (rand() - 0.5) * 500);
+  // ---------- plan des équipements le long de l'anneau ----------
+  planFeatures() {
+    const t = this.track, L = t.length, F = [];
+    const exits = t.exits.slice().sort((a, b) => a.s - b.s);
+    const isFree = (s, r = 40) => !t.coverAt(s - r) && !t.coverAt(s) && !t.coverAt(s + r);
+    exits.forEach((x, i) => {
+      const prev = exits[(i - 1 + exits.length) % exits.length];
+      const gapPrev = wrap(x.s - prev.s, L);
+      const rows = x.dests.map(([text, color, ref]) => ({ text, color, refs: ref ? [ref] : [] }));
+      // présignalisation (côté droit) à 500 m ou à mi-distance de la sortie précédente
+      const dPre = Math.min(500, gapPrev * 0.55);
+      let sPre = x.s - dPre;
+      for (let k = 0; k < 6 && !isFree(sPre, 15); k++) sPre -= 30;
+      if (dPre > 140) F.push({ type: 'presign', s: wrap(sPre, L), rows, dist: Math.round(dPre / 50) * 50 });
+      // portique d'affectation 150 m avant (voies de gauche : suite du BP)
+      let sG = x.s - 150;
+      for (let k = 0; k < 6 && !isFree(sG, 12); k++) sG += 20;
+      if (isFree(sG, 12) && wrap(x.s - sG, L) > 30) {
+        const next = t.nextPorte(x.s + 400).porte;
+        const nn = t.nextPorte(next.s + 300).porte;
+        F.push({ type: 'gantry', s: wrap(sG, L), exitRows: rows, thru: [{ text: next.name, color: 'white', refs: [] }, { text: nn.name, color: 'white', refs: [] }] });
       }
-      // Grande Arche
-      box(100, 100, 20, 0xd8dde2, p.x - 80, p.z + 300);
+      // panneau de musoir + balise
+      F.push({ type: 'gore', s: wrap(x.s + 62, L), rows: rows.slice(0, 2) });
+    });
+    // après chaque entrée : rappel 50 (droite + séparateur)
+    for (const e of t.entries) F.push({ type: 'limit', s: wrap(e.s + 140, L) });
+    for (let s = 500; s < L; s += 1000) if (isFree(s, 5)) F.push({ type: 'limit', s, median: true });
+    // PMV tous les ~2,9 km hors couvertures/bretelles
+    for (let s = 2400; s < L - 500; s += 2900) {
+      let sp = s;
+      for (let k = 0; k < 12 && (!isFree(sp, 30) || this.ramps.at(sp, 0).length); k++) sp += 40;
+      F.push({ type: 'pmv', s: sp });
     }
-    // Tours Mercuriales à Bagnolet (48.8646, 2.4180)
-    { const p = at(48.8646, 2.4180); box(30, 90, 30, 0x4c6a86, p.x - 25, p.z); box(30, 90, 30, 0x4c6a86, p.x + 25, p.z); }
-    // Dôme des Invalides (48.8551, 2.3126)
-    {
-      const p = at(48.8551, 2.3126);
-      box(50, 30, 50, 0xd9d4c8, p.x, p.z);
-      g.push(colorize(T, xform(new T.SphereGeometry(16, 10, 8), { x: p.x, y: 44, z: p.z }), 0xc9a94a));
-    }
-    const geom = mergeGeoms(this.T, g);
-    const mat = new this.T.MeshLambertMaterial({ vertexColors: true, fog: true });
-    const mesh = new this.T.Mesh(geom, mat);
-    this.scene.add(mesh);
+    // voie réservée covoiturage : potences à losange tous les 1 600 m
+    for (let s = 900; s < L; s += 1600) if (isFree(s, 10)) F.push({ type: 'hov', s });
+    // radars fixes
+    for (const s of [2950, 9850, 16050, 22450, 29050]) if (isFree(s, 10)) F.push({ type: 'radar', s: s * t.kOSM });
+    // bornes d'appel d'urgence tous les 500 m, plaques PR tous les 200 m
+    for (let s = 250; s < L; s += 500) F.push({ type: 'sos', s });
+    for (let s = 0; s < L; s += 500) F.push({ type: 'pr', s: wrap(t.prOrigin + s, L), km: (s / 1000).toFixed(1).replace('.', ',') });
+    F.sort((a, b) => a.s - b.s);
+    return F;
   }
 
-  // ---------- gestion du streaming -------------------------------------
+  // ---------- streaming ----------
   chunkIndex(s) { return Math.floor(wrap(s, this.track.length) / CFG.CHUNK_LEN); }
   chunkCount() { return Math.ceil(this.track.length / CFG.CHUNK_LEN); }
 
   update(playerS) {
+    this.tick();
     const n = this.chunkCount();
     const cur = this.chunkIndex(playerS);
     const want = new Set();
     for (let i = -CFG.CHUNKS_BEHIND; i <= CFG.CHUNKS_AHEAD; i++) want.add(((cur + i) % n + n) % n);
-    // supprimer les segments hors fenêtre
     for (const [idx, chunk] of this.chunks) {
       if (!want.has(idx)) {
         this.scene.remove(chunk.group);
@@ -323,494 +268,809 @@ export class World {
         this.chunks.delete(idx);
       }
     }
-    // construire au plus 1 segment par frame (anti à-coups)
-    for (const idx of want) {
-      if (!this.chunks.has(idx)) {
-        this.buildChunk(idx);
-        break;
-      }
+    // construire d'abord les segments les plus proches, au plus 1 par frame
+    for (let i = 0; i <= CFG.CHUNKS_AHEAD; i++) {
+      const idx = ((cur + i) % n + n) % n;
+      if (!this.chunks.has(idx)) { this.buildChunk(idx); return; }
     }
+    for (let i = 1; i <= CFG.CHUNKS_BEHIND; i++) {
+      const idx = ((cur - i) % n + n) % n;
+      if (!this.chunks.has(idx)) { this.buildChunk(idx); return; }
+    }
+    this.updateVMS(playerS);
   }
 
-  prebuild(playerS) { // construction synchrone au chargement
+  // halos au sol : suivent l'allumage des candélabres (piloté par l'ambiance)
+  tick() { this.mats.pool.opacity = this.mats.lampGlow.opacity * 0.85; }
+
+  prebuild(playerS) {
     const n = this.chunkCount();
     const cur = this.chunkIndex(playerS);
     for (let i = -CFG.CHUNKS_BEHIND; i <= CFG.CHUNKS_AHEAD; i++) {
       const idx = ((cur + i) % n + n) % n;
       if (!this.chunks.has(idx)) this.buildChunk(idx);
     }
+    this.updateVMS(playerS, true);
   }
 
-  // ---------- construction d'un segment ---------------------------------
+  // ---------- rangées d'échantillonnage du segment ----------
+  makeRows(s0, len) {
+    const t = this.track, rows = [];
+    const nr = Math.round(len / ROW);
+    for (let i = 0; i <= nr; i++) {
+      const s = s0 + (i * len) / nr;
+      const p = {};
+      t.pointAt(s, p);
+      const r = { s, x: p.x, z: p.z, rx: p.rx, rz: p.rz, tx: p.tx, tz: p.tz, h: p.y };
+      r.Em = t.mainEdgeAt(s);
+      r.cover = !!t.coverAt(s);
+      r.viaduct = !!t.onViaduct(s) && r.h > 2;
+      r.seine = !!t.onBridge(s);
+      r.ramps = this.ramps.at(s, r.h);
+      let outer = r.Em, outerH = r.h;
+      for (const o of r.ramps) { if (r.Em + o.gap + o.w >= outer) { outer = r.Em + o.gap + o.w; outerH = o.hr; } }
+      r.R = outer; r.RH = outerH;          // bord extérieur droit (sens intérieur)
+      r.Lft = r.Em; r.LH = r.h;            // sens extérieur (miroir, sans bretelles)
+      rows.push(r);
+    }
+    return rows;
+  }
+
+  // ============================================================
   buildChunk(idx) {
-    const T = this.T, track = this.track;
+    const T = this.T, track = this.track, M = this.mats;
     const s0 = idx * CFG.CHUNK_LEN;
     const len = Math.min(CFG.CHUNK_LEN, track.length - s0);
     const rand = rng(idx * 7919 + 13);
     const group = new T.Group();
     const geoms = [];
-    const statics = [];   // fusion béton/métal/poteaux (vertex colors)
-    const p = {};
+    const rows = this.makeRows(s0, len);
+    const S = new Batch(true), tl = this.mats.tiles;
+    const wallTile = tl['wall' + ((idx * 2654435761 >>> 0) % 3)];
+    const B = {
+      road: new Batch(), paint: new Batch(), metal: new Batch(), lamp: new Batch(), tlight: new Batch(), water: new Batch(),
+      pool: new Batch(), tpool: new Batch(),
+      S, wall: new TileView(S, wallTile), gba: new TileView(S, tl.gba), noise: new TileView(S, tl['noise' + (((idx / 3) | 0) % 3)]),
+      grass: new TileView(S, tl.grass), ivy: new TileView(S, tl.ivy), ground: new TileView(S, tl.ground),
+    };
+    const Bb = new Batch(true), bt = this.mats.btiles;
+    B.bld = Bb;
+    B.fac = [0, 1, 2, 3, 4, 5].map((i) => new TileView(Bb, bt['f' + i]));
+    B.roof = new TileView(Bb, bt.roof);
+    const glow = [];
+    const ctx = { s0, len, rows, B, glow, rand, group, geoms, idx };
 
-    const zone = track.zoneAt(s0 + len / 2);
-    const flags = zone.flags;
-    const tunnel = track.inTunnel(s0 + 2) || track.inTunnel(s0 + len - 2);
-    const bridge = track.onBridge(s0 + len / 2);
-    const rows = Math.floor(len / 10) + 1;
+    this.buildRoad(ctx);
+    this.buildPaint(ctx);
+    this.buildMedian(ctx);
+    for (const side of [1, -1]) this.buildSide(ctx, side);
+    this.buildRampStructures(ctx);
+    this.buildCovers(ctx);
+    this.buildViaductUnderside(ctx);
+    this.buildLighting(ctx);
+    this.buildFeatures(ctx);
+    this.buildWater(ctx);
+    this.buildTrees(ctx);
 
-    // — ruban de chaussée (les deux sens) —
-    {
-      const pos = [], uv = [], idb = [];
-      for (let r = 0; r < rows; r++) {
-        const s = s0 + r * 10;
-        track.pointAt(s, p);
-        for (const side of [-1, 1]) {
-          pos.push(p.x + p.rx * ROAD_HALF * side, p.y, p.z + p.rz * ROAD_HALF * side);
-          uv.push(side < 0 ? 0 : 1, s / CFG.ROAD_TEX_REPEAT);
-        }
-      }
-      for (let r = 0; r < rows - 1; r++) {
-        const a = r * 2, b = r * 2 + 1, c2 = r * 2 + 2, d = r * 2 + 3;
-        idb.push(a, b, c2, b, d, c2);
-      }
-      const geo = new T.BufferGeometry();
-      geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-      geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
-      geo.setIndex(idb);
-      geo.computeVertexNormals();
-      const mesh = new T.Mesh(geo, this.mats.road);
-      mesh.receiveShadow = true;
-      group.add(mesh);
-      geoms.push(geo);
-    }
+    // bâtiments réels
+    this.scenery.buildChunk(idx, 21, B.fac, B.roof);
+    // silhouette lointaine (au-delà des données)
+    this.buildFarSkyline(ctx);
 
-    // — profils continus le long du tracé —
-    // séparateur GBA central
-    statics.push(this.ribbon(s0, len, [
-      [-0.55, 0, 0x8b8f94], [-0.45, 0.55, 0x94989d], [-0.14, 0.82, 0x9da1a6],
-      [0.14, 0.82, 0x9da1a6], [0.45, 0.55, 0x94989d], [0.55, 0, 0x8b8f94],
-    ], 10));
-    if (!bridge) {
-      // glissières métalliques extérieures des deux côtés
-      for (const side of [1, -1]) {
-        const x = ROAD_HALF - 0.5;
-        statics.push(this.ribbon(s0, len, [
-          [side * x, 0.5, 0xa9adb3], [side * (x + 0.12), 0.66, 0xb9bdc3], [side * x, 0.82, 0xa9adb3],
-        ], 10, true));
-      }
-    } else {
-      // parapets de pont + Seine
-      for (const side of [1, -1]) {
-        const x = ROAD_HALF - 0.3;
-        statics.push(this.ribbon(s0, len, [
-          [side * x, 0, 0x9a9ea3], [side * (x + 0.3), 0.6, 0xa5a9ae], [side * (x + 0.3), 1.15, 0xb0b4b9], [side * x, 1.15, 0xa5a9ae],
-        ], 10));
-      }
-      track.pointAt(s0 + len / 2, p);
-      // la Seine : bande d'eau de la largeur du fleuve, orientée selon la route
-      const wgeo = new T.PlaneGeometry(560, 150).rotateX(-Math.PI / 2);
-      wgeo.rotateY(Math.atan2(p.tx, p.tz) + Math.PI / 2);
-      wgeo.translate(p.x, p.y - 8.5, p.z);
-      const water = new T.Mesh(wgeo, this.mats.water);
-      group.add(water);
-      geoms.push(wgeo);
-      // berges/quais de part et d'autre du fleuve (le long de l'axe de la route)
-      for (const off of [-110, 110]) {
-        statics.push(colorize(T, xform(new T.BoxGeometry(560, 7, 40), {
-          x: p.x + p.tx * off, y: p.y - 5, z: p.z + p.tz * off,
-          ry: Math.atan2(p.tx, p.tz) + Math.PI / 2,
-        }), 0x8a877e));
-      }
-    }
-
-    // murs / tranchée / tunnel
-    const roadDepth = -track.zoneAt(s0).alt; // >0 si en contrebas
-    if (tunnel) {
-      this.buildTunnel(s0, len, rows, statics, group, geoms, track);
-    } else if (roadDepth > 2.2 || flags.includes('W')) {
-      // murs de soutènement / antibruit des deux côtés
-      const h = Math.max(roadDepth + 1.2, 3.6);
-      const isNoise = flags.includes('W') && roadDepth <= 2.2;
-      const colA = isNoise ? 0x7f8b7a : 0xa39a8c, colB = isNoise ? 0x93a08c : 0xb2a898;
-      for (const side of [1, -1]) {
-        const x = ROAD_HALF + 0.3;
-        statics.push(this.ribbon(s0, len, [
-          [side * x, 0, colA], [side * (x + 0.35), h * 0.6, colB], [side * (x + 0.2), h, colA],
-        ], 10));
-      }
-    }
-
-    // lampadaires doubles sur le séparateur (tous les 25 m) — pas en tunnel
-    const lampHeads = [];
-    const glowPos = [];
-    if (!tunnel) {
-      for (let d = 12; d < len; d += 25) {
-        const s = s0 + d;
-        track.pointAt(s, p);
-        const mast = xform(new T.CylinderGeometry(0.09, 0.13, 9.5, 6), { x: p.x, y: p.y + 4.75, z: p.z });
-        statics.push(colorize(T, mast, 0x51565c));
-        for (const side of [-1, 1]) {
-          const arm = xform(new T.BoxGeometry(0.08, 0.08, 2.6), { x: p.x + p.rx * side * 1.3, y: p.y + 9.3, z: p.z + p.rz * side * 1.3, ry: Math.atan2(p.rx, p.rz) });
-          statics.push(colorize(T, arm, 0x51565c));
-          const head = xform(new T.BoxGeometry(0.5, 0.12, 0.22), { x: p.x + p.rx * side * 2.6, y: p.y + 9.2, z: p.z + p.rz * side * 2.6, ry: Math.atan2(p.tx, p.tz) });
-          lampHeads.push(head);
-          glowPos.push(p.x + p.rx * side * 2.6, p.y + 9.1, p.z + p.rz * side * 2.6);
-        }
-      }
-    }
-    if (glowPos.length) {
+    this.addMesh(ctx, B.road, M.road, false, true);
+    this.addMesh(ctx, B.paint, M.paint, false, false);
+    this.addMesh(ctx, B.S, M.struct, true, true);
+    this.addMesh(ctx, B.bld, M.bld, true, true);
+    this.addMesh(ctx, B.metal, M.metal, true, false);
+    this.addMesh(ctx, B.lamp, M.lamp, false, false);
+    this.flushSigns(ctx);
+    this.addMesh(ctx, B.tlight, M.tunnelLight, false, false);
+    this.addMesh(ctx, B.water, M.water, false, true);
+    for (const [b, m] of [[B.pool, M.pool], [B.tpool, M.tpool]]) { const pm = this.addMesh(ctx, b, m, false, false); if (pm) pm.renderOrder = 2; }
+    if (glow.length) {
       const gg = new T.BufferGeometry();
-      gg.setAttribute('position', new T.Float32BufferAttribute(glowPos, 3));
-      const pts = new T.Points(gg, this.mats.lampGlow);
+      gg.setAttribute('position', new T.Float32BufferAttribute(glow, 3));
+      const pts = new T.Points(gg, M.lampGlow);
       pts.frustumCulled = false;
       group.add(pts);
       geoms.push(gg);
     }
-
-    // — sorties / échangeurs aux portes —
-    for (const porte of track.portes) {
-      const dS = wrap(porte.s - s0, track.length);
-      // pont de l'échangeur au niveau de la porte
-      if (dS < len) this.buildOverpass(porte.s, statics, group, geoms);
-      // bretelle de sortie (60 m avant la porte)
-      const dExit = wrap(porte.s - 80 - s0, track.length);
-      if (dExit < len && !tunnel) this.buildExitRamp(porte.s - 80, group, geoms, statics);
-      // panneau « sortie 400 m »
-      const dPre = wrap(porte.s - 420 - s0, track.length);
-      if (dPre < len && !tunnel) {
-        this.addSign(group, geoms, s0 + dPre, exitPanelTexture(T, porte.name, '400 m'), 4.6, 2.0, ROAD_OUTER + 2.2, 3.2);
-      }
-      const dAt = wrap(porte.s - 110 - s0, track.length);
-      if (dAt < len && !tunnel) {
-        this.addSign(group, geoms, s0 + dAt, exitPanelTexture(T, porte.name), 4.6, 1.6, ROAD_OUTER + 2.6, 3.0);
-      }
-      // cartouche BD PÉRIPHÉRIQUE + limite 50 après la porte
-      const dPost = wrap(porte.s + 160 - s0, track.length);
-      if (dPost < len && !tunnel) {
-        this.addSign(group, geoms, s0 + dPost, peripheriqueCartouche(T), 2.6, 0.6, ROAD_OUTER + 1.6, 2.4);
-        this.addSign(group, geoms, s0 + dPost, speedLimitTexture(T), 0.85, 0.85, ROAD_OUTER + 1.6, 3.4);
-      }
-    }
-
-    // — portique directionnel (~1 sur 7 segments) —
-    if (!tunnel && rand() < 0.15) {
-      const sG = s0 + 30 + rand() * 40;
-      const next = track.nextPorte(sG + 500);
-      const lines = [
-        { text: next.porte.name, arrow: 'up' },
-        { text: pick(rand, ['PARIS-CENTRE', 'BOULEVARD PÉRIPHÉRIQUE', 'AUTRES DIRECTIONS']), small: true },
-      ];
-      if (rand() < 0.5) lines.push({ text: pick(rand, ['LILLE', 'BORDEAUX · NANTES', 'LYON', 'METZ · NANCY', 'ROUEN', 'CRÉTEIL', 'AÉROPORT CDG']), badge: pick(rand, ['A1', 'A6', 'A3', 'A4', 'A13', 'A86']) },);
-      this.buildGantry(sG, gantryPanelTexture(T, lines), statics, group, geoms);
-    }
-    // — PMV —
-    for (const v of this.vms) {
-      const dV = wrap(v.s - s0, track.length);
-      if (dV < len && !tunnel) this.buildGantry(s0 + dV, v.panel.tex, statics, group, geoms, true);
-    }
-
-    // — sol urbain + immeubles + arbres hors tunnel/pont —
-    if (!tunnel && !bridge) {
-      this.buildGround(s0, len, rows, group, geoms, flags);
-      if (flags.includes('B')) this.buildBuildings(s0, len, rand, group, geoms, roadDepth);
-      if (flags.includes('T') || rand() < 0.3) this.buildTrees(s0, len, rand, group, geoms, flags.includes('T') ? 46 : 10, roadDepth);
-    }
-
-    // fusion des statiques
-    if (statics.length) {
-      const merged = mergeGeoms(T, statics);
-      const mesh = new T.Mesh(merged, this.mats.concrete);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
-      geoms.push(merged);
-      for (const s of statics) s.dispose();
-    }
-    if (lampHeads.length) {
-      const merged = mergeGeoms(T, lampHeads);
-      const mesh = new T.Mesh(merged, this.mats.lamp);
-      group.add(mesh);
-      geoms.push(merged);
-      for (const s of lampHeads) s.dispose();
-    }
-
     this.scene.add(group);
     this.chunks.set(idx, { group, geoms });
   }
 
-  // ruban extrudé le long du tracé : profil = [[x, y, couleur], …]
-  ribbon(s0, len, profile, step = 10, doubleSide = false) {
-    const T = this.T, track = this.track;
-    const p = {};
-    const rows = Math.floor(len / step) + 1;
-    const pos = [], col = [], idxA = [];
-    const c = new T.Color();
-    for (let r = 0; r < rows; r++) {
-      track.pointAt(s0 + r * step, p);
-      for (const [x, y, hex] of profile) {
-        pos.push(p.x + p.rx * x, p.y + y, p.z + p.rz * x);
-        c.setHex(hex);
-        col.push(c.r, c.g, c.b);
-      }
-    }
-    const m = profile.length;
-    for (let r = 0; r < rows - 1; r++) {
-      for (let i = 0; i < m - 1; i++) {
-        const a = r * m + i, b = a + 1, d = a + m, e = a + m + 1;
-        idxA.push(a, b, d, b, e, d);
-        if (doubleSide) idxA.push(a, d, b, b, e, d);
-      }
-    }
-    const geo = new T.BufferGeometry();
-    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('color', new T.Float32BufferAttribute(col, 3));
-    geo.setIndex(idxA);
-    geo.computeVertexNormals();
-    return geo;
+  addMesh(ctx, batch, mat, cast, receive = true) {
+    const g = batch.build(this.T);
+    if (!g) return null;
+    const mesh = new this.T.Mesh(g, mat);
+    mesh.castShadow = !!cast;
+    mesh.receiveShadow = !!receive;
+    ctx.group.add(mesh);
+    ctx.geoms.push(g);
+    return mesh;
   }
 
-  buildTunnel(s0, len, rows, statics, group, geoms, track) {
-    const T = this.T;
-    // parois + plafond (béton sombre encrassé, bandeau clair à mi-hauteur)
+  // ---------- chaussée (2 sens + bretelles) avec traces de roulement ----------
+  buildRoad(ctx) {
+    const { rows, B } = ctx;
+    const base = rgb(0xffffff);
+    // colonnes latérales (relatives au bord) avec assombrissement des bandes de roulement
+    const colsFor = (E) => {
+      const c = [[-MED - 0.05, 0.92]];
+      const n = Math.max(2, Math.round((E - CFG.INNER_EDGE) / LW));
+      c.push([CFG.INNER_EDGE - 0.2, 0.95]);
+      for (let l = 0; l < n; l++) {
+        const x0 = CFG.INNER_EDGE + l * LW;
+        c.push([x0 + 0.55, 0.9], [x0 + 0.95, 0.8], [x0 + 1.75, 0.93], [x0 + 2.55, 0.8], [x0 + 2.95, 0.9]);
+      }
+      return c;
+    };
+    const cols = colsFor(4 * LW + CFG.INNER_EDGE);
     for (const side of [1, -1]) {
-      statics.push(this.ribbon(s0, len, [
-        [side * (ROAD_HALF - 0.2), 0, 0x4e4a45], [side * (ROAD_HALF + 0.1), 1.4, 0x8f8b84], [side * (ROAD_HALF + 0.1), 2.6, 0x6e6a64], [side * (ROAD_HALF - 0.1), 5.4, 0x47433e],
-      ], 10));
-    }
-    statics.push(this.ribbon(s0, len, [
-      [-(ROAD_HALF + 0.1), 5.4, 0x3b3833], [0, 5.7, 0x413e39], [ROAD_HALF + 0.1, 5.4, 0x3b3833],
-    ], 10));
-    // rampes lumineuses au plafond
-    const lights = [];
-    const p = {};
-    for (let d = 5; d < len; d += 10) {
-      track.pointAt(s0 + d, p);
-      for (const side of [-1, 1]) {
-        lights.push(xform(new T.BoxGeometry(0.3, 0.06, 2.2), {
-          x: p.x + p.rx * side * 8, y: p.y + 5.32, z: p.z + p.rz * side * 8, ry: Math.atan2(p.tx, p.tz),
-        }));
+      // grille régulière : colonnes fixes rabattues sur le bord réel de la rangée
+      let prev = null;
+      for (const r of rows) {
+        const E = side > 0 ? r.Em : r.Lft;
+        const ids = [];
+        const pts = cols.map(([x, k]) => (x < E - 0.25 ? [x, k] : [E, 0.97]));
+        pts.push([E, 0.97], [E + (r.viaduct ? 1.0 : 1.3), 0.86]);
+        for (const [x, k] of pts) {
+          const lat = side * x;
+          const p = P(r, lat, r.h);
+          ids.push(B.road.v(p[0], p[1], p[2], lat / 8, r.s / 8, shade(base, k)));
+        }
+        if (prev) for (let k = 0; k < ids.length - 1; k++) {
+          if (side > 0) B.road.quad(prev[k], prev[k + 1], ids[k + 1], ids[k]);
+          else B.road.quad(prev[k + 1], prev[k], ids[k], ids[k + 1]);
+        }
+        prev = ids;
       }
     }
-    const lg = mergeGeoms(T, lights);
-    const lm = new T.Mesh(lg, this.mats.tunnelLight);
-    group.add(lm);
-    geoms.push(lg);
-    for (const l of lights) l.dispose();
-    // portail d'entrée/sortie
-    for (const t of track.tunnels) {
-      for (const end of [t.s0, t.s1]) {
-        const d = wrap(end - s0, track.length);
-        if (d < len) {
-          track.pointAt(end, p);
-          const face = xform(new T.BoxGeometry(ROAD_HALF * 2 + 4, 4, 0.8), {
-            x: p.x, y: p.y + 7.4, z: p.z, ry: Math.atan2(p.tx, p.tz),
-          });
-          statics.push(colorize(T, face, 0x8a867f));
-          for (const side of [-1, 1]) {
-            const wing = xform(new T.BoxGeometry(0.8, 9.5, 6), {
-              x: p.x + p.rx * side * (ROAD_HALF + 0.6), y: p.y + 4.7, z: p.z + p.rz * side * (ROAD_HALF + 0.6), ry: Math.atan2(p.tx, p.tz),
-            });
-            statics.push(colorize(T, wing, 0x938f88));
+    // bretelles (côté droit)
+    for (const slot of [0, 1]) {
+      band(B.road, rows,
+        (r) => { const o = r.ramps[slot]; return o ? [r.Em + o.gap - (o.parallel ? 0.3 : 0.6), o.hr, shade(base, 0.92)] : null; },
+        (r) => { const o = r.ramps[slot]; return o ? [r.Em + o.gap + o.w + 0.6, o.hr, shade(base, 0.86)] : null; },
+        base, 8, 8);
+    }
+    // patch de raccord sous les zones parallèles (évite les jours entre chaussée et voie)
+  }
+
+  // ---------- marquage au sol ----------
+  paintLine(B, s0, s1, lat0, lat1, yOff = 0.015, hFn = null) {
+    const t = this.track, p = this._p;
+    const n = Math.max(1, Math.ceil((s1 - s0) / 2.5));
+    let prev = null;
+    const white = [1, 1, 1];
+    for (let i = 0; i <= n; i++) {
+      const s = s0 + ((s1 - s0) * i) / n;
+      t.pointAt(s, p);
+      const la = typeof lat0 === 'function' ? lat0(s) : lat0;
+      const lb = typeof lat1 === 'function' ? lat1(s) : lat1;
+      const y = (hFn ? hFn(s) : p.y) + yOff;
+      const a = B.v(p.x + p.rx * la, y, p.z + p.rz * la, 0, s / 3, white);
+      const b = B.v(p.x + p.rx * lb, y, p.z + p.rz * lb, 1, s / 3, white);
+      if (prev) B.quad(prev[0], prev[1], b, a);
+      prev = [a, b];
+    }
+  }
+
+  buildPaint(ctx) {
+    const { s0, len, rows, B } = ctx;
+    const t = this.track, P2 = B.paint;
+    const s1 = s0 + len;
+    for (const side of [1, -1]) {
+      const sg = side;
+      // ligne de rive gauche (côté DBA), continue
+      this.paintLine(P2, s0, s1, sg * (CFG.INNER_EDGE - 0.1), sg * (CFG.INNER_EDGE + 0.1));
+      // lignes de séparation de voies : tirets 3 m / 10 m (T1)
+      for (let k = 1; k < 4; k++) {
+        const lat = CFG.INNER_EDGE + LW * k;
+        for (let d = Math.ceil(s0 / 13) * 13; d < s1; d += 13) {
+          const de = Math.min(d + 3, s1);
+          if (t.laneWidthAt(d, (q) => t.lanesAt(q)) < k + 0.55) continue;
+          this.paintLine(P2, d, de, sg * (lat - 0.075), sg * (lat + 0.075));
+        }
+      }
+      // ligne de rive droite : continue, ou tiretée épaisse (T3) le long d'une voie parallèle
+      const edge = (s) => t.mainEdgeAt(s);
+      const hasPar = (s) => side > 0 && this.ramps.parallelWidth(s) > 0.5;
+      for (let d = s0; d < s1; d += 4.5) {
+        const de = Math.min(d + 4.5, s1);
+        if (hasPar(d + 1)) {
+          this.paintLine(P2, d, Math.min(d + 3, s1), (s) => sg * (edge(s) - 0.05), (s) => sg * (edge(s) + 0.3));
+        } else {
+          this.paintLine(P2, d, de, (s) => sg * (edge(s) - 0.2), (s) => sg * edge(s));
+        }
+      }
+      // losanges de la voie réservée (voie de gauche, sens intérieur et extérieur)
+      for (let d = Math.ceil(s0 / 150) * 150; d < s1 - 5; d += 150) {
+        const c = CFG.INNER_EDGE + LW / 2;
+        const half = (s) => 0.55 * (1 - Math.abs((s - d - 2.5) / 2.5));
+        this.paintLine(P2, d, d + 5, (s) => sg * (c - half(s) - 0.08), (s) => sg * (c - half(s) + 0.08));
+        this.paintLine(P2, d, d + 5, (s) => sg * (c + half(s) - 0.08), (s) => sg * (c + half(s) + 0.08));
+      }
+    }
+    // bretelles : rives + zébras de musoir
+    for (const r of rows) r._k = 0;
+    for (let i = 0; i < rows.length - 1; i++) {
+      const a = rows[i], b = rows[i + 1];
+      for (let slot = 0; slot < 2; slot++) {
+        const oa = a.ramps[slot], ob = b.ramps[slot];
+        if (!oa || !ob || oa.r !== ob.r) continue;
+        const hf = (s) => lerp(oa.hr, ob.hr, (s - a.s) / (b.s - a.s));
+        const outerA = (s) => lerp(a.Em + oa.gap + oa.w, b.Em + ob.gap + ob.w, (s - a.s) / (b.s - a.s));
+        this.paintLine(P2, a.s, b.s, (s) => outerA(s) - 0.2, (s) => outerA(s), 0.015, hf);
+        if (!oa.parallel && oa.gap > 0.35) {
+          const innerA = (s) => lerp(a.Em + oa.gap, b.Em + ob.gap, (s - a.s) / (b.s - a.s));
+          this.paintLine(P2, a.s, b.s, (s) => innerA(s), (s) => innerA(s) + 0.2, 0.015, hf);
+          // zébras (bandes obliques) dans le musoir tant que l'écart < 4 m
+          if (oa.gap < 4.2 && Math.abs(oa.hr - a.h) < 0.4) {
+            const midL = a.Em + oa.gap * 0.5;
+            this.paintLine(P2, a.s + 1, a.s + 2.2, midL - oa.gap * 0.45, midL + oa.gap * 0.45, 0.016);
           }
         }
       }
     }
   }
 
-  buildOverpass(s, statics, group, geoms) {
-    const T = this.T, track = this.track;
-    const p = {};
-    track.pointAt(s, p);
-    const ry = Math.atan2(p.rx, p.rz); // le pont croise la route
-    const deckY = p.y + 6.2;
-    statics.push(colorize(T, xform(new T.BoxGeometry(12, 1.1, ROAD_HALF * 2 + 26), { x: p.x, y: deckY, z: p.z, ry }), 0x9a948b));
-    statics.push(colorize(T, xform(new T.BoxGeometry(12.4, 0.9, 1), { x: p.x + p.tx * 0, y: deckY + 0.9, z: p.z, ry }), 0xa6a098));
-    for (const side of [-1, 1]) {
-      statics.push(colorize(T, xform(new T.BoxGeometry(10, 6.2, 1.6), {
-        x: p.x + p.rx * side * (ROAD_HALF + 5), y: p.y + 3.1, z: p.z + p.rz * side * (ROAD_HALF + 5), ry,
-      }), 0x8f8b84));
+  // ---------- séparateur central : DBA + caniveau ----------
+  buildMedian(ctx) {
+    const { rows, B } = ctx;
+    const c = rgb(0xd8d6cf), cd = rgb(0xb8b6ae);
+    const prof = [[-MED, 0, cd], [-0.26, 0.08, c], [-0.1, 0.27, c], [-0.085, 0.82, c], [0.085, 0.82, c], [0.1, 0.27, c], [0.26, 0.08, c], [MED, 0, cd]];
+    for (let k = 0; k < prof.length - 1; k++) {
+      const a = prof[k], b = prof[k + 1];
+      band(B.gba, rows, (r) => [a[0], r.h + a[1], a[2]], (r) => [b[0], r.h + b[1], b[2]], c, 4, 1);
     }
   }
 
-  buildExitRamp(sExit, group, geoms, statics) {
-    const T = this.T, track = this.track;
-    const p = {};
-    const pos = [], uv = [], idxA = [];
-    const L = 70, rowsr = 8;
-    for (let r = 0; r <= rowsr; r++) {
-      const t = r / rowsr;
-      const s = sExit + t * L;
-      track.pointAt(s, p);
-      const spread = 4.5 * (t < 0.5 ? t * 2 : 1) * (t > 0.85 ? (1 - t) / 0.15 : 1);
-      const x0 = ROAD_OUTER, x1 = ROAD_OUTER + Math.max(spread, 0.01);
-      pos.push(p.x + p.rx * x0, p.y + 0.02, p.z + p.rz * x0);
-      pos.push(p.x + p.rx * x1, p.y + 0.02, p.z + p.rz * x1);
-      uv.push(0.62, s / 10, 0.66, s / 10); // bande d'asphalte utilisée comme texture
+  // ---------- un côté (sens intérieur à droite : side=+1) ----------
+  buildSide(ctx, side) {
+    const { rows, B, rand } = ctx;
+    const t = this.track;
+    const E = (r) => (side > 0 ? r.R : r.Lft);
+    const H = (r) => (side > 0 ? r.RH : r.LH);
+    const L = (v) => side * v;
+    const trench = (r) => H(r) < -0.35 || r.cover;
+    const via = (r) => r.viaduct && H(r) > 2;
+    const emb = (r) => !trench(r) && !via(r) && H(r) > 0.35;
+    const flat = (r) => !trench(r) && !via(r) && !emb(r);
+    const gbaC = rgb(0xd2d0c8);
+
+    // 1. dispositif de retenue : DBA simple en tranchée/couverture, glissière ailleurs
+    const gbaProf = [[0.0, 0.0], [0.05, 0.08], [0.2, 0.25], [0.21, 0.82], [0.4, 0.82], [0.4, 0]];
+    for (let k = 0; k < gbaProf.length - 1; k++) {
+      const a = gbaProf[k], b = gbaProf[k + 1];
+      band(B.gba, rows, (r) => (trench(r) ? [L(E(r) + 0.55 + a[0]), H(r) + a[1], gbaC] : null),
+        (r) => (trench(r) ? [L(E(r) + 0.55 + b[0]), H(r) + b[1], gbaC] : null), gbaC, 4, 1);
     }
-    for (let r = 0; r < rowsr; r++) {
-      const a = r * 2;
-      idxA.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    // glissière métallique (lisse en W + poteaux)
+    const steel = rgb(0xaeb3b8), steelD = rgb(0x7d8288);
+    const gl = (r) => (flat(r) || emb(r));
+    band(B.metal, rows, (r) => (gl(r) ? [L(E(r) + 0.75), H(r) + 0.48, steelD] : null), (r) => (gl(r) ? [L(E(r) + 0.7), H(r) + 0.6, steel] : null), steel, 4, 1);
+    band(B.metal, rows, (r) => (gl(r) ? [L(E(r) + 0.7), H(r) + 0.6, steel] : null), (r) => (gl(r) ? [L(E(r) + 0.75), H(r) + 0.76, steelD] : null), steel, 4, 1);
+    for (const r of rows) {
+      if (!gl(r)) continue;
+      boxAt(B.metal, r, L(E(r) + 0.85), H(r), 0.12, 0.72, 0.12, steelD);
     }
-    const geo = new T.BufferGeometry();
-    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
-    geo.setIndex(idxA);
-    geo.computeVertexNormals();
-    group.add(new T.Mesh(geo, this.mats.road));
-    geoms.push(geo);
+
+    // 2. mur de tranchée (béton tagué) jusqu'au niveau de la ville + couronnement
+    const wallX = (r) => E(r) + 1.25;
+    const topY = (r) => Math.max(H(r) + 0.95, 1.0 * smoothstep(0, -1.6, H(r)));
+    const wallC = rgb(0xffffff);
+    band(B.wall, rows, (r) => (trench(r) ? [L(wallX(r)), H(r), wallC] : null), (r) => (trench(r) ? [L(wallX(r)), topY(r), wallC] : null), wallC, 11, 7);
+    // couronnement béton clair
+    band(B.gba, rows, (r) => (trench(r) && !r.cover ? [L(wallX(r)), topY(r)] : null), (r) => (trench(r) && !r.cover ? [L(wallX(r) + 0.45), topY(r)] : null), gbaC, 4, 1);
+    band(B.gba, rows, (r) => (trench(r) && !r.cover ? [L(wallX(r) + 0.45), topY(r)] : null), (r) => (trench(r) && !r.cover ? [L(wallX(r) + 0.45), Math.min(0, topY(r))] : null), gbaC, 4, 1);
+    // lierre retombant en haut de certains murs
+    const ivyOn = (r) => trench(r) && !r.cover && H(r) < -3 && ((Math.floor(r.s / 60) * 7 + (side > 0 ? 3 : 0)) % 5 < 2);
+    band(B.ivy, rows, (r) => (ivyOn(r) ? [L(wallX(r) - 0.06), topY(r) - 0.1] : null), (r) => (ivyOn(r) ? [L(wallX(r) - 0.08), topY(r) - 1.6 - ((r.s * 13.7) % 1.3)] : null), rgb(0xffffff), 3, 3);
+    // clôture grillagée en haut de tranchée
+    const fenceOn = (r) => trench(r) && !r.cover && H(r) < -2;
+    band(B.metal, rows, (r) => (fenceOn(r) ? [L(wallX(r) + 0.6), 0, rgb(0x4d5a52)] : null), (r) => (fenceOn(r) ? [L(wallX(r) + 0.6), 1.9, rgb(0x4d5a52)] : null), rgb(0x4d5a52), 3, 1);
+
+    // 3. viaduc : parapet béton + garde-corps, corniche, écran transparent éventuel
+    const parX = (r) => E(r) + 0.6;
+    band(B.gba, rows, (r) => (via(r) ? [L(parX(r)), H(r)] : null), (r) => (via(r) ? [L(parX(r)), H(r) + 0.95] : null), gbaC, 4, 1);
+    band(B.gba, rows, (r) => (via(r) ? [L(parX(r)), H(r) + 0.95] : null), (r) => (via(r) ? [L(parX(r) + 0.45), H(r) + 0.95] : null), gbaC, 4, 1);
+    band(B.gba, rows, (r) => (via(r) ? [L(parX(r) + 0.45), H(r) + 0.95] : null), (r) => (via(r) ? [L(parX(r) + 0.45), H(r) - 1.7] : null), rgb(0xc6c3ba), 4, 2);
+    band(B.metal, rows, (r) => (via(r) ? [L(parX(r) + 0.25), H(r) + 1.15, steel] : null), (r) => (via(r) ? [L(parX(r) + 0.25), H(r) + 1.22, steel] : null), steel, 4, 1);
+
+    // 4. talus enherbé
+    band(B.grass, rows, (r) => (emb(r) ? [L(E(r) + 1.0), H(r)] : null), (r) => (emb(r) ? [L(E(r) + 1.0 + H(r) * 1.7), 0.02] : null), rgb(0xffffff), 6, 6);
+
+    // 5. écrans antibruit (tronçons de 250 m, selon la densité bâtie riveraine)
+    const noiseOn = (r) => {
+      if (trench(r) || r.seine) return false;
+      const blk = Math.floor(r.s / 250);
+      const k = (blk * 2654435761 + (side > 0 ? 17 : 91)) >>> 0;
+      return (k % 100) < (via(r) ? 45 : 60);
+    };
+    const nwX = (r) => (via(r) ? parX(r) + 0.2 : E(r) + 1.5);
+    const nwY0 = (r) => (via(r) ? H(r) + 0.95 : H(r));
+    const nwH = (r) => (via(r) ? 2.6 : 3.6);
+    band(B.noise, rows, (r) => (noiseOn(r) ? [L(nwX(r)), nwY0(r)] : null), (r) => (noiseOn(r) ? [L(nwX(r)), nwY0(r) + nwH(r)] : null), rgb(0xffffff), 4, 4);
+
+    // 6. sol de la ville : grille colorée par l'occupation du sol réelle
+    const offs = [0, 3, 8, 16, 28, 45, 70, 105, 150, 210, 290];
+    const lu = this.scenery.landuse;
+    const LUC = {
+      wood: 0x4b6a3a, park: 0x6f9a4f, pitch: 0x7fae4a, cemetery: 0x8d9a7e, rail: 0x7d6e5f,
+      urban: 0x8f8c86, water: 0x2f4552, null: 0x9a978f,
+    };
+    let prev = null;
+    for (const r of rows) {
+      let x0, y0;
+      if (trench(r)) { x0 = wallX(r) + 0.45; y0 = Math.min(0, topY(r)); }
+      else if (via(r)) { x0 = 0; y0 = 0; }
+      else if (emb(r)) { x0 = E(r) + 1.0 + H(r) * 1.7; y0 = 0.02; }
+      else { x0 = E(r) + 1.05; y0 = Math.min(H(r), 0.02); }
+      const ids = [];
+      for (let k = 0; k < offs.length; k++) {
+        const lat = L(x0 + offs[k]);
+        const p = P(r, lat, y0);
+        let kind = k === 0 ? null : lu.at(p[0], p[2]);
+        let y = k === 0 ? y0 : 0;
+        if (kind === 'water') y = -3.6;
+        const col = rgb(LUC[kind] ?? LUC.null);
+        const jitter = 0.9 + ((Math.sin(p[0] * 0.13) + Math.cos(p[2] * 0.11)) * 0.05);
+        ids.push(B.ground.v(p[0], y, p[2], p[0] / 12, p[2] / 12, shade(col, jitter)));
+      }
+      if (prev) for (let k = 0; k < ids.length - 1; k++) B.ground.quad(prev[k], prev[k + 1], ids[k + 1], ids[k]);
+      prev = ids;
+    }
   }
 
-  buildGantry(s, tex, statics, group, geoms, isVMS = false) {
-    const T = this.T, track = this.track;
-    const p = {};
-    track.pointAt(s, p);
-    const ry = Math.atan2(p.tx, p.tz);
-    for (const side of [-1, 1]) {
-      statics.push(colorize(T, xform(new T.BoxGeometry(0.35, 6.4, 0.35), {
-        x: p.x + p.rx * side * (ROAD_HALF - 1), y: p.y + 3.2, z: p.z + p.rz * side * (ROAD_HALF - 1),
-      }), 0x6a6f75));
+  // ---------- bretelles : séparations et murs entre chaussée et bretelle ----------
+  buildRampStructures(ctx) {
+    const { rows, B } = ctx;
+    const gbaC = rgb(0xd2d0c8);
+    for (let slot = 0; slot < 2; slot++) {
+      const o = (r) => r.ramps[slot];
+      const sep = (r) => { const q = o(r); return q && !q.parallel && q.gap > 1.3 ? q : null; };
+      // muret / mur de soutènement entre la chaussée principale et la bretelle
+      band(B.gba, rows,
+        (r) => { const q = sep(r); return q ? [r.Em + q.gap * 0.5, Math.min(r.h, q.hr)] : null; },
+        (r) => { const q = sep(r); return q ? [r.Em + q.gap * 0.5, Math.max(r.h, q.hr) + 0.85] : null; },
+        gbaC, 4, 2);
+      // fond de l'interstice côté bas (accotement jusqu'au mur)
+      band(B.road, rows,
+        (r) => { const q = sep(r); if (!q) return null; return q.hr >= r.h ? [r.Em + 0.5, r.h] : [r.Em + q.gap * 0.5, q.hr]; },
+        (r) => { const q = sep(r); if (!q) return null; return q.hr >= r.h ? [r.Em + q.gap * 0.5, r.h] : [r.Em + q.gap - 0.5, q.hr]; },
+        rgb(0xb8b8b8), 8, 8);
+      // remblai/dalle couvrant l'interstice du côté le plus haut
+      band(B.grass, rows,
+        (r) => { const q = sep(r); return q && Math.abs(q.hr - r.h) > 0.6 ? [q.hr > r.h ? r.Em + q.gap * 0.5 : r.Em + 0.9, Math.max(q.hr, r.h)] : null; },
+        (r) => { const q = sep(r); return q && Math.abs(q.hr - r.h) > 0.6 ? [q.hr > r.h ? r.Em + q.gap - 0.4 : r.Em + q.gap * 0.5, Math.max(q.hr, r.h)] : null; },
+        rgb(0xffffff), 6, 6);
+      // mur de la tranchée principale masqué par la bretelle : mur entre chaussée et bretelle haute
+      band(B.wall, rows,
+        (r) => { const q = sep(r); return q && q.hr - r.h > 0.6 ? [r.Em + q.gap * 0.5 - 0.02, r.h] : null; },
+        (r) => { const q = sep(r); return q && q.hr - r.h > 0.6 ? [r.Em + q.gap * 0.5 - 0.02, q.hr] : null; },
+        rgb(0xffffff), 6, 6);
     }
-    statics.push(colorize(T, xform(new T.BoxGeometry(0.3, 0.5, ROAD_HALF * 2 - 2), { x: p.x, y: p.y + 6.4, z: p.z, ry: ry + Math.PI / 2 }), 0x6a6f75));
-    const panel = makePanel(T, tex, isVMS ? 6 : 7.5, isVMS ? 1.9 : 2.6);
-    // au-dessus du sens intérieur (côté droit du séparateur)
-    panel.position.set(p.x + p.rx * 8, p.y + 5.2, p.z + p.rz * 8);
-    panel.rotation.y = ry + Math.PI;
-    group.add(panel);
-  }
-
-  addSign(group, geoms, s, tex, w, h, lateral, height) {
-    const T = this.T, track = this.track;
-    const p = {};
-    track.pointAt(s, p);
-    const panel = makePanel(T, tex, w, h);
-    panel.position.set(p.x + p.rx * lateral, p.y + height, p.z + p.rz * lateral);
-    panel.rotation.y = Math.atan2(p.tx, p.tz) + Math.PI;
-    group.add(panel);
-    // mât
-    const pole = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, height, 5), this.mats.concrete);
-    colorize(T, pole.geometry, 0x7a7f85);
-    pole.position.set(p.x + p.rx * lateral, p.y + height / 2, p.z + p.rz * lateral);
-    group.add(pole);
-    geoms.push(pole.geometry);
-  }
-
-  buildGround(s0, len, rows, group, geoms, flags) {
-    const T = this.T, track = this.track;
-    const p = {};
-    const pos = [], col = [], idxA = [];
-    const c = new T.Color(flags.includes('T') ? 0x51663f : 0x6a6d68);
-    const c2 = new T.Color(flags.includes('T') ? 0x47593a : 0x5e615c);
-    for (let r = 0; r < rows; r++) {
-      track.pointAt(s0 + r * 10, p);
-      const gy = GROUND_Y + 0.15;
-      for (const [x, cc] of [[-260, c2], [-ROAD_HALF - 1.5, c], [ROAD_HALF + 1.5, c], [260, c2]]) {
-        // colonnes proches : au niveau de la route ; lointaines : niveau ville
-        pos.push(p.x + p.rx * x, Math.abs(x) > ROAD_HALF + 3 ? gy : p.y + 0.12, p.z + p.rz * x);
-        col.push(cc.r, cc.g, cc.b);
+    // musoir : atténuateur de choc jaune/noir au point de divergence
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      for (const q of r.ramps) {
+        if (q.parallel || q.gap < 1.3 || q.gap > 2.2 || q._n) continue;
+        const prevR = rows[i - 1];
+        if (prevR && prevR.ramps.some((x) => x.r === q.r && x.gap >= 1.3)) continue;
+        q._n = true;
+        boxAt(B.metal, r, r.Em + q.gap * 0.5, Math.min(r.h, q.hr), 0.9, 0.9, 2.2, rgb(0xf2c200));
+        boxAt(B.metal, r, r.Em + q.gap * 0.5, Math.min(r.h, q.hr) + 0.9, 0.92, 0.12, 2.3, rgb(0x1a1a1a));
       }
     }
-    for (let r = 0; r < rows - 1; r++) {
-      for (const off of [0, 2]) {
-        const a = r * 4 + off;
-        idxA.push(a, a + 1, a + 4, a + 1, a + 5, a + 4);
-      }
-    }
-    const geo = new T.BufferGeometry();
-    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('color', new T.Float32BufferAttribute(col, 3));
-    geo.setIndex(idxA);
-    geo.computeVertexNormals();
-    const mesh = new T.Mesh(geo, this.mats.ground);
-    mesh.receiveShadow = true;
-    group.add(mesh);
-    geoms.push(geo);
   }
 
-  buildBuildings(s0, len, rand, group, geoms, roadDepth) {
-    const T = this.T, track = this.track;
-    const p = {};
-    const byVariant = [[], [], []];
-    const parisTints = [0xefe6d4, 0xf4ecdd, 0xe4dbc9, 0xdcd2bf];
-    const outTints = [0xc3c9d0, 0xb4bbc3, 0xd0cabf, 0xa8afb7, 0xd8d4cc];
-    const n = 2 + (rand() * 4 | 0);
-    for (let i = 0; i < n; i++) {
-      const s = s0 + rand() * len;
-      track.pointAt(s, p);
-      const side = rand() < 0.45 ? 1 : -1; // 1 = côté Paris (droite)
-      const dist = 30 + rand() * 45;
-      const w = 14 + rand() * 22, d = 12 + rand() * 16;
-      const tall = side === -1 && rand() < 0.28;
-      const h = side === 1 ? 15 + rand() * 12 : tall ? 30 + rand() * 26 : 10 + rand() * 16;
-      // variante : Paris = haussmannien ; banlieue = bureaux (tours) ou barres
-      const variant = side === 1 ? (rand() < 0.8 ? 0 : 2) : tall ? 1 : (rand() < 0.4 ? 1 : 2);
-      const tint = side === 1 ? pick(rand, parisTints) : pick(rand, outTints);
-      const bx = p.x + p.rx * side * dist, bz = p.z + p.rz * side * dist;
-      const geo = new T.BoxGeometry(w, h, d);
-      // UV façades à l'échelle (étages ~3,1 m) ; toits sur le texel zinc
-      const uvA = geo.getAttribute('uv');
-      for (let v = 0; v < uvA.count; v++) {
-        const face = Math.floor(v / 4);
-        if (face === 2 || face === 3) { uvA.setXY(v, 0.984, 0.984); continue; }
-        const du = (face < 2 ? d : w) / 3.1, dv = h / 3.1;
-        uvA.setXY(v, uvA.getX(v) * du, uvA.getY(v) * dv);
-      }
-      xform(geo, { x: bx, y: GROUND_Y + h / 2, z: bz, ry: rand() * Math.PI });
-      colorize(T, geo, tint);
-      byVariant[variant].push(geo);
+  // ---------- couvertures (porte, bois) : plafond, parois, têtes ----------
+  buildCovers(ctx) {
+    const { rows, B, s0, len } = ctx;
+    const t = this.track;
+    const lightC = rgb(0xffffff);
+    const ceilC = shade(rgb(0x6a6660), 1.3);
+    const cov = (r) => r.cover;
+    // plafond (béton sombre encrassé)
+    band(B.gba, rows, (r) => (cov(r) ? [-(r.Lft + 1.25), r.h + CEIL] : null), (r) => (cov(r) ? [r.R + 1.25, r.h + CEIL] : null), ceilC, 4, 4);
+    // dalle supérieure (place / boulevard de la porte, niveau ville)
+    band(B.ground, rows, (r) => (cov(r) ? [-(r.Lft + 1.8), 0.08] : null), (r) => (cov(r) ? [r.R + 1.8, 0.08] : null), rgb(0x8a877f), 10, 10);
+    // revêtement clair des parois (bandeau à hauteur des yeux)
+    for (const side of [1, -1]) {
+      const E = (r) => (side > 0 ? r.R : r.Lft);
+      band(B.gba, rows, (r) => (cov(r) ? [side * (E(r) + 1.2), r.h + 0.9] : null), (r) => (cov(r) ? [side * (E(r) + 1.2), r.h + 3.4] : null), shade(rgb(0xf4efe4), 1.9), 3, 2);
     }
-    byVariant.forEach((list, vi) => {
-      if (!list.length) return;
-      const merged = mergeGeoms(T, list);
-      const mesh = new T.Mesh(merged, this.mats.buildings[vi]);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
-      geoms.push(merged);
-      for (const gg of list) gg.dispose();
-    });
+    // rampes lumineuses + piles centrales + signaux d'affectation
+    const p = this._p;
+    for (let d = Math.ceil(s0 / 6) * 6; d < s0 + len; d += 6) {
+      if (!t.coverAt(d)) continue;
+      t.pointAt(d, p);
+      const r = { x: p.x, z: p.z, rx: p.rx, rz: p.rz, tx: p.tx, tz: p.tz, h: p.y, s: d };
+      for (const lat of [-6.2, -2.4, 2.4, 6.2]) boxAt(B.tlight, r, lat, p.y + CEIL - 0.12, 0.35, 0.08, 3.6, lightC);
+      if (Math.round(d) % 12 < 6) for (const lat of [-6.5, 6.5]) this.groundQuad(B.tpool, r, lat, p.y + 0.04, 13, 13);
+      if (Math.round(d) % 12 < 6) boxAt(B.gba, r, 0, p.y, 0.5, CEIL, 0.5, rgb(0xcfcbc2)); // poteaux sur TPC
+      if (Math.round(d) % 120 < 6) {
+        for (let l = 0; l < t.lanesAt(d); l++) {
+          for (const side of [1, -1]) this.addSign(ctx, d, side * (CFG.INNER_EDGE + LW * (l + 0.5)), p.y + CEIL - 0.75, laneSignalTexture(this.T, true), 0.62, 0.62, side < 0);
+        }
+      }
+    }
+    // têtes de couverture : façade béton + corniche
+    for (const c of t.covers) {
+      for (const end of [c.s0, c.s1]) {
+        const d = wrap(end - s0, t.length);
+        if (d >= len) continue;
+        t.pointAt(end, p);
+        const r = { x: p.x, z: p.z, rx: p.rx, rz: p.rz, tx: p.tx, tz: p.tz, h: p.y, s: end };
+        const E = t.edgeAt(end) + 2.5;
+        boxAt(B.wall, r, 0, p.y + CEIL, E * 2 + 2, Math.max(0.6, 1.1 - p.y - CEIL + 0.2), 0.8, rgb(0xffffff), 3);
+        boxAt(B.gba, r, 0, Math.max(p.y + CEIL + 0.4, 0.1), E * 2 + 2.4, 1.1, 0.5, rgb(0xd0cdc5));
+      }
+    }
   }
 
-  buildTrees(s0, len, rand, group, geoms, count, roadDepth) {
-    const T = this.T, track = this.track;
-    if (!this._treeGeo) {
-      this._treeTrunk = new T.CylinderGeometry(0.14, 0.2, 2.4, 5);
-      this._treeGeo = new T.IcosahedronGeometry(1.7, 1);
+  // ---------- dessous des viaducs : tablier + piles ----------
+  buildViaductUnderside(ctx) {
+    const { rows, B } = ctx;
+    const via = (r) => r.viaduct;
+    band(B.gba, rows, (r) => (via(r) ? [-(r.Lft + 1.05), r.h - 1.7] : null), (r) => (via(r) ? [r.R + 1.05, r.h - 1.7] : null), rgb(0x8f8c85), 4, 4);
+    for (const r of rows) {
+      if (!via(r) || Math.round(r.s) % 30 >= ROW) continue;
+      if (r.h - 1.7 < 1.2) continue;
+      for (const lat of [-(r.Lft * 0.55), r.R * 0.55]) boxAt(B.gba, r, lat, 0, 1.4, r.h - 1.7, 3.2, rgb(0xbdb9b0), 2);
+      boxAt(B.gba, r, 0, r.h - 2.6, r.Lft + r.R, 0.9, 2.4, rgb(0xaeaaa1), 2); // chevêtre
     }
-    const p = {};
-    const trunks = new T.InstancedMesh(this._treeTrunk, this.mats.trunk, count);
-    const crowns = new T.InstancedMesh(this._treeGeo, this.mats.canopy, count);
-    const m4 = new T.Matrix4();
-    const q = new T.Quaternion();
-    const sc = new T.Vector3();
-    const v = new T.Vector3();
-    const col = new T.Color();
-    for (let i = 0; i < count; i++) {
-      const s = s0 + rand() * len;
-      track.pointAt(s, p);
-      const side = rand() < 0.5 ? 1 : -1;
-      const dist = ROAD_HALF + 6 + rand() * 60;
-      v.set(p.x + p.rx * side * dist, GROUND_Y, p.z + p.rz * side * dist);
-      const h = 0.8 + rand() * 0.9;
-      m4.compose(v.clone().setY(GROUND_Y + 1.2 * h), q, sc.set(h, h, h));
+  }
+
+  // ---------- éclairage : candélabres doubles sur le séparateur ----------
+  buildLighting(ctx) {
+    const { s0, len, B, glow } = ctx;
+    const t = this.track, p = this._p;
+    const mastC = rgb(0x7b8086);
+    for (let d = Math.ceil(s0 / 34) * 34 + 7; d < s0 + len; d += 34) {
+      if (t.coverAt(d)) continue;
+      t.pointAt(d, p);
+      const r = { x: p.x, z: p.z, rx: p.rx, rz: p.rz, tx: p.tx, tz: p.tz, h: p.y, s: d };
+      cylinder(B.metal, p.x, p.y + 0.82, p.z, 0.13, 0.08, 11.2, 7, mastC);
+      for (const side of [-1, 1]) {
+        // crosse inclinée
+        boxAt(B.metal, r, side * 1.25, p.y + 11.6, 2.5, 0.09, 0.09, mastC);
+        boxAt(B.lamp, r, side * 2.55, p.y + 11.45, 0.75, 0.16, 0.36, [1, 1, 1]);
+        glow.push(p.x + p.rx * side * 2.55, p.y + 11.3, p.z + p.rz * side * 2.55);
+        this.groundQuad(B.pool, r, side * 6.5, p.y + 0.04, 15, 26);
+      }
+    }
+  }
+
+  // quad horizontal (halo lumineux au sol) centré sur (lat), w = largeur, l = longueur
+  groundQuad(B, r, lat, y, w, l) {
+    const c = [1, 1, 1], cx = r.x + r.rx * lat, cz = r.z + r.rz * lat;
+    const ax = r.rx * w / 2, az = r.rz * w / 2, tx = r.tx * l / 2, tz = r.tz * l / 2;
+    const a = B.v(cx - ax - tx, y, cz - az - tz, 0, 0, c), b = B.v(cx + ax - tx, y, cz + az - tz, 1, 0, c);
+    const d = B.v(cx + ax + tx, y, cz + az + tz, 1, 1, c), e = B.v(cx - ax + tx, y, cz - az + tz, 0, 1, c);
+    B.quad(a, b, d, e);
+  }
+
+  // ---------- eau (Seine, canaux) ----------
+  buildWater(ctx) {
+    const { rows, B } = ctx;
+    const mid = rows[(rows.length / 2) | 0];
+    for (const l of this.scenery.landuse.lines) {
+      for (let i = 0; i < l.pts.length - 1; i++) {
+        const [ax, az] = l.pts[i], [bx, bz] = l.pts[i + 1];
+        const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1;
+        const tt = clamp(((mid.x - ax) * dx + (mid.z - az) * dz) / L2, 0, 1);
+        if (Math.hypot(ax + dx * tt - mid.x, az + dz * tt - mid.z) > 260) continue;
+        const Ls = Math.sqrt(L2), nx = -dz / Ls, nz = dx / Ls, w = l.w / 2 + 6;
+        const c = [1, 1, 1];
+        const q = [B.water.v(ax + nx * w, -3.0, az + nz * w, 0, 0, c), B.water.v(bx + nx * w, -3.0, bz + nz * w, 1, 0, c), B.water.v(bx - nx * w, -3.0, bz - nz * w, 1, 1, c), B.water.v(ax - nx * w, -3.0, az - nz * w, 0, 1, c)];
+        B.water.quad(q[0], q[1], q[2], q[3]);
+        // quais
+        for (const sgn of [1, -1]) {
+          const ww = l.w / 2;
+          const a0 = [ax + nx * ww * sgn, az + nz * ww * sgn], b0 = [bx + nx * ww * sgn, bz + nz * ww * sgn];
+          const qc = rgb(0xb8ad98);
+          B.gba.quad(B.gba.v(a0[0], -3.2, a0[1], 0, 0, qc), B.gba.v(b0[0], -3.2, b0[1], Ls / 4, 0, qc), B.gba.v(b0[0], 0.05, b0[1], Ls / 4, 1, qc), B.gba.v(a0[0], 0.05, a0[1], 0, 1, qc));
+        }
+      }
+    }
+  }
+
+  // ---------- arbres (instanciés) : bois, parcs, hauts de talus ----------
+  buildTrees(ctx) {
+    const { rows, rand, group } = ctx;
+    const T = this.T, t = this.track, lu = this.scenery.landuse;
+    if (!this._treeGeo) this._treeGeo = makeTreeGeometry(T);
+    if (!this._treeTrunk) this._treeTrunk = new T.CylinderGeometry(0.14, 0.22, 3.4, 5).translate(0, 1.7, 0);
+    const spots = [];
+    const pushSpot = (x, y, z, sc) => { if (spots.length < 60) spots.push([x, y, z, sc]); };
+    for (const r of rows) {
+      for (const side of [1, -1]) {
+        const E = side > 0 ? r.R : r.Lft, H = side > 0 ? r.RH : r.LH;
+        // haut de tranchée / pied de talus : alignement dense (végétation du périph)
+        if (rand() < 0.42) {
+          const base = H < -0.35 ? E + 2.6 : H > 0.35 && !r.viaduct ? E + 1.6 + H * (0.4 + rand() * 1.1) : E + 3.2;
+          const y = H < -0.35 ? 0 : H > 0.35 && !r.viaduct ? Math.max(0, H - (base - E - 1) / 1.7) : 0;
+          if (!r.cover) { const p = P(r, side * (base + rand() * 3), y); pushSpot(p[0], p[1], p[2], 0.8 + rand() * 0.6); }
+        }
+        // bois et parcs réels plus loin
+        for (const off of [18, 34, 55, 80]) {
+          if (rand() > 0.5) continue;
+          const lat = side * (E + off + rand() * 12);
+          const p = P(r, lat, 0);
+          const k = lu.at(p[0], p[2]);
+          const wood = t.woodAt(r.s);
+          if (k === 'wood' || (wood && off < 60 && rand() < 0.8) || (k === 'park' && rand() < 0.6) || (k === 'cemetery' && rand() < 0.4)) pushSpot(p[0], 0, p[2], 0.9 + rand() * 0.8);
+        }
+      }
+    }
+    if (!spots.length) return;
+    const trunks = new T.InstancedMesh(this._treeTrunk, this.mats.trunk, spots.length);
+    const crowns = new T.InstancedMesh(this._treeGeo, this.mats.canopy, spots.length);
+    const m4 = new T.Matrix4(), q = new T.Quaternion(), v = new T.Vector3(), sc = new T.Vector3(), col = new T.Color(), up = new T.Vector3(0, 1, 0);
+    spots.forEach(([x, y, z, s], i) => {
+      q.setFromAxisAngle(up, rand() * 6.28);
+      m4.compose(v.set(x, y, z), q, sc.set(s, s * (0.9 + rand() * 0.3), s));
       trunks.setMatrixAt(i, m4);
-      m4.compose(v.clone().setY(GROUND_Y + (2.6 + rand()) * h), q, sc.set(h * (0.8 + rand() * 0.5), h * (0.9 + rand() * 0.4), h));
       crowns.setMatrixAt(i, m4);
-      col.setHSL(0.26 + rand() * 0.08, 0.35 + rand() * 0.2, 0.3 + rand() * 0.12);
+      col.setHSL(0.22 + rand() * 0.1, 0.32 + rand() * 0.2, 0.22 + rand() * 0.12);
       crowns.setColorAt(i, col);
-    }
-    crowns.instanceMatrix.needsUpdate = true;
-    trunks.instanceMatrix.needsUpdate = true;
-    if (crowns.instanceColor) crowns.instanceColor.needsUpdate = true;
+    });
+    crowns.castShadow = true;
     group.add(trunks, crowns);
   }
 
-  // texte du PMV le plus proche devant le joueur
+  // ---------- silhouette lointaine procédurale (au-delà des données OSM) ----------
+  buildFarSkyline(ctx) {
+    const { rows, rand } = ctx;
+    const t = this.track;
+    const facB = ctx.B.fac;
+    const n = 2 + ((rand() * 3) | 0);
+    const mid = rows[(rows.length / 2) | 0];
+    for (let i = 0; i < n; i++) {
+      const r = rows[(rand() * rows.length) | 0];
+      const side = rand() < 0.5 ? 1 : -1;
+      if (t.woodAt(r.s) && rand() < 0.85) continue;
+      const dist = 260 + rand() * 300;
+      const p = P(r, side * dist, 0);
+      const w = 18 + rand() * 30, d = 14 + rand() * 20;
+      const tall = rand() < 0.18;
+      const h = tall ? 40 + rand() * 50 : 16 + rand() * 14;
+      const fac = tall ? 2 + ((rand() * 2) | 0) : side > 0 ? (rand() < 0.6 ? 1 : 0) : (rand() < 0.5 ? 4 : 2);
+      const ang = Math.atan2(mid.tx, mid.tz) + (rand() - 0.5) * 0.3;
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const pts = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([u, v]) => [p[0] + u * ca - v * sa, p[2] + u * sa + v * ca]);
+      const F = TX.FACADES[fac], B = facB[fac], c = shade([1, 1, 1], 0.85 + rand() * 0.15);
+      for (let k = 0; k < 4; k++) {
+        const [x0, z0] = pts[k], [x1, z1] = pts[(k + 1) % 4];
+        const Lw = Math.hypot(x1 - x0, z1 - z0);
+        B.quad(B.v(x0, 0, z0, 0, 0, c), B.v(x1, 0, z1, Lw / (F.bay * 4), 0, c), B.v(x1, h, z1, Lw / (F.bay * 4), h / (F.floor * 4), c), B.v(x0, h, z0, 0, h / (F.floor * 4), c));
+      }
+      const R = ctx.B.roof;
+      const top = pts.map(([x, z]) => R.v(x, h, z, x / 6, z / 6, shade(c, 0.8)));
+      R.quad(top[0], top[1], top[2], top[3]);
+    }
+  }
+
+  // ============================================================
+  // Signalisation et équipements
+  // ============================================================
+  addSign(ctx, s, lat, y, tex, w, h, reverse = false, yaw = 0) {
+    const p = this._p;
+    if (tex && tex.tex) tex = tex.tex;
+    this.track.pointAt(s, p);
+    // quad orienté vers les usagers qui arrivent (sens intérieur) ; reverse = sens extérieur
+    const fx = reverse ? p.tx : -p.tx, fz = reverse ? p.tz : -p.tz; // normale
+    const c = Math.cos(yaw), sn = Math.sin(yaw);
+    const nx = fx * c + fz * sn, nz = fz * c - fx * sn;
+    const ax = nz, az = -nx; // axe « droite » du panneau vu de face
+    const cx = p.x + p.rx * lat, cz = p.z + p.rz * lat;
+    if (!ctx.signs) ctx.signs = new Map();
+    if (!ctx.signs.has(tex)) ctx.signs.set(tex, new Batch());
+    const B = ctx.signs.get(tex), col = [1, 1, 1];
+    const hw = w / 2, hh = h / 2;
+    const a = B.v(cx - ax * hw, y - hh, cz - az * hw, 0, 0, col);
+    const b = B.v(cx + ax * hw, y - hh, cz + az * hw, 1, 0, col);
+    const d = B.v(cx + ax * hw, y + hh, cz + az * hw, 1, 1, col);
+    const e = B.v(cx - ax * hw, y + hh, cz - az * hw, 0, 1, col);
+    B.quad(a, b, d, e);
+  }
+  flushSigns(ctx) {
+    if (!ctx.signs) return;
+    for (const [tex, B] of ctx.signs) {
+      const g = B.build(this.T);
+      if (!g) continue;
+      const mesh = new this.T.Mesh(g, this.signMat(tex));
+      ctx.group.add(mesh);
+      ctx.geoms.push(g);
+    }
+  }
+  rowAt(s) {
+    const p = {};
+    this.track.pointAt(s, p);
+    return { x: p.x, z: p.z, rx: p.rx, rz: p.rz, tx: p.tx, tz: p.tz, h: p.y, s };
+  }
+  // panneau avec dos métallique + supports
+  postedPanel(ctx, s, lat, yBottom, panel, posts = 2, reverse = false) {
+    const r = this.rowAt(s);
+    const { w, h } = panel;
+    this.addSign(ctx, s, lat, yBottom + h / 2, panel.tex, w, h, reverse);
+    const off = reverse ? -0.07 : 0.07;
+    boxAt(ctx.B.metal, this.rowAt(s + off), lat, yBottom, w, h, 0.05, rgb(0x6d7177), 1);
+    const pr = this.rowAt(s + off * 2);
+    const xs = posts === 1 ? [0] : [-w * 0.32, w * 0.32];
+    for (const dx of xs) boxAt(ctx.B.metal, pr, lat + dx, r.h - 0.1, 0.11, yBottom - r.h + h * 0.8, 0.11, rgb(0x868b91));
+  }
+
+  buildFeatures(ctx) {
+    const { s0, len, B } = ctx;
+    const t = this.track, T = this.T, L = t.length;
+    const F = this.features;
+    // recherche dichotomique du premier équipement ≥ s0
+    let lo = 0, hi = F.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (F[m].s < s0) lo = m + 1; else hi = m; }
+    for (let i = lo; i < F.length && F[i].s < s0 + len; i++) {
+      const f = F[i];
+      const r = this.rowAt(f.s);
+      const Em = t.mainEdgeAt(f.s);
+      const rampW = this.ramps.parallelWidth(f.s, r.h);
+      const Eo = Em + rampW;
+      const trench = r.h < -0.35 || t.coverAt(f.s);
+      switch (f.type) {
+        case 'presign': {
+          const panel = directionPanel(T, f.rows, { arrow: 'up', header: f.dist + ' m' });
+          const lat = Eo + 1.0 + panel.w / 2;
+          if (trench) this.cantilever(ctx, f.s, Eo, panel, r);
+          else this.postedPanel(ctx, f.s, lat, r.h + 2.4, panel);
+          break;
+        }
+        case 'gantry': {
+          const nL = t.lanesAt(f.s);
+          const totalW = Eo - CFG.INNER_EDGE + 0.6;
+          const leftCols = Math.max(1, nL - 1);
+          const cols = [];
+          for (let k = 0; k < leftCols; k++) cols.push(k === 0 ? { rows: [f.thru[0], f.thru[1]], arrow: 'down' } : { rows: [], arrow: 'down' });
+          cols.push({ rows: f.exitRows.slice(0, 3), arrow: 'exit' });
+          // un seul grand panneau « suite » + panneau de sortie au-dessus de la voie de droite
+          const thruW = LW * leftCols - 0.4, exitW = LW + rampW - 0.2;
+          const thru = gantryPanel(T, [{ rows: [f.thru[0], f.thru[1]], arrow: 'down' }], thruW);
+          const ex = gantryPanel(T, [{ rows: f.exitRows.slice(0, 3), arrow: 'exit' }], exitW);
+          this.gantry(ctx, f.s, Eo, [
+            { tex: thru.tex, w: thru.w, h: thru.h, lat: CFG.INNER_EDGE + (LW * leftCols) / 2 },
+            { tex: ex.tex, w: ex.w, h: ex.h, lat: CFG.INNER_EDGE + LW * leftCols + exitW / 2 + 0.1 },
+          ]);
+          break;
+        }
+        case 'gore': {
+          // le panneau est planté dans le musoir (entre chaussée et bretelle)
+          const q = this.ramps.at(f.s, r.h).find((o) => !o.parallel);
+          const lat = q ? Em + q.gap * 0.5 : Eo + 1.4;
+          const panel = directionPanel(T, f.rows, { arrow: 'exit' });
+          const sc = Math.min(1, 3.2 / panel.w);
+          this.postedPanel(ctx, f.s, lat, Math.max(r.h, q ? q.hr : r.h) + 1.0, { tex: panel.tex, w: panel.w * sc, h: panel.h * sc }, 2);
+          break;
+        }
+        case 'limit': {
+          const tex = speedLimitTexture(T, 50);
+          if (f.median) {
+            this.addSign(ctx, f.s, 0.45, r.h + 2.3, tex, 0.9, 0.9);
+            this.addSign(ctx, f.s, -0.45, r.h + 2.3, tex, 0.9, 0.9, true);
+            boxAt(B.metal, r, 0, r.h + 0.8, 0.08, 1.95, 0.08, rgb(0x868b91));
+          } else {
+            const lat = Eo + 1.3;
+            this.addSign(ctx, f.s, lat, r.h + 2.4, tex, 0.9, 0.9);
+            boxAt(B.metal, r, lat, r.h, 0.08, 2.4, 0.08, rgb(0x868b91));
+          }
+          break;
+        }
+        case 'pmv': {
+          this.gantry(ctx, f.s, Eo, [{ tex: f.vms.panel.tex, w: 7.2, h: 2.4, lat: CFG.INNER_EDGE + 2 * LW, vms: true }], true);
+          break;
+        }
+        case 'hov': {
+          // potence depuis le séparateur au-dessus de la voie de gauche
+          const lat = CFG.INNER_EDGE + LW / 2;
+          boxAt(B.metal, r, 0.0, r.h + 0.82, 0.25, 5.6, 0.25, rgb(0x868b91));
+          boxAt(B.metal, r, lat / 2, r.h + 6.3, lat + 0.6, 0.22, 0.22, rgb(0x868b91));
+          boxAt(B.metal, r, -lat / 2, r.h + 6.3, lat + 0.6, 0.22, 0.22, rgb(0x868b91));
+          this.addSign(ctx, f.s, lat, r.h + 5.4, hovTexture(T, true), 1.25, 1.45);
+          this.addSign(ctx, f.s, -lat, r.h + 5.4, hovTexture(T, true), 1.25, 1.45, true);
+          break;
+        }
+        case 'radar': {
+          const lat = Eo + 1.5;
+          boxAt(B.metal, r, lat, r.h, 0.18, 1.6, 0.18, rgb(0x6d7177));
+          boxAt(B.metal, r, lat, r.h + 1.6, 0.75, 1.0, 0.55, rgb(0x5a5f64));
+          boxAt(B.metal, r, lat - 0.2, r.h + 1.95, 0.3, 0.3, 0.05, rgb(0x1a1c1e));
+          this.postedPanel(ctx, f.s - 220, Eo + 1.4, r.h + 2.0, { tex: radarTexture(T).tex, w: 0.9, h: 0.9 }, 1);
+          break;
+        }
+        case 'sos': {
+          const lat = Eo + (trench ? 1.0 : 1.35);
+          boxAt(B.metal, r, lat, r.h, 0.55, 1.35, 0.4, rgb(0xe8701a));
+          boxAt(B.metal, r, lat, r.h + 1.35, 0.6, 0.08, 0.45, rgb(0xd0d0d0));
+          this.addSign(ctx, f.s, lat, r.h + 1.95, sosTexture(T), 0.45, 0.6);
+          break;
+        }
+        case 'pr': {
+          if (t.coverAt(f.s)) break;
+          this.addSign(ctx, f.s, 0.12, r.h + 1.05, prPlateTexture(T, f.km), 0.3, 0.38);
+          break;
+        }
+      }
+    }
+  }
+
+  // potence (panneau en encorbellement au-dessus de la voie de droite)
+  cantilever(ctx, s, Eo, panel, r) {
+    const B = ctx.B;
+    const col = rgb(0x868b91);
+    const postLat = Eo + 0.95;
+    boxAt(B.metal, r, postLat, r.h, 0.3, 6.9, 0.3, col);
+    const armLen = panel.w + 1.2;
+    boxAt(B.metal, r, postLat - armLen / 2, r.h + 6.5, armLen, 0.25, 0.25, col);
+    const lat = postLat - 0.6 - panel.w / 2;
+    this.addSign(ctx, s, lat, r.h + 6.35 - panel.h / 2, panel.tex, panel.w, panel.h);
+    boxAt(B.metal, this.rowAt(s + 0.08), lat, r.h + 6.35 - panel.h, panel.w, panel.h, 0.05, rgb(0x6d7177));
+  }
+
+  // portique treillis au-dessus du sens intérieur (+ PMV éventuel)
+  gantry(ctx, s, Eo, panels, isVMS = false) {
+    const B = ctx.B, r = this.rowAt(s);
+    const col = rgb(0x9a9fa5), colD = rgb(0x7a7f85);
+    const xs = [0.75, Eo + 1.0];
+    const top = r.h + 6.9;
+    for (const x of xs) {
+      boxAt(B.metal, r, x, r.h + (x < 1 ? 0.82 : 0), 0.32, top - r.h + 0.4 - (x < 1 ? 0.82 : 0), 0.32, col);
+      boxAt(B.metal, r, x, r.h + (x < 1 ? 0.82 : 0), 0.6, 0.15, 0.6, colD);
+    }
+    const span = xs[1] - xs[0], cx = (xs[0] + xs[1]) / 2;
+    // poutre treillis : 2 membrures + montants
+    for (const dy of [0, 1.0]) for (const dz of [-0.45, 0.45]) {
+      const rr = this.rowAt(s + dz);
+      boxAt(B.metal, rr, cx, top + dy, span, 0.12, 0.12, col);
+    }
+    for (let k = 0; k <= Math.round(span / 1.2); k++) {
+      const x = xs[0] + (span * k) / Math.round(span / 1.2);
+      boxAt(B.metal, r, x, top, 0.08, 1.0, 0.9, colD);
+    }
+    for (const p of panels) {
+      const y = top + 0.5 - p.h / 2 - 0.05;
+      this.addSign(ctx, s - 0.55, p.lat, y, p.tex, p.w, p.h);
+      boxAt(B.metal, this.rowAt(s - 0.48), p.lat, y - p.h / 2, p.w, p.h, 0.06, rgb(0x5e6268));
+      if (p.vms) boxAt(B.metal, this.rowAt(s - 0.3), p.lat, y - p.h / 2 - 0.15, p.w + 0.3, p.h + 0.3, 0.4, rgb(0x2f3236));
+    }
+  }
+
+  // ---------- PMV : temps de parcours réalistes / messages d'événements ----------
+  updateVMS(playerS, force = false) {
+    const t = this.track, L = t.length;
+    this._vmsT = (this._vmsT || 0) + 1;
+    if (!force && this._vmsT % 20) return;
+    const now = performance.now();
+    for (const v of this.vms) {
+      const d = wrap(v.s - playerS, L);
+      if (d > 1400) continue;
+      if (v.override > now) continue;
+      // destinations : portes majeures à ~2, ~5 et ~9 km
+      const majors = ['Porte Maillot', 'Porte de la Chapelle', 'Porte de Bagnolet', 'Porte de Bercy', "Porte d'Italie", "Porte d'Orléans", 'Porte de Saint-Cloud', 'Porte de Clichy', 'Porte de Vincennes', 'Porte de Sèvres', 'Porte de la Villette', "Porte d'Auteuil"];
+      const ahead = t.portes.filter((p) => majors.includes(p.name)).map((p) => ({ p, d: wrap(p.s - v.s, L) })).filter((o) => o.d > 1200).sort((a, b) => a.d - b.d).slice(0, 3);
+      const abbr = (n) => n.replace(/^Porte (de la |de l'|de |d'|du |des )?/i, (m) => 'PTE ' + (m.match(/(de la |de l'|du |des )/i)?.[0] || '')).toUpperCase().replace('SAINT-', 'ST-');
+      const slow = 0.85 + 0.3 * Math.sin(v.s * 0.001 + now * 0.00002);
+      const lines = ahead.map((o) => `${abbr(o.p.name)}\t${Math.max(1, Math.round((o.d / 1000) / (38 * slow) * 60))} MN`);
+      v.panel.setText(lines);
+    }
+  }
+
   setVMSAhead(playerS, lines) {
     let best = null, bestD = Infinity;
     for (const v of this.vms) {
       const d = wrap(v.s - playerS, this.track.length);
       if (d < bestD) { bestD = d; best = v; }
     }
-    if (best) best.panel.setText(lines);
+    if (best) {
+      best.panel.setText([...lines, ''].slice(0, 3));
+      best.override = performance.now() + 60000;
+    }
   }
 }

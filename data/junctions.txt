@@ -1,0 +1,72 @@
+760|E|2|Périphérique intérieur;Porte de Bercy
+1368|X|2|Paris - Centre:green;Porte de Bercy:white
+1454|X|2|Metz - Nancy:blue:A 4;Marne-la-Vallée:blue:A 4;Créteil:blue;Troyes:blue:A 5
+1763|E|1|
+1943|X|1|Quai d'Ivry:white:D 19
+2219|E|1|
+2927|X|2|Porte d'Ivry:white
+3492|E|1|
+3791|X|1|Porte d'Italie:white:D 7
+3978|X|2|Lyon - Évry:blue:A 6b;Orly - Rungis:blue;Bordeaux - Nantes:blue:A 10
+4597|E|1|
+5367|X|2|Porte d'Orléans:white:D 920;Porte de Gentilly:white
+5608|X|1|Lyon - Évry:blue:A 6a;Orly - Rungis:blue;Bordeaux - Nantes:blue:A 10
+6839|E|1|
+7313|E|1|
+7677|X|1|Porte de Châtillon:white:D 906;Porte de Montrouge:white
+8123|E|1|
+8614|X|2|Porte Brancion:white;Porte de Vanves:white
+9053|X|2|Porte de la Plaine:white;Porte de Versailles:white
+9306|E|1|
+10668|X|2|Porte de Sèvres:white
+11194|E|1|
+11282|X|1|Quai d'Issy:white;Pont du Garigliano:white;Bordeaux - Nantes:blue:A 10
+11642|E|1|
+12153|X|2|Paris - Centre:green;Porte de Saint-Cloud:white
+12360|X|2|Boulogne:green:D 910
+12858|E|1|
+13078|E|1|
+13351|X|2|Porte d'Auteuil:white;Porte Molitor:white
+13621|X|2|Rouen:blue:A 13;Saint-Quentin-en-Yvelines:blue;Versailles:blue
+14096|E|1|
+14234|E|2|
+15181|X|1|Porte de Passy:white
+15513|E|1|
+15611|X|2|Porte de la Muette:white
+16311|E|1|
+16752|X|1|Porte Dauphine:white
+17406|E|1|
+17448|X|2|La Défense:green:N 13;Porte Maillot:white;Rouen:blue:A 14;Cergy-Pontoise:blue:A 15
+17903|E|1|
+18454|E|1|
+18712|X|1|Porte de Champerret:white:D 908
+19465|E|1|
+19812|X|1|Porte d'Asnières:white:D 909
+20414|E|1|
+20761|X|1|Porte de Clichy:white:D 911
+21271|E|1|
+21967|X|2|Porte de Saint-Ouen:white:D 111
+22860|E|1|
+23329|X|1|Porte de Clignancourt:white:D 14
+23846|E|1|
+24436|X|3|Lille:blue:A 1;Charles de Gaulle:blue;Saint-Denis:blue;Porte de la Chapelle:white
+25133|E|2|
+25193|X|2|Porte d'Aubervilliers:white:N 301
+25974|E|1|
+26226|X|1|Porte de la Villette:white:N 2
+27128|E|1|
+27892|X|1|Porte de Pantin:white:N 3
+28629|E|1|
+29187|X|1|Porte du Pré-Saint-Gervais:white
+29480|X|1|Porte des Lilas:white
+30274|E|1|
+31047|X|1|Porte de Bagnolet:white
+31221|X|2|Lille:blue:A 3;Charles de Gaulle:blue;Bobigny:blue
+31647|E|2|
+31845|E|1|
+32402|X|2|Porte de Montreuil:white:N 302
+32973|E|1|
+33278|X|1|Porte de Vincennes:white:D 120
+33816|E|1|
+34072|E|1|
+34717|X|2|Porte Dorée:white

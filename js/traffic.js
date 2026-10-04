@@ -109,11 +109,17 @@ export class Traffic {
     else if (heavy) lane = this.rand() < 0.65 ? 3 : 2;
     else lane = 1 + ((this.rand() * 3) | 0);
 
+    // jamais dans une voie supprimée (sections à 2 ou 3 voies)
+    if (!interfile && this.track.lanesAt) {
+      const nl = Math.min(this.track.lanesAt(s), this.track.lanesAt(s + 150));
+      if (lane > nl - 1) lane = Math.max(0, nl - 1 - ((this.rand() * Math.min(2, nl)) | 0));
+    }
+    const gapMax = this.track.lanesAt && this.track.lanesAt(s) < 3 ? 0 : 1;
     const npc = {
       id, bundle: this.acquire(id),
       s, v: v0 * (0.85 + this.rand() * 0.15), v0,
       lane: interfile ? 0 : lane, laneFrom: lane, laneTo: lane, laneT: 1,
-      interfile, gap: this.rand() < 0.6 ? 0 : 1,
+      interfile, gap: this.rand() < 0.6 ? 0 : gapMax,
       len: m.dims[0], wid: m.dims[1],
       aggro: sport ? 0.85 : this.rand() * 0.6,
       blinker: 0, brakeFlash: 0, panicAt: 200 + this.rand() * 900,
@@ -170,7 +176,7 @@ export class Traffic {
     const track = this.track;
     const L = track.length;
     const playerS = player.s;
-    this.closures = events ? events.closures : [];
+    this.closures = (events ? events.closures : []).concat(this.track.laneDrops || []);
     this.slowZones = events ? events.slowZones : [];
 
     // bouchons fantômes : naissance/vieillissement
@@ -188,7 +194,8 @@ export class Traffic {
     this.jams = this.jams.filter((j) => j.age < j.life);
 
     // population cible selon vagues locales
-    const target = Math.round(this.params().count * this.localDensity(playerS));
+    const laneK = this.track.lanesAt ? Math.max(0.6, this.track.lanesAt(playerS) / CFG.LANES) : 1;
+    const target = Math.round(this.params().count * this.localDensity(playerS) * laneK);
     if (this.npcs.length < target && this.rand() < 0.35) this.spawnNPC(playerS, this.rand() < 0.72);
     // tri par s relatif pour le suivi
     const rel = (npc) => loopDelta(npc.s, playerS, L);
@@ -284,7 +291,7 @@ export class Traffic {
         id, bundle: this.acquire(id),
         s: wrap(playerS + this.rand() * 700 - 100, L),
         v: MS(40 + this.rand() * 25),
-        lane: (this.rand() * CFG.LANES) | 0,
+        lane: (this.rand() * (this.track.lanesAt ? this.track.lanesAt(playerS) : CFG.LANES)) | 0,
         len: CATALOG[id].dims[0],
       });
     }

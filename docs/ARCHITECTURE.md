@@ -34,30 +34,53 @@ tools/
   make-icons.js   génération des icônes PNG sans dépendance
 ```
 
-## Le périphérique (`track.js`)
+## Le périphérique (`track.js` + `periph-data.js`)
 
-- 33 points d'ancrage = coordonnées GPS réelles des portes (+ points de forme
-  dans le Bois de Boulogne), sens intérieur (horaire).
-- Catmull-Rom fermée, échantillonnée tous les 4 m, recalée à **35 040 m**
-  (longueur officielle) ; table `s → position, tangente, courbure`.
-- Élévation : interpolation cosinus entre altitudes cibles par porte
-  (tranchées < 0, viaducs > 0) + ondulation douce. Tunnels et ponts de la Seine
-  déclarés par zones ; drapeaux d'ambiance par segment (Bois, canal, échangeur,
-  murs antibruit, immeubles).
-- Repère roulant : `worldPos(s, latéral, hauteur)` — tout le jeu raisonne en
-  coordonnées piste (s, latéral), le monde 3D n'est qu'une projection.
+- **Données réelles OpenStreetMap** (© contributeurs OSM, ODbL), extraites via
+  Overpass et figées dans `data/` puis compilées dans `js/periph-data.js` par
+  `tools/build_periph_data.py` :
+  - `RING_PTS` : axe du « Boulevard Périphérique Intérieur » (628 sommets, mètres
+    locaux X = est, Z = sud autour de 48.8590 N / 2.3400 E) ;
+  - `RING_RUNS` : tronçons [s, voies, tunnel, pont, niveau] ;
+  - `JUNCTIONS` : 72 bretelles (X = sortie, E = entrée) avec les textes, couleurs
+    et références de panneaux issus des tags `destination*` ;
+  - `BUILDINGS_B64` (~6 900 rectangles orientés + hauteurs), `BIG_BUILDINGS`
+    (polygones), `LANDUSE` (bois, parcs, terrains, cimetières, rail, eau, Seine/canaux).
+- Axe lissé en Catmull-Rom centripète, rééchantillonné tous les 2 m + lissage
+  gaussien ; longueur ≈ 34 951 m. API inchangée (`pointAt`, `worldPos`, `nextPorte`…)
+  + `lanesAt`, `auxLanesAt`, `mainEdgeAt`, `edgeAt`, `profileAt`, `coverAt`,
+  `onViaduct`, `onBridge` (Seine), `woodAt`, `prAt`, `laneDrops` (fermetures
+  permanentes de voies consommées par le trafic).
+- Profil en long : contraintes OSM (tunnel/niveau −1 → tranchée −6,6 m ; pont → +7,2 m)
+  puis relaxation sur grille de 10 m et limitation de pente à 5 %.
+- Départ : entrée de la Porte Maillot (s ≈ 17 963).
 
-## Streaming du monde (`world.js`)
+## Streaming du monde (`world.js`, `scenery.js`, `geo.js`, `atlas.js`, `textures.js`, `signs.js`)
 
-- Segments de **100 m** construits/détruits autour du joueur
-  (11 devant / 2 derrière), ≤ 1 construction par frame (anti à-coups).
-- Chaque segment fusionne son décor en très peu de draw calls :
-  1 ruban de chaussée texturé (2 chaussées + marquages), 1 mesh « béton »
-  vertex-colors (GBA, glissières, murs, tunnels, ponts, portiques, lampadaires),
-  1 mesh têtes de lampes, 1 sol, 1 mesh immeubles (texture façade + fenêtres
-  émissives la nuit), 2 InstancedMesh arbres, panneaux.
-- Monuments : silhouettes stylisées placées à leurs positions GPS réelles.
-- Budget mesuré : **~270 draw calls, ~65 k triangles** en scène dense.
+- Segments de 100 m (11 devant / 2 derrière), construits du plus proche au plus loin,
+  1 par frame (≈ 5 ms). Rangées de 5 m : chaque rangée connaît l'altitude, le bord de
+  chaussée réel, couverture/viaduc/Seine et les bretelles actives (`Ramps.at`).
+- Profil en travers : DBA centrale + candélabres doubles (halos au sol la nuit),
+  chaussée à traces de roulement, marquages (T1 3/10, T3 le long des voies
+  parallèles, losanges covoiturage, zébras de musoir), puis selon l'altitude :
+  DBA + mur de tranchée tagué + couronnement + clôture / glissière + talus /
+  parapet de viaduc + corniche + piles / couverture (plafond, rampes lumineuses,
+  poteaux sur TPC, signaux d'affectation) ; écrans antibruit par tronçons de 250 m.
+- Bretelles (`Ramps`) : décélération (biseau 60 m + parallèle 80-110 m), divergence
+  en cosinus sur 240 m avec rampe vers le niveau de la ville ; entrées symétriques ;
+  entrée→sortie < 420 m = voie d'entrecroisement continue. Le joueur peut rouler
+  sur les voies parallèles (`player.js`).
+- Équipements planifiés une fois (`planFeatures`) : présignalisation, portiques,
+  panneaux de musoir, 50, PMV (temps de parcours dynamiques `updateVMS`),
+  covoiturage, radars, SOS, PR.
+- Matériaux : **atlas** (`atlas.js`) — murs/DBA/écrans/talus/lierre/sol en un seul
+  draw call, façades + toits (jour + fenêtres de nuit) en un seul draw call ;
+  panneaux regroupés par texture. Budget mesuré ≈ 300-350 draw calls (trafic
+  compris), 150-230 k triangles.
+- `scenery.js` : indexation des bâtiments par segment (projection sur l'axe),
+  dégagement de la chaussée (≥ 21 m de l'axe), façades par type/côté/hauteur
+  (HBM côté Paris), mansardes zinc, édicules ; repères modélisés (Tribunal de Paris,
+  Hyatt, Palais des Congrès, Mercuriales) ; silhouettes lointaines.
 
 ## Véhicules (`vehicles.js`)
 

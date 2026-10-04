@@ -220,6 +220,30 @@ de modélisation **Blender headless** :
 
 ---
 
+### Mise à jour v5 (octobre 2026) : le périphérique RÉEL (OpenStreetMap)
+
+Demande de Daryl : « refaire tout le périphérique, les abords et toute la
+signalisation, le plus réaliste possible ». Livré :
+- **Données OSM** extraites via Overpass (navigateur intégré de l'app desktop,
+  la sandbox cloud n'a pas accès à overpass-api.de) et figées dans `data/` :
+  axe réel, voies, tunnels/couvertures, viaducs, 72 bretelles + textes des panneaux,
+  ~6 900 bâtiments, occupation du sol. `tools/build_periph_data.py` → `js/periph-data.js`.
+  **Attribution ODbL obligatoire** (menu + README) — ne pas la retirer.
+- `track.js` réécrit (API compatible) ; `world.js` réécrit (profil en travers par
+  rangée, bretelles, ouvrages, équipements) ; nouveaux `geo.js`, `atlas.js`,
+  `textures.js`, `scenery.js` ; `signs.js` réécrit (panneaux français, police Barlow
+  Semi Condensed vendorisée dans `fonts/`).
+- Trafic/joueur/événements adaptés aux sections à 2 et 3 voies (`track.laneDrops`,
+  `lanesAt`, bord de chaussée dynamique).
+- `tools/snapshots.py` : captures headless Playwright à des abscisses données
+  (`python3 tools/snapshots.py <prefixe> 0,2265,12000 [preset]`, `LAT=12` pour la
+  voie de droite, `SNAP_SIZE=1200x675`).
+- Cache SW `periph-v5`, `?v=5`.
+- **Voiture de départ** : la demande d'une copie exacte de la Clio 3 (ou d'un modèle
+  « légèrement modifié mais reconnaissable ») a été déclinée par l'assistant ; options
+  proposées : véhicule original de style compact français, ou intégration d'un modèle
+  3D que Daryl se procure lui-même (pipeline GLB `loadGLB` déjà prêt).
+
 ## 4. Architecture technique détaillée (fichier par fichier)
 
 Aucun build, aucun bundler : HTML + modules ES natifs + Three.js vendorisé. Tout est servi tel quel.

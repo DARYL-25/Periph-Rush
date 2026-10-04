@@ -112,9 +112,12 @@ export class Player {
     this.lat += this.latVel * dt;
     // butées : glissière extérieure / séparateur
     this.wallContact = 0;
-    if (this.lat > LATERAL_MAX) {
+    const latMax = this.track.mainEdgeAt
+      ? this.track.mainEdgeAt(this.s) + (this.track.ramps ? this.track.ramps.parallelWidth(this.s) : 0) - 0.72
+      : LATERAL_MAX;
+    if (this.lat > latMax) {
       if (this.latVel > 2.6) this.wallContact = this.latVel;
-      this.lat = LATERAL_MAX;
+      this.lat = latMax;
       this.latVel = Math.min(this.latVel, 0) * 0.3;
     } else if (this.lat < CFG.LATERAL_MIN) {
       if (this.latVel < -2.6) this.wallContact = this.latVel;
