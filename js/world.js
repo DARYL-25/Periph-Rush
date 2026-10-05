@@ -796,6 +796,19 @@ export class World {
       for (const lat of [-6.2, -2.4, 2.4, 6.2]) boxAt(B.tlight, r, lat, p.y + CEIL - 0.12, 0.35, 0.08, 3.6, lightC);
       if (Math.round(d) % 12 < 6) for (const lat of [-6.5, 6.5]) this.groundQuad(B.tpool, r, lat, p.y + 0.04, 13, 13);
       if (Math.round(d) % 12 < 6) boxAt(B.gba, r, 0, p.y, 0.5, CEIL, 0.5, rgb(0xcfcbc2)); // poteaux sur TPC
+      // issues de secours (porte + bloc vert), extincteurs et niches techniques le long des parois
+      if (Math.round(d) % 84 < 6) {
+        const w = t.edgeAt(d) + 1.1;
+        for (const sg of [1, -1]) {
+          boxAt(B.metal, r, sg * w, p.y, 0.1, 2.15, 1.05, rgb(0x6c7378));              // porte coupe-feu
+          boxAt(B.metal, r, sg * (w - 0.02), p.y + 2.35, 0.08, 0.28, 0.7, rgb(0x1f8a4c)); // bloc « sortie »
+          boxAt(B.metal, r, sg * (w - 0.05), p.y + 2.38, 0.02, 0.2, 0.18, rgb(0xf2f2f2));  // pictogramme
+        }
+      }
+      if (Math.round(d) % 126 < 6) {
+        const w = t.edgeAt(d) + 1.1;
+        for (const sg of [1, -1]) boxAt(B.metal, r, sg * (w - 0.1), p.y + 0.9, 0.22, 0.75, 0.5, rgb(0xc0301f)); // extincteur / coffret incendie
+      }
       if (Math.round(d) % 120 < 6) {
         for (let l = 0; l < t.lanesAt(d); l++) {
           for (const side of [1, -1]) this.addSign(ctx, d, side * (CFG.INNER_EDGE + LW * (l + 0.5)), p.y + CEIL - 0.75, laneSignalTexture(this.T, true), 0.62, 0.62, side < 0);

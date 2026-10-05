@@ -313,12 +313,12 @@ export function facadeTextures(THREE) {
       }
     } else if (id === 'office') {
       const gr = d.createLinearGradient(0, 0, S, S);
-      gr.addColorStop(0, '#6c8396'); gr.addColorStop(1, '#3f5466');
+      gr.addColorStop(0, '#9db3c4'); gr.addColorStop(0.5, '#6f8ba1'); gr.addColorStop(1, '#4d6a82');
       d.fillStyle = gr; d.fillRect(0, 0, S, S);
       for (let j = 0; j < 4; j++) {
-        d.fillStyle = '#26303a'; d.fillRect(0, j * cell + cell - 18, S, 18);   // allège
+        d.fillStyle = '#3a4754'; d.fillRect(0, j * cell + cell - 18, S, 18);   // allège
         for (let i = 0; i < 8; i++) {
-          d.fillStyle = '#2b3540'; d.fillRect(i * (S / 8), j * cell, 3, cell);
+          d.fillStyle = '#34414e'; d.fillRect(i * (S / 8), j * cell, 3, cell);
           if (rand() < 0.45) lit(i * (S / 8) + 3, j * cell + 2, S / 8 - 4, cell - 22, rand() < 0.7 ? '#dfe9ff' : '#fff2d6');
         }
         d.fillStyle = 'rgba(255,255,255,0.10)'; d.fillRect(0, j * cell + 4, S, 6);

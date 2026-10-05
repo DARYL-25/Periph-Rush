@@ -538,3 +538,11 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - Nouveaux repères texturés (scenery.js `addCustomBuildings`) : Philharmonie, Tours Duo, Accor Arena (Bercy), Parc des expositions (Versailles), Adidas Arena, Cité des sciences.
 - Silhouettes (`buildLandmarks`) : Géode (sphère), Maison de la Radio, stade Charléty.
 - Budget : ~250 k triangles en zone dense (surveiller sur mobile bas de gamme).
+
+## v11
+- Façades : `ocre` (brique jaune), `panel` (panneaux colorés), `tour` (béton à bandeaux) ; verre de bureaux éclairci ; tours > 32 m avec couronnement en retrait ; rez-de-chaussée commerçants étendus.
+- Arbres : feuillages plus détaillés (icosphère niveau 1, 6 lobes) ; ~550 k triangles en zone très arborée (Orléans, Passy).
+- Graffitis : atlas de pièces (`graffitiAtlas`) posées en décalques variés sur les murs de tranchée (plus de répétition de tuile ; lettres symétriques).
+- Mobilier : mâts de caméras (`cctv`), grilles d'avaloir et regards peints, issues de secours / coffrets incendie dans les couvertures.
+- Monuments en silhouette : Arc de Triomphe, Panthéon, Notre-Dame, Opéra Garnier, tour de la gare de Lyon.
+- Rappel : ne jamais reproduire les surcouches Street View (« Blvd Périphérique », « E15 »).
