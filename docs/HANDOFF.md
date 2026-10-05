@@ -532,3 +532,9 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - Garde-corps métallique complet (2 lisses + montants) sur les parapets de viaduc ; broussailles sur talus (instances, `bush`), éclairage chaud des couvertures.
 - Non fait faute de relevés exploitables : Pantin→Vincennes, Champerret, Passy, Muette (le navigateur intégré expire souvent). À reprendre.
 - Rappel : textes « Blvd Périphérique » / « E15 » sur la chaussée = surcouche Google, à ne pas reproduire.
+
+## v10 (bâtiments plus reconnaissables)
+- Toitures : acrotère clair sur tous les toits plats, lucarnes sur les pans de mansarde haussmanniens (une travée sur deux), antennes sur les tours.
+- Nouveaux repères texturés (scenery.js `addCustomBuildings`) : Philharmonie, Tours Duo, Accor Arena (Bercy), Parc des expositions (Versailles), Adidas Arena, Cité des sciences.
+- Silhouettes (`buildLandmarks`) : Géode (sphère), Maison de la Radio, stade Charléty.
+- Budget : ~250 k triangles en zone dense (surveiller sur mobile bas de gamme).
