@@ -243,6 +243,19 @@ export class Scenery {
     // Hôtel Hyatt Regency Paris Étoile (Porte Maillot, 137 m) + Palais des Congrès
     add(48.8797, 2.2832, [[46, 28, 0, 137]], FAC.office, 28);
     add(48.8784, 2.2826, [[150, 92, 0, 30]], FAC.modern, 28);
+    // Philharmonie de Paris (Porte de Pantin) : volume « oiseaux » en aluminium
+    add(48.8918, 2.3935, [[120, 70, 0, 38], [60, 40, 38, 16, 10, 0]], FAC.modern, 20, [1.15, 1.2, 1.25]);
+    // Tours Duo (J. Nouvel, Paris 13) : deux tours de 180 m et 122 m
+    add(48.8286, 2.3790, [[26, 26, 0, 180, -12, 6]], FAC.office, 32, [1.2, 1.3, 1.4]);
+    add(48.8283, 2.3810, [[26, 26, 0, 122, 14, -6]], FAC.office, 32, [1.2, 1.3, 1.4]);
+    // Accor Arena (Bercy) : pyramide végétalisée
+    add(48.8386, 2.3787, [[150, 110, 0, 14], [120, 84, 14, 12, 0, 0], [92, 58, 26, 10, 0, 0]], FAC.industry, 0, [0.78, 0.92, 0.7]);
+    // Parc des expositions de la Porte de Versailles : grands halls
+    add(48.8316, 2.2877, [[180, 120, 0, 24], [140, 80, 24, 6, 0, 0]], FAC.industry, 10, [0.95, 0.98, 1.02]);
+    // Adidas Arena (Porte de la Chapelle)
+    add(48.8996, 2.3615, [[110, 74, 0, 28]], FAC.modern, 0, [0.62, 0.66, 0.72]);
+    // Cité des sciences et de l'industrie (La Villette)
+    add(48.8951, 2.3880, [[230, 100, 0, 44]], FAC.office, 20, [1.1, 1.15, 1.2]);
     // Tours Mercuriales (Bagnolet, ~ 90 m)
     add(48.8637, 2.4170, [[30, 30, 0, 92, -32, 0], [30, 30, 0, 92, 32, 0]], FAC.office, 0);
   }
@@ -285,10 +298,10 @@ export class Scenery {
   pickFacade(type, side, h, area, r, r2) {
     if (type === 2) return h > 22 ? FAC.office : (r2 < 0.5 ? FAC.office : FAC.modern);
     if (type === 3 || type === 6) return FAC.industry;
-    if (h > 34) return r2 < 0.55 ? FAC.barre : FAC.office;
+    if (h > 34) return r2 < 0.3 ? FAC.barre : r2 < 0.6 ? FAC.office : FAC.tour;
     if (type === 1 || type === 0 || type === 4) {
-      if (side > 0) return r2 < 0.55 ? FAC.hbm : r2 < 0.75 ? FAC.modern : r2 < 0.88 ? FAC.haussmann : FAC.barre;
-      return r2 < 0.38 ? FAC.haussmann : r2 < 0.7 ? FAC.modern : r2 < 0.85 ? FAC.barre : FAC.hbm;
+      if (side > 0) return r2 < 0.4 ? FAC.hbm : r2 < 0.55 ? FAC.modern : r2 < 0.7 ? FAC.haussmann : r2 < 0.85 ? FAC.ocre : r2 < 0.93 ? FAC.barre : FAC.panel;
+      return r2 < 0.3 ? FAC.haussmann : r2 < 0.5 ? FAC.modern : r2 < 0.65 ? FAC.barre : r2 < 0.75 ? FAC.hbm : r2 < 0.87 ? FAC.ocre : FAC.panel;
     }
     if (type === 5) return r2 < 0.6 ? FAC.haussmann : FAC.modern;
     if (type === 7) return FAC.haussmann;
@@ -313,14 +326,24 @@ export class Scenery {
       const tint = b.tint || shade(rgb(pal[Math.floor(b.seed * 997) % pal.length]), 0.9 + b.seed * 0.14);
       const pts = b.kind === 'box' ? rectPts(b) : b.pts;
       const h = b.h, B = facB[b.fac], y0 = b.y0 || 0;
+      // rez-de-chaussée commerçant sous les immeubles de ville (hauts de 9 m et plus)
+      const shopOK = y0 < 0.5 && h >= 9 && (b.fac === FAC.hbm || b.fac === FAC.haussmann || b.fac === FAC.modern || b.fac === FAC.barre || b.fac === FAC.ocre || b.fac === FAC.panel) && b.seed > 0.12;
+      const SH = 4.2, SB = facB[FAC.shop];
       // façades
       for (let i = 0; i < pts.length; i++) {
         const [x0, z0] = pts[i], [x1, z1] = pts[(i + 1) % pts.length];
         const L = Math.hypot(x1 - x0, z1 - z0);
         if (L < 0.3) continue;
-        const u1 = L / (fac.bay * 4), v1 = h / (fac.floor * 4), v0 = y0 / (fac.floor * 4);
+        const base = shopOK && L > 5 ? SH : 0;
+        if (base) {
+          const sc = shade(rgb(0xffffff), 0.94 + ((i * 5) % 3) * 0.03);
+          const s0 = SB.v(x0, 0, z0, 0, 0, sc), s1 = SB.v(x1, 0, z1, L / (3.4 * 4), 0, sc);
+          const s2 = SB.v(x1, SH, z1, L / (3.4 * 4), 0.25, sc), s3 = SB.v(x0, SH, z0, 0, 0.25, sc);
+          SB.quad(s0, s1, s2, s3);
+        }
+        const u1 = L / (fac.bay * 4), v1 = h / (fac.floor * 4), v0 = (y0 + base) / (fac.floor * 4);
         const c = shade(tint, 0.92 + ((i * 7) % 3) * 0.04);
-        const a0 = B.v(x0, y0, z0, 0, v0, c), a1 = B.v(x1, y0, z1, u1, v0, c);
+        const a0 = B.v(x0, y0 + base, z0, 0, v0, c), a1 = B.v(x1, y0 + base, z1, u1, v0, c);
         const a2 = B.v(x1, h, z1, u1, v1, c), a3 = B.v(x0, h, z0, 0, v1, c);
         B.quad(a0, a1, a2, a3);
       }
@@ -331,6 +354,27 @@ export class Scenery {
       else {
         const tris = this.T.ShapeUtils.triangulateShape(pts.map(([x, z]) => new this.T.Vector2(x, z)), []);
         for (const [i0, i1, i2] of tris) roofB.tri(ids[i0], ids[i1], ids[i2]);
+      }
+      // couronnement en retrait des tours (silhouette étagée)
+      if (b.kind === 'box' && h > 32 && y0 < 0.5 && b.seed > 0.55 && !b.custom && b.w > 14 && b.d > 14) {
+        const sub = { ...b, w: b.w * 0.68, d: b.d * 0.68, y0: h, h: h + Math.max(5, h * 0.14), seed: 0.1, custom: true, kind: 'box' };
+        this.drawBuilding(sub, facB, roofB);
+      }
+      // acrotère : rebord clair qui dessine le bâtiment (toutes toitures plates)
+      if (!(b.kind === 'box' && b.fac === FAC.haussmann && b.w > 6 && b.d > 6)) {
+        const ac = shade(rgb(0xcfcac0), 0.9 + b.seed * 0.12), AH = b.fac === FAC.office ? 0.5 : 0.85;
+        for (let i = 0; i < pts.length; i++) {
+          const [x0, z0] = pts[i], [x1, z1] = pts[(i + 1) % pts.length];
+          if (Math.hypot(x1 - x0, z1 - z0) < 0.8) continue;
+          roofB.quad(roofB.v(x0, h, z0, 0, 0, ac), roofB.v(x1, h, z1, 1, 0, ac), roofB.v(x1, h + AH, z1, 1, 0.1, ac), roofB.v(x0, h + AH, z0, 0, 0.1, ac));
+        }
+      }
+      // antenne / mât sur les tours
+      if (b.kind === 'box' && h > 30 && b.seed > 0.35) {
+        const hh = 5 + b.seed * 9, w = 0.35, am = rgb(0x8d9298);
+        const x = b.cx, z = b.cz;
+        roofB.quad(roofB.v(x - w, h, z, 0, 0, am), roofB.v(x + w, h, z, 1, 0, am), roofB.v(x + w, h + hh, z, 1, 1, am), roofB.v(x - w, h + hh, z, 0, 1, am));
+        roofB.quad(roofB.v(x, h, z - w, 0, 0, am), roofB.v(x, h, z + w, 1, 0, am), roofB.v(x, h + hh, z + w, 1, 1, am), roofB.v(x, h + hh, z - w, 0, 1, am));
       }
       // édicules techniques sur les toits plats
       if (b.kind === 'box' && b.w * b.d > 180 && b.fac !== FAC.haussmann) {
@@ -361,6 +405,34 @@ export class Scenery {
         }
         const tt = top.map((p) => { const w = tw(...p); return roofB.v(w[0], h + mh, w[1], 0, 0, rgb(0x5d656c)); });
         roofB.quad(tt[0], tt[1], tt[2], tt[3]);
+        // lucarnes de la mansarde : une par travée sur chaque pan
+        for (let i = 0; i < 4; i++) {
+          const A = tw(...base[i]), Bq = tw(...base[(i + 1) % 4]), C = tw(...top[(i + 1) % 4]), Dq = tw(...top[i]);
+          const len = Math.hypot(Bq[0] - A[0], Bq[1] - A[1]);
+          const n = Math.floor(len / 3.4) - 1;
+          if (n < 1 || n > 18) continue;
+          for (let k = 0; k < n; k += 2) {
+            const f = ((k + 1) * 3.4 - 0.2) / len;
+            if (f > 0.96) break;
+            const px = (A[0] + (Bq[0] - A[0]) * f) * 0.55 + (Dq[0] + (C[0] - Dq[0]) * f) * 0.45;
+            const pz = (A[1] + (Bq[1] - A[1]) * f) * 0.55 + (Dq[1] + (C[1] - Dq[1]) * f) * 0.45;
+            const py = h + mh * 0.45;
+            let nx = pz - b.cz, nz = -(px - b.cx);                 // normale sortante (perpendiculaire à l'arête)
+            const ex = Bq[0] - A[0], ez = Bq[1] - A[1];
+            nx = -ez; nz = ex;
+            if (nx * (px - b.cx) + nz * (pz - b.cz) < 0) { nx = -nx; nz = -nz; }
+            const nl = Math.hypot(nx, nz); nx /= nl; nz /= nl;
+            const ux = ex / len, uz = ez / len, hw = 0.55, dh = 1.25, dd = 0.7;
+            const fz = shade(zc, 1.18), win = rgb(0x2a3038), fr = rgb(0xe6e1d4);
+            const f0 = [px + nx * dd - ux * hw, pz + nz * dd - uz * hw], f1 = [px + nx * dd + ux * hw, pz + nz * dd + uz * hw];
+            const b0 = [px - ux * hw, pz - uz * hw], b1 = [px + ux * hw, pz + uz * hw];
+            roofB.quad(roofB.v(f0[0], py, f0[1], 0, 0, fr), roofB.v(f1[0], py, f1[1], 1, 0, fr), roofB.v(f1[0], py + dh, f1[1], 1, 1, fr), roofB.v(f0[0], py + dh, f0[1], 0, 1, fr));
+            const iw = 0.82;   // vitrage sombre
+            roofB.quad(roofB.v(f0[0] + ux * 0.1 + nx * 0.01, py + 0.12, f0[1] + uz * 0.1 + nz * 0.01, 0, 0, win), roofB.v(f1[0] - ux * 0.1 + nx * 0.01, py + 0.12, f1[1] - uz * 0.1 + nz * 0.01, 1, 0, win),
+              roofB.v(f1[0] - ux * 0.1 + nx * 0.01, py + dh * iw, f1[1] - uz * 0.1 + nz * 0.01, 1, 1, win), roofB.v(f0[0] + ux * 0.1 + nx * 0.01, py + dh * iw, f0[1] + uz * 0.1 + nz * 0.01, 0, 1, win));
+            roofB.quad(roofB.v(f0[0], py + dh, f0[1], 0, 0, fz), roofB.v(f1[0], py + dh, f1[1], 1, 0, fz), roofB.v(b1[0], py + dh + 0.6, b1[1], 1, 1, fz), roofB.v(b0[0], py + dh + 0.6, b0[1], 0, 1, fz));
+          }
+        }
         // cheminées
         for (let k = 0; k < 3; k++) {
           const u = (-0.6 + k * 0.6) * (W - ins), w = tw(u, 0);
@@ -384,6 +456,10 @@ const TINTS = [
   [0xffffff, 0xdfe8f0, 0xe8e8e8],                     // bureaux
   [0xf0e6d4, 0xe6dccb, 0xf3eee6, 0xe9d8c6, 0xdfe2e0, 0xf1dfd0], // logements récents
   [0xffffff, 0xd8dcd6, 0xe4d9c8],                     // entrepôts
+  [0xffffff, 0xf4efe4, 0xece3d2],                     // commerces
+  [0xffffff, 0xf3e9d3, 0xe9dcc0],                     // brique ocre
+  [0xffffff, 0xf2efe8, 0xe8e5dc],                     // panneaux colorés
+  [0xe8e6e0, 0xd8d6d0, 0xf0ece4],                     // tours béton
 ];
 
 function rectPts(b) {
@@ -450,6 +526,44 @@ export function buildLandmarks(T, scene) {
     frustum(x, z, 112, 104, 0, 28, 0xb2aea4, 24);
     const rg = at(48.8467, 2.2493); box(rg.x, rg.z, 110, 90, 0, 22, 0xb7553a);
   }
+  // Arc de Triomphe : deux piles + linteau (axe vers la Défense ≈ 63° nord-ouest)
+  {
+    const { x, z } = at(48.8738, 2.2950), a = -0.43, ca = Math.cos(a), sa = Math.sin(a);
+    const off = (u) => [x + u * ca, z + u * sa];
+    const l = off(-15), r = off(15);
+    box(l[0], l[1], 14, 22, 0, 36, 0xd9d1bd, a); box(r[0], r[1], 14, 22, 0, 36, 0xd9d1bd, a);
+    box(x, z, 45, 22, 36, 14, 0xd9d1bd, a);
+  }
+  // Panthéon : fronton + tambour + dôme
+  { const { x, z } = at(48.8462, 2.3464); box(x, z, 80, 42, 0, 30, 0xd8d3c6); frustum(x, z, 16, 14, 30, 22, 0xd8d3c6, 16); frustum(x, z, 14, 1.5, 52, 28, 0x9ea5a6, 16); }
+  // Notre-Dame de Paris : façade à deux tours + flèche
+  {
+    const { x, z } = at(48.8530, 2.3499);
+    box(x, z, 48, 130, 0, 33, 0xcfc8b4, 0.3);
+    box(x - 10, z, 12, 14, 33, 36, 0xcfc8b4, 0.3); box(x + 10, z, 12, 14, 33, 36, 0xcfc8b4, 0.3);
+    frustum(x, z + 30, 5, 0.8, 33, 60, 0x8e949a, 8);
+  }
+  // Opéra Garnier : corps + dôme
+  { const { x, z } = at(48.8719, 2.3316); box(x, z, 90, 70, 0, 38, 0xd6ccb2, 0.5); frustum(x, z, 18, 12, 38, 12, 0x8e9a8a, 14); }
+  // tour de l'Horloge de la gare de Lyon
+  { const { x, z } = at(48.8443, 2.3735); box(x, z, 9, 9, 0, 64, 0xcdbf9e); frustum(x, z, 6, 0.8, 64, 14, 0x6e747a, 4); }
+  // La Géode (La Villette) : sphère d'acier poli de 36 m
+  {
+    const { x, z } = at(48.8957, 2.3884);
+    const R = 18, c = rgb(0xd5dadf);
+    for (let k = 0; k < 8; k++) {
+      const a0 = (k / 8) * Math.PI - Math.PI / 2, a1 = ((k + 1) / 8) * Math.PI - Math.PI / 2;
+      frustum(x, z, Math.cos(a0) * R, Math.max(0.5, Math.cos(a1) * R), R + Math.sin(a0) * R, (Math.sin(a1) - Math.sin(a0)) * R, k % 2 ? 0xe2e6ea : 0xc9cfd5, 14);
+    }
+  }
+  // Maison de la Radio (Paris 16e) : couronne circulaire + tour
+  {
+    const { x, z } = at(48.8553, 2.2655);
+    frustum(x, z, 78, 74, 0, 24, 0xcbbfa4, 32);
+    box(x, z, 18, 18, 24, 44, 0xcbbfa4, 0.4);
+  }
+  // stade Charléty
+  { const { x, z } = at(48.8196, 2.3466); frustum(x, z, 95, 88, 0, 20, 0xb9b6ae, 28); }
   // Tour Pleyel, Stade de France (nord, au-delà du périphérique)
   { const p = at(48.9180, 2.3440); box(p.x, p.z, 36, 36, 0, 129, 0x445566); const sf = at(48.9245, 2.3602); frustum(sf.x, sf.z, 160, 150, 0, 42, 0xd8dbe0, 24); }
   const geo = B.build(T);

@@ -263,6 +263,23 @@ signalisation, le plus réaliste possible ». Livré :
 - Paroi de fond derrière les ouvrages en contrebas (plus de « jours » sur le ciel).
 - Cache SW `periph-v6`, `?v=6`.
 
+### Mise à jour v7 (octobre 2026) : panneaux à la graphie réelle du BP
+
+D'après des photos du BP fournies par Daryl :
+- `bpStack()` / `exitLines()` (signs.js) : plaques séparées blanches à liseré noir,
+  « P<sup>TE</sup> DE CLICHY » (exposant, article en petites capitales, nom en capitales :
+  `porteSegments()` dans signfont.js), « S<sup>T</sup> OUEN », cartouche D jaune + distance en
+  italique (« 600 m »), plaques bleues « vers [pictogramme autoroute] A 1 », vertes avec
+  pictogramme avion (« CH. DE GAULLE »).
+- Plan des panneaux par sortie : présignalisation sur la tête du pont de la porte précédente
+  (ou portique), portique ~100 m avant (à gauche la sortie suivante, à droite celle-ci avec
+  « 100 m »), rappel au musoir.
+- Panneaux de bord (50, radar, SOS…) placés devant les murs, jamais dedans.
+- Têtes de ponts des portes : rive de tablier, larmier, bordure, garde-corps à barreaudage.
+- Couvertures carrelées gris clair ; écrans antibruit en briques entre poteaux béton ;
+  candélabres simples en rive en plus des doubles sur le TPC ; portiques à poutre caisson.
+- Cache SW `periph-v7`.
+
 ## 4. Architecture technique détaillée (fichier par fichier)
 
 Aucun build, aucun bundler : HTML + modules ES natifs + Three.js vendorisé. Tout est servi tel quel.
@@ -502,3 +519,30 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 ---
 
 *Fin du document de transfert. Ce texte est conçu pour être collé intégralement en tout début d'une nouvelle conversation avec n'importe quel assistant IA disposant d'un accès au système de fichiers local (`C:\Users\daryl\Periph-Rush`) et idéalement d'outils d'exécution de commandes shell et de navigateur pour reprendre les tests headless décrits en section 6.*
+
+## v8
+- Rez-de-chaussée commerçants (`FACADES[6] = 'shop'`, 4,2 m) sous les immeubles de ville ≥ 9 m (scenery.js `drawBuilding`).
+- Arbres : peupliers élancés (18 %) et feuillages roussis d'automne (12 %).
+- Outils : `tools/snapshots.py` accepte `YAW=` (vue latérale), `tools/voidscan.py` (rayons latéraux, détecte les vides ; 0 trouvé sur le tour).
+- Rappel références Street View : le texte « Blvd Périphérique » / « E15 » sur la chaussée est une surcouche Google, ne PAS le reproduire.
+
+## v9 (relevés Street View, 18 portes)
+- Murs de soutènement en pierre de taille (zone Ivry–Italie–Orléans + 1 tronçon sur 9), écrans antibruit béton beige (majoritaires), tôle nervurée claire, anciens écrans conservés en variantes.
+- Flèches de sélection peintes dans la voie de droite à 210 m et 120 m avant chaque sortie ; joints de dilatation transversaux sur viaducs/ponts (paint : `vertexColors`, `paintLine(..., col)`, `jointAt`).
+- Garde-corps métallique complet (2 lisses + montants) sur les parapets de viaduc ; broussailles sur talus (instances, `bush`), éclairage chaud des couvertures.
+- Non fait faute de relevés exploitables : Pantin→Vincennes, Champerret, Passy, Muette (le navigateur intégré expire souvent). À reprendre.
+- Rappel : textes « Blvd Périphérique » / « E15 » sur la chaussée = surcouche Google, à ne pas reproduire.
+
+## v10 (bâtiments plus reconnaissables)
+- Toitures : acrotère clair sur tous les toits plats, lucarnes sur les pans de mansarde haussmanniens (une travée sur deux), antennes sur les tours.
+- Nouveaux repères texturés (scenery.js `addCustomBuildings`) : Philharmonie, Tours Duo, Accor Arena (Bercy), Parc des expositions (Versailles), Adidas Arena, Cité des sciences.
+- Silhouettes (`buildLandmarks`) : Géode (sphère), Maison de la Radio, stade Charléty.
+- Budget : ~250 k triangles en zone dense (surveiller sur mobile bas de gamme).
+
+## v11
+- Façades : `ocre` (brique jaune), `panel` (panneaux colorés), `tour` (béton à bandeaux) ; verre de bureaux éclairci ; tours > 32 m avec couronnement en retrait ; rez-de-chaussée commerçants étendus.
+- Arbres : feuillages plus détaillés (icosphère niveau 1, 6 lobes) ; ~550 k triangles en zone très arborée (Orléans, Passy).
+- Graffitis : atlas de pièces (`graffitiAtlas`) posées en décalques variés sur les murs de tranchée (plus de répétition de tuile ; lettres symétriques).
+- Mobilier : mâts de caméras (`cctv`), grilles d'avaloir et regards peints, issues de secours / coffrets incendie dans les couvertures.
+- Monuments en silhouette : Arc de Triomphe, Panthéon, Notre-Dame, Opéra Garnier, tour de la gare de Lyon.
+- Rappel : ne jamais reproduire les surcouches Street View (« Blvd Périphérique », « E15 »).

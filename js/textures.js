@@ -72,6 +72,40 @@ export function paintTexture(THREE) {
   return tex(THREE, cv);
 }
 
+
+// graffitis : tags, « throw-ups » en lettres bulles, fresques et surfaces recouvertes de peinture grise (« buff »)
+function graffiti(c, S, rand, n, yMin = 0.35, yMax = 0.78) {
+  const cols = ['#2d6cdf', '#f2f2f2', '#f0b400', '#3bb273', '#ff6a2b', '#18b6c9', '#c9c9c9', '#d23b6e', '#7a8794'];
+  const letters = 'AHIMOTUVWXY'; // lettres symétriques : lisibles sur les deux parois
+  for (let k = 0; k < n; k++) {
+    const kind = rand();
+    const x = rand() * S * 0.85, y = S * (yMin + rand() * (yMax - yMin));
+    if (kind < 0.22) { // surface recouverte (gris légèrement différent du mur)
+      c.fillStyle = `rgba(${150 + rand() * 20 | 0},${148 + rand() * 20 | 0},${140 + rand() * 18 | 0},0.7)`;
+      c.fillRect(x, y - 30, 60 + rand() * 150, 40 + rand() * 80);
+    } else if (kind < 0.62) { // throw-up : lettres bulles
+      let word = ''; for (let i = 0; i < 3 + (rand() * 2 | 0); i++) word += letters[(rand() * letters.length) | 0];
+      const px = 46 + rand() * 60;
+      c.save(); c.translate(x, y); c.rotate((rand() - 0.5) * 0.12);
+      c.font = `900 ${px}px Impact, "Arial Black", sans-serif`; c.textBaseline = 'alphabetic';
+      c.lineJoin = 'round'; c.lineWidth = px * 0.2; c.strokeStyle = '#111'; c.strokeText(word, 0, 0);
+      c.lineWidth = px * 0.1; c.strokeStyle = cols[(rand() * cols.length) | 0]; c.strokeText(word, 0, 0);
+      c.fillStyle = cols[(rand() * cols.length) | 0]; c.fillText(word, 0, 0);
+      c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(0, -px * 0.8, px * word.length * 0.55, px * 0.08);
+      c.restore();
+    } else if (kind < 0.85) { // tag signature au marqueur / à la bombe
+      c.save(); c.translate(x, y); c.rotate((rand() - 0.5) * 0.4);
+      c.strokeStyle = rand() < 0.6 ? '#141414' : cols[(rand() * cols.length) | 0]; c.lineWidth = 3 + rand() * 4; c.lineCap = 'round'; c.lineJoin = 'round';
+      c.beginPath(); c.moveTo(0, 0);
+      for (let i = 0; i < 6 + rand() * 6; i++) c.bezierCurveTo(i * 10, -30 * rand(), i * 10 + 8, 30 * rand(), i * 14 + 6, (rand() - 0.5) * 36);
+      c.stroke(); c.restore();
+    } else { // coulée de peinture / trait large
+      c.strokeStyle = cols[(rand() * cols.length) | 0]; c.lineWidth = 8 + rand() * 8; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x + 40 + rand() * 90, y + (rand() - 0.5) * 30); c.stroke();
+    }
+  }
+}
+
 // ---------- béton des murs de tranchée / couvertures (tuile 6 m × 6 m) ----------
 export function concreteTextures(THREE) {
   const out = [];
@@ -98,22 +132,7 @@ export function concreteTextures(THREE) {
     g2.addColorStop(0, 'rgba(25,24,22,0.55)'); g2.addColorStop(1, 'rgba(25,24,22,0)');
     c.fillStyle = g2; c.fillRect(0, S * 0.7, S, S * 0.3);
     // tags (variante 1 et 2)
-    if (v > 0) {
-      const cols = ['#d23b6e', '#2d6cdf', '#f2f2f2', '#111111', '#f0b400', '#3bb273', '#9a4fd6'];
-      for (let t = 0; t < (v === 2 ? 6 : 3); t++) {
-        const x0 = rand() * S * 0.8, y0 = S * (0.45 + rand() * 0.3);
-        c.strokeStyle = cols[(rand() * cols.length) | 0];
-        c.lineWidth = 3 + rand() * 5; c.lineCap = 'round'; c.lineJoin = 'round';
-        c.beginPath(); c.moveTo(x0, y0);
-        let x = x0, y = y0;
-        for (let k = 0; k < 10 + rand() * 12; k++) {
-          x += 6 + rand() * 18; y = y0 + (rand() - 0.5) * 50;
-          c.quadraticCurveTo(x - 8, y0 - 30 * rand(), x, y);
-        }
-        c.stroke();
-        if (rand() < 0.5) { c.strokeStyle = '#111'; c.lineWidth = 1.5; c.stroke(); }
-      }
-    }
+    
     out.push(tex(THREE, cv));
   }
   return out;
@@ -215,6 +234,10 @@ export const FACADES = [
   { id: 'office', bay: 1.8, floor: 3.6 },     // bureaux mur-rideau
   { id: 'modern', bay: 3.0, floor: 3.0 },     // logements récents enduit + bardage
   { id: 'industry', bay: 6.0, floor: 6.0 },   // entrepôts, ateliers, équipements
+  { id: 'shop', bay: 3.4, floor: 4.2 },       // rez-de-chaussée commerçant (4,2 m = bas de tuile)
+  { id: 'ocre', bay: 3.2, floor: 3.0 },       // brique jaune-ocre, bandeaux blancs (nord-est parisien)
+  { id: 'panel', bay: 3.6, floor: 3.0 },      // logements récents à panneaux colorés (ZAC)
+  { id: 'tour', bay: 2.6, floor: 2.8 },       // tour béton gris à fenêtres en bandeau (années 60-70)
 ];
 
 export function facadeTextures(THREE) {
@@ -290,12 +313,12 @@ export function facadeTextures(THREE) {
       }
     } else if (id === 'office') {
       const gr = d.createLinearGradient(0, 0, S, S);
-      gr.addColorStop(0, '#6c8396'); gr.addColorStop(1, '#3f5466');
+      gr.addColorStop(0, '#9db3c4'); gr.addColorStop(0.5, '#6f8ba1'); gr.addColorStop(1, '#4d6a82');
       d.fillStyle = gr; d.fillRect(0, 0, S, S);
       for (let j = 0; j < 4; j++) {
-        d.fillStyle = '#26303a'; d.fillRect(0, j * cell + cell - 18, S, 18);   // allège
+        d.fillStyle = '#3a4754'; d.fillRect(0, j * cell + cell - 18, S, 18);   // allège
         for (let i = 0; i < 8; i++) {
-          d.fillStyle = '#2b3540'; d.fillRect(i * (S / 8), j * cell, 3, cell);
+          d.fillStyle = '#34414e'; d.fillRect(i * (S / 8), j * cell, 3, cell);
           if (rand() < 0.45) lit(i * (S / 8) + 3, j * cell + 2, S / 8 - 4, cell - 22, rand() < 0.7 ? '#dfe9ff' : '#fff2d6');
         }
         d.fillStyle = 'rgba(255,255,255,0.10)'; d.fillRect(0, j * cell + 4, S, 6);
@@ -316,6 +339,83 @@ export function facadeTextures(THREE) {
           d.fillStyle = 'rgba(45,48,52,0.85)'; d.fillRect(x - 2, y + h * 0.58, w + 4, 3);
           for (let k = 0; k < w; k += 5) d.fillRect(x + k, y + h * 0.58, 1.2, h * 0.42);
           if (rand() < 0.35) lit(x, y, w, h, warm());
+        }
+      }
+    } else if (id === 'shop') {
+      // rez-de-chaussée : socle en pierre + vitrines, rideaux métalliques, auvents, enseignes
+      // (le bas de la tuile = les 4,2 premiers mètres du bâtiment ; le reste est transparent-neutre)
+      d.fillStyle = '#d9cfba'; d.fillRect(0, 0, S, S);
+      const y0 = S * 0.75, hh = S * 0.25;
+      d.fillStyle = '#cfc5ae'; d.fillRect(0, y0, S, hh);
+      speckle(d, S, S, 2500, ['rgba(120,105,85,0.18)', 'rgba(255,250,240,0.22)'], 1, 2, rand);
+      const awn = ['#9c2f2a', '#2e5a7a', '#2f6a45', '#c8923a', '#6a2f5c', '#3a3a3a'];
+      const sign = ['#f2efe6', '#1e3a5f', '#8a1f24', '#2e6b4a', '#d6b24a', '#222222'];
+      for (let i = 0; i < 4; i++) {
+        const x = i * cell + 6, w = cell - 12, kind = (rand() * 5) | 0;
+        // linteau / enseigne
+        d.fillStyle = sign[(rand() * sign.length) | 0]; d.fillRect(x - 2, y0 + 5, w + 4, hh * 0.2);
+        d.fillStyle = 'rgba(255,255,255,0.65)'; d.fillRect(x + 8, y0 + 5 + hh * 0.06, w * (0.3 + rand() * 0.4), hh * 0.07);
+        if (kind === 0) { // rideau fermé
+          d.fillStyle = '#7d8286'; d.fillRect(x, y0 + hh * 0.3, w, hh * 0.7);
+          for (let k = y0 + hh * 0.3; k < S; k += 4) { d.fillStyle = 'rgba(0,0,0,0.18)'; d.fillRect(x, k, w, 1.2); }
+        } else if (kind === 4) { // porte d'immeuble
+          d.fillStyle = '#26303a'; d.fillRect(x + w * 0.25, y0 + hh * 0.22, w * 0.5, hh * 0.78);
+          d.fillStyle = '#9fb0bd'; d.fillRect(x + w * 0.3, y0 + hh * 0.3, w * 0.4, hh * 0.45);
+          d.fillStyle = '#b79b5a'; d.fillRect(x + w * 0.62, y0 + hh * 0.6, 3, 8);
+        } else { // vitrine + auvent
+          d.fillStyle = '#2d3640'; d.fillRect(x, y0 + hh * 0.34, w, hh * 0.66);
+          d.fillStyle = 'rgba(190,215,235,0.35)'; d.fillRect(x + 3, y0 + hh * 0.38, w * 0.45, hh * 0.4);
+          lit(x, y0 + hh * 0.34, w, hh * 0.66, rand() < 0.55 ? warm() : 'rgba(0,0,0,0)');
+          const c = awn[(rand() * awn.length) | 0];
+          for (let k = 0; k < w; k += 8) { d.fillStyle = (k / 8) % 2 ? c : '#f1ece0'; d.fillRect(x + k, y0 + hh * 0.26, 8, hh * 0.12); }
+        }
+        d.fillStyle = 'rgba(0,0,0,0.25)'; d.fillRect(x - 3, y0, 3, hh);
+      }
+      d.fillStyle = 'rgba(70,60,50,0.35)'; d.fillRect(0, S - 6, S, 6); // pied de mur
+    } else if (id === 'ocre') {
+      d.fillStyle = '#c8a45e'; d.fillRect(0, 0, S, S);
+      for (let y = 0; y < S; y += 5) for (let x = (y / 5) % 2 ? 0 : 6; x < S; x += 12) {
+        d.fillStyle = `rgba(${150 + rand() * 50},${110 + rand() * 40},${50 + rand() * 30},0.5)`; d.fillRect(x, y, 11, 4);
+      }
+      for (let j = 0; j < 4; j++) {
+        d.fillStyle = '#e8e0cc'; d.fillRect(0, j * cell + cell - 8, S, 8); // bandeau blanc
+        for (let i = 0; i < 4; i++) {
+          const x = i * cell + cell * 0.3, y = j * cell + cell * 0.12, w = cell * 0.4, h = cell * 0.72;
+          d.fillStyle = '#eee7d6'; d.fillRect(x - 6, y - 6, w + 12, h + 8);
+          d.fillStyle = '#333c46'; d.fillRect(x, y, w, h);
+          d.fillStyle = 'rgba(190,210,230,0.3)'; d.fillRect(x + 2, y + 2, w * 0.45, h * 0.5);
+          d.fillStyle = '#efe9db'; d.fillRect(x + w / 2 - 2, y, 4, h); d.fillRect(x, y + h * 0.3, w, 3);
+          if (j % 2) { d.fillStyle = '#20252a'; d.fillRect(x - 8, y + h - 12, w + 16, 3); for (let k = 0; k < w + 16; k += 6) d.fillRect(x - 8 + k, y + h - 12, 1.2, 12); }
+          if (rand() < 0.33) lit(x, y, w, h, warm());
+        }
+      }
+    } else if (id === 'panel') {
+      const pal = ['#b6613f', '#d9d2c2', '#5e7f6a', '#3f5f7d', '#cfa23a', '#e6e2d8'];
+      for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) {
+        d.fillStyle = pal[(i * 5 + j * 3 + ((rand() * 2) | 0)) % pal.length]; d.fillRect(i * cell, j * cell, cell, cell);
+      }
+      for (let j = 0; j < 4; j++) {
+        for (let i = 0; i < 4; i++) {
+          const x = i * cell + cell * 0.12, y = j * cell + cell * 0.16, w = cell * 0.76, h = cell * 0.6;
+          d.fillStyle = '#e9e7e0'; d.fillRect(x - 3, y - 3, w + 6, h + 6);
+          d.fillStyle = '#36404b'; d.fillRect(x, y, w, h);
+          d.fillStyle = 'rgba(190,210,230,0.33)'; d.fillRect(x + 2, y + 2, w * 0.5, h * 0.5);
+          d.fillStyle = '#e9e7e0'; d.fillRect(x + w * 0.5 - 2, y, 4, h);
+          if (rand() < 0.4) { d.fillStyle = 'rgba(240,236,224,0.85)'; d.fillRect(x + 2, y + 2, w * 0.5, h * (0.3 + rand() * 0.5)); }
+          if (rand() < 0.35) lit(x, y, w, h, warm());
+        }
+        d.fillStyle = 'rgba(0,0,0,0.16)'; d.fillRect(0, j * cell + cell - 3, S, 3);
+      }
+    } else if (id === 'tour') {
+      d.fillStyle = '#b9b8b2'; d.fillRect(0, 0, S, S);
+      blotches(d, S, S, 34, 'rgba(70,68,60,0.2)', 20, 100, rand);
+      for (let j = 0; j < 4; j++) {
+        d.fillStyle = '#9d9b94'; d.fillRect(0, j * cell + cell - 16, S, 16);      // allège béton
+        d.fillStyle = '#2e3944'; d.fillRect(0, j * cell + cell * 0.18, S, cell * 0.5);  // fenêtre en bandeau
+        d.fillStyle = 'rgba(190,210,230,0.28)'; d.fillRect(0, j * cell + cell * 0.2, S, cell * 0.16);
+        for (let i = 0; i < 8; i++) {
+          d.fillStyle = '#c9c7bf'; d.fillRect(i * (S / 8), j * cell + cell * 0.18, 5, cell * 0.5);
+          if (rand() < 0.4) lit(i * (S / 8) + 5, j * cell + cell * 0.2, S / 8 - 6, cell * 0.46, warm());
         }
       }
     } else { // industry
@@ -381,4 +481,149 @@ export function leavesTexture(THREE) {
   // trouées sombres (profondeur)
   blotches(c, S, S, 16, 'rgba(20,30,15,0.45)', 8, 24, rand);
   return tex(THREE, cv);
+}
+
+// carrelage gris clair des parois de couvertures et culées de ponts (tuile 3 m)
+export function tilesTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(81);
+  c.fillStyle = '#b9b8b2'; c.fillRect(0, 0, S, S);
+  const n = 12, t = S / n;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const v = 172 + rand() * 26 | 0;
+    c.fillStyle = `rgb(${v},${v - 1},${v - 5})`;
+    c.fillRect(i * t + 2, j * t + 2, t - 4, t - 4);
+  }
+  c.fillStyle = 'rgba(70,68,62,0.55)';
+  for (let k = 0; k <= n; k++) { c.fillRect(k * t - 1, 0, 2.5, S); c.fillRect(0, k * t - 1, S, 2.5); }
+  // coulures et encrassement bas
+  for (let i = 0; i < 18; i++) { const x = rand() * S, h = S * (0.2 + rand() * 0.6); const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(40,40,36,0.35)'); g.addColorStop(1, 'rgba(40,40,36,0)'); c.fillStyle = g; c.fillRect(x, 0, 4 + rand() * 10, h); }
+  const g2 = c.createLinearGradient(0, S, 0, S * 0.65); g2.addColorStop(0, 'rgba(30,29,26,0.55)'); g2.addColorStop(1, 'rgba(30,29,26,0)');
+  c.fillStyle = g2; c.fillRect(0, S * 0.65, S, S * 0.35);
+  blotches(c, S, S, 14, 'rgba(60,58,50,0.18)', 20, 70, rand);
+  return tex(THREE, cv);
+}
+
+// écran antibruit en panneaux de briques entre poteaux béton à chapeau (tuile 4 m)
+export function brickWallTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(91);
+  c.fillStyle = '#8f4a36'; c.fillRect(0, 0, S, S);
+  for (let y = 0; y < S; y += 9) for (let x = (y / 9) % 2 ? 0 : 10; x < S; x += 20) {
+    c.fillStyle = `rgba(${120 + rand() * 50},${55 + rand() * 25},${40 + rand() * 18},0.7)`; c.fillRect(x, y, 19, 8);
+  }
+  c.fillStyle = 'rgba(210,200,185,0.15)'; for (let y = 8; y < S; y += 9) c.fillRect(0, y, S, 1);
+  // poteaux béton clairs (tous les 2 m) avec chapeau arrondi
+  for (const x of [0, S / 2]) {
+    c.fillStyle = '#c8c3b6'; c.fillRect(x, 0, 40, S);
+    c.fillStyle = 'rgba(0,0,0,0.15)'; c.fillRect(x + 32, 0, 8, S);
+  }
+  // couronnement béton
+  c.fillStyle = '#bdb7aa'; c.fillRect(0, 0, S, 22);
+  graffiti(c, S, rand, 4, 0.4, 0.85);
+  const g = c.createLinearGradient(0, S, 0, S * 0.7); g.addColorStop(0, 'rgba(25,22,20,0.5)'); g.addColorStop(1, 'rgba(25,22,20,0)');
+  c.fillStyle = g; c.fillRect(0, S * 0.7, S, S * 0.3);
+  return tex(THREE, cv);
+}
+
+// ---------- v9 : relevés Street View ----------
+// mur de soutènement en pierre de taille / moellons (Ivry – Italie), tuile 6 m × 6 m
+export function stoneWallTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(401);
+  c.fillStyle = '#8c8577'; c.fillRect(0, 0, S, S);
+  const rows = 9, rh = S / rows;
+  for (let j = 0; j < rows; j++) {
+    let x = -rand() * 60;
+    while (x < S) {
+      const w = 50 + rand() * 90, y = j * rh;
+      const t = rand();
+      c.fillStyle = t < 0.3 ? '#9a9383' : t < 0.6 ? '#8a8373' : t < 0.85 ? '#a39b8a' : '#777062';
+      c.fillRect(x + 1, y + 1, w - 2, rh - 2);
+      c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(x + 2, y + 2, w - 4, 3);   // arête éclairée
+      c.fillStyle = 'rgba(0,0,0,0.20)'; c.fillRect(x + 2, y + rh - 5, w - 4, 3);     // ombre portée
+      x += w;
+    }
+  }
+  c.strokeStyle = 'rgba(40,36,30,0.55)'; c.lineWidth = 2;
+  for (let j = 0; j <= rows; j++) { c.beginPath(); c.moveTo(0, j * rh); c.lineTo(S, j * rh); c.stroke(); }
+  speckle(c, S, S, 9000, ['rgba(50,45,38,0.3)', 'rgba(210,205,190,0.22)'], 0.6, 1.6, rand);
+  for (let i = 0; i < 20; i++) { // coulures + mousses
+    const x = rand() * S, w = 4 + rand() * 12, h = S * (0.2 + rand() * 0.5);
+    const g = c.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(25,28,22,0.38)'); g.addColorStop(1, 'rgba(25,28,22,0)');
+    c.fillStyle = g; c.fillRect(x, 0, w, h);
+  }
+  const g2 = c.createLinearGradient(0, S, 0, S * 0.72);
+  g2.addColorStop(0, 'rgba(25,24,20,0.55)'); g2.addColorStop(1, 'rgba(25,24,20,0)');
+  c.fillStyle = g2; c.fillRect(0, S * 0.72, S, S * 0.28);
+  return tex(THREE, cv);
+}
+
+// écran antibruit en béton beige à rainures verticales (Maillot – Clichy)
+export function beigeNoiseTexture(THREE) {
+  const S = 256, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(402);
+  c.fillStyle = '#cbc3b0'; c.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 8) { c.fillStyle = x % 16 ? 'rgba(255,250,235,0.10)' : 'rgba(80,70,50,0.14)'; c.fillRect(x, 0, 4, S); }
+  c.fillStyle = 'rgba(90,82,66,0.55)'; c.fillRect(0, 0, 4, S); c.fillRect(S / 2, 0, 4, S);       // joints de panneaux
+  c.fillStyle = '#b3aa95'; c.fillRect(0, 0, S, 10);                                               // chapeau
+  speckle(c, S, S, 3000, ['rgba(60,55,45,0.2)', 'rgba(255,250,235,0.2)'], 0.8, 2, rand);
+  const g = c.createLinearGradient(0, S, 0, S * 0.55); g.addColorStop(0, 'rgba(30,28,24,0.5)'); g.addColorStop(1, 'rgba(30,28,24,0)');
+  c.fillStyle = g; c.fillRect(0, S * 0.55, S, S * 0.45);
+  for (let i = 0; i < 10; i++) {
+    const x = rand() * S, w = 3 + rand() * 8, h = S * (0.2 + rand() * 0.4);
+    const gg = c.createLinearGradient(0, 0, 0, h); gg.addColorStop(0, 'rgba(40,38,32,0.28)'); gg.addColorStop(1, 'rgba(40,38,32,0)');
+    c.fillStyle = gg; c.fillRect(x, 0, w, h);
+  }
+  return tex(THREE, cv);
+}
+
+// écran antibruit en tôle nervurée verticale gris clair (Saint-Ouen – La Chapelle)
+export function ribbedMetalTexture(THREE) {
+  const S = 256, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(403);
+  c.fillStyle = '#b9bfc4'; c.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 10) {
+    const gr = c.createLinearGradient(x, 0, x + 10, 0);
+    gr.addColorStop(0, 'rgba(255,255,255,0.28)'); gr.addColorStop(0.5, 'rgba(0,0,0,0.0)'); gr.addColorStop(1, 'rgba(40,50,60,0.30)');
+    c.fillStyle = gr; c.fillRect(x, 0, 10, S);
+  }
+  c.fillStyle = '#6d777f'; c.fillRect(0, 0, 8, S); c.fillRect(S / 2, 0, 8, S);                     // poteaux
+  c.fillStyle = '#8f979d'; c.fillRect(0, 0, S, 8);
+  blotches(c, S, S, 10, 'rgba(50,55,60,0.16)', 10, 50, rand);
+  const g = c.createLinearGradient(0, S, 0, S * 0.6); g.addColorStop(0, 'rgba(30,30,28,0.45)'); g.addColorStop(1, 'rgba(30,30,28,0)');
+  c.fillStyle = g; c.fillRect(0, S * 0.6, S, S * 0.4);
+  return tex(THREE, cv);
+}
+
+// atlas de graffitis (8 cases 512×256, fond transparent) posés en décalques sur les murs de tranchée
+export function graffitiAtlas(THREE) {
+  const W = 2048, H = 512, cv = cnv(W, H), c = cv.getContext('2d'), rand = rng(777);
+  c.clearRect(0, 0, W, H);
+  for (let k = 0; k < 8; k++) {
+    const cell = cnv(512, 256), g = cell.getContext('2d');
+    // une seule pièce par case, qui remplit la case
+    const kind = [1, 1, 0, 1, 2, 1, 0, 2][k];
+    const cols = ['#2d6cdf', '#f2f2f2', '#f0b400', '#3bb273', '#ff6a2b', '#18b6c9', '#c9c9c9', '#d23b6e'];
+    const pick = () => cols[(rand() * cols.length) | 0];
+    if (kind === 0) { // surface recouverte (« buff »)
+      g.fillStyle = `rgba(${156 + (rand() * 14 | 0)},${154 + (rand() * 14 | 0)},${146 + (rand() * 12 | 0)},0.95)`;
+      g.fillRect(20 + rand() * 30, 30 + rand() * 30, 380 + rand() * 90, 150 + rand() * 60);
+    } else if (kind === 1) { // throw-up : lettres bulles
+      const letters = 'AHIMOTUVWXY';
+      let word = ''; for (let i = 0; i < 3 + (rand() * 2 | 0); i++) word += letters[(rand() * letters.length) | 0];
+      let px = 170; g.font = `900 ${px}px Impact, "Arial Black", sans-serif`;
+      const wd = g.measureText(word).width; if (wd > 460) { px = Math.floor(px * 460 / wd); g.font = `900 ${px}px Impact, "Arial Black", sans-serif`; }
+      g.textAlign = 'center'; g.lineJoin = 'round';
+      g.lineWidth = px * 0.22; g.strokeStyle = '#111'; g.strokeText(word, 256, 175);
+      g.lineWidth = px * 0.1; g.strokeStyle = pick(); g.strokeText(word, 256, 175);
+      g.fillStyle = pick(); g.fillText(word, 256, 175);
+      g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(256 - wd * 0.45, 175 - px * 0.78, wd * 0.9, px * 0.07);
+    } else { // tag signature
+      g.strokeStyle = rand() < 0.6 ? '#141414' : pick(); g.lineWidth = 12; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(40, 150);
+      for (let i = 0; i < 7; i++) g.bezierCurveTo(40 + i * 62, 40 + rand() * 60, 70 + i * 62, 200 + rand() * 40, 80 + i * 62, 90 + rand() * 90);
+      g.stroke();
+      g.lineWidth = 5; g.strokeStyle = pick(); g.stroke();
+    }
+    c.drawImage(cell, (k % 4) * 512, ((k / 4) | 0) * 256);
+  }
+  const t = tex(THREE, cv);
+  return t;
 }
