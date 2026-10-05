@@ -367,3 +367,18 @@ export function foliageTexture(THREE) {
   c.fillStyle = '#4a3b2c'; c.fillRect(S / 2 - 6, S * 0.82, 12, S * 0.18);
   return tex(THREE, cv, { repeat: false });
 }
+
+// feuillage dense (tuile) pour les couronnes d'arbres
+export function leavesTexture(THREE) {
+  const S = 256, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(71);
+  c.fillStyle = '#5d7d45'; c.fillRect(0, 0, S, S);
+  for (let i = 0; i < 1800; i++) {
+    const x = rand() * S, y = rand() * S, r = 3 + rand() * 7;
+    const l = rand();
+    c.fillStyle = l < 0.33 ? 'rgba(38,58,28,0.75)' : l < 0.7 ? 'rgba(88,120,60,0.7)' : 'rgba(150,175,95,0.6)';
+    c.beginPath(); c.ellipse(x, y, r, r * 0.7, rand() * 3, 0, Math.PI * 2); c.fill();
+  }
+  // trouées sombres (profondeur)
+  blotches(c, S, S, 16, 'rgba(20,30,15,0.45)', 8, 24, rand);
+  return tex(THREE, cv);
+}

@@ -142,8 +142,9 @@ function pip(pts, x, z) {
 
 // ============================================================
 export class Scenery {
-  constructor(THREE, track, chunkLen) {
+  constructor(THREE, track, chunkLen, ramps = null) {
     this.T = THREE;
+    this.ramps = ramps;
     this.track = track;
     this.chunkLen = chunkLen;
     this.index = new TrackIndex(track);
@@ -156,7 +157,20 @@ export class Scenery {
     }
     this.byChunk = new Map();
     const nChunks = Math.ceil(track.length / chunkLen);
+    this.dropped = 0;
     const put = (s, b) => {
+      // aucune emprise ne doit mordre sur la chaussée, les bretelles ou les ouvrages
+      const near = b.custom || !(b.dist > 55);
+      const res = near ? this.clearance(b.kind === 'box' ? rectPts(b) : b.pts) : { ok: true };
+      if (!res.ok) {
+        if (!b.custom) { this.dropped++; return; }
+        for (let k = 0; k < 8 && !res.ok; k++) {
+          const p = {}; track.pointAt(res.s, p);
+          const sh = (res.need + 4) * res.side;
+          b.cx += p.rx * sh; b.cz += p.rz * sh;
+          Object.assign(res, this.clearance(rectPts(b)));
+        }
+      }
       const ci = Math.floor(wrap(s, track.length) / chunkLen) % nChunks;
       if (!this.byChunk.has(ci)) this.byChunk.set(ci, []);
       this.byChunk.get(ci).push(b);
@@ -221,7 +235,7 @@ export class Scenery {
       const pr = this.index.project(x, z, 800);
       if (!pr) return;
       for (const [w, d, y0, h, dx = 0, dz = 0] of tiers) {
-        put(pr.s, { kind: 'box', cx: x + dx, cz: z + dz, w, d, ang: (angDeg * Math.PI) / 180, h: y0 + h, y0, fac, dist: Math.abs(pr.lat) - 40, s: pr.s, seed: 0.5, tint });
+        put(pr.s, { kind: 'box', cx: x + dx, cz: z + dz, w, d, ang: (angDeg * Math.PI) / 180, h: y0 + h, y0, fac, dist: 99, s: pr.s, seed: 0.5, tint, custom: true });
       }
     };
     // Tribunal de Paris (R. Piano, 160 m) : socle + 3 gradins vitrés en retrait
@@ -231,6 +245,29 @@ export class Scenery {
     add(48.8784, 2.2826, [[150, 92, 0, 30]], FAC.modern, 28);
     // Tours Mercuriales (Bagnolet, ~ 90 m)
     add(48.8637, 2.4170, [[30, 30, 0, 92, -32, 0], [30, 30, 0, 92, 32, 0]], FAC.office, 0);
+  }
+
+  // vérifie qu'une emprise reste à distance de la plate-forme routière
+  clearance(pts) {
+    const t = this.track;
+    let need = 0, sAt = 0, side = 0, firstSide = 0;
+    const test = (x, z) => {
+      const pr = this.index.project(x, z, 500);
+      if (!pr) return;
+      const sd = pr.lat >= 0 ? 1 : -1;
+      if (!firstSide) firstSide = sd;
+      let edge = t.mainEdgeAt(pr.s) + 7;
+      if (this.ramps && sd > 0) for (const o of this.ramps.at(pr.s, 0)) edge = Math.max(edge, t.mainEdgeAt(pr.s) + o.gap + o.w + 5);
+      let n = edge - Math.abs(pr.lat);
+      if (sd !== firstSide) n = edge + Math.abs(pr.lat); // l'emprise enjambe le périphérique
+      if (n > need) { need = n; sAt = pr.s; side = firstSide; }
+    };
+    for (let i = 0; i < pts.length; i++) {
+      const [x0, z0] = pts[i], [x1, z1] = pts[(i + 1) % pts.length];
+      const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / 8));
+      for (let k = 0; k < n; k++) test(x0 + ((x1 - x0) * k) / n, z0 + ((z1 - z0) * k) / n);
+    }
+    return { ok: need <= 0, need, s: sAt, side: side || 1 };
   }
 
   guessHeight(type, side, area, r) {
@@ -262,9 +299,15 @@ export class Scenery {
   buildChunk(ci, roadClear, facB, roofB) {
     const list = this.byChunk.get(ci);
     if (!list) return;
-    const white = [1, 1, 1];
     for (const b of list) {
       if (b.dist < roadClear) continue; // ne jamais empiéter sur la chaussée
+      this.drawBuilding(b, facB, roofB);
+    }
+  }
+
+  // dessine un bâtiment (façades atlas + toiture, mansarde, édicules)
+  drawBuilding(b, facB, roofB) {
+    {
       const fac = FACADES[b.fac];
       const pal = TINTS[b.fac];
       const tint = b.tint || shade(rgb(pal[Math.floor(b.seed * 997) % pal.length]), 0.9 + b.seed * 0.14);
@@ -375,25 +418,6 @@ export function buildLandmarks(T, scene) {
       B.quad(B.v(...q[0], 0, 0, c), B.v(...q[1], 1, 0, c), B.v(...q[2], 1, 1, c), B.v(...q[3], 0, 1, c));
     }
   };
-  // Tour Eiffel — 4 piliers évasés, 1er et 2e étages, fût, antenne
-  {
-    const { x, z } = at(48.8584, 2.2945), col = 0x6b5442;
-    for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-      // pilier incliné : segments empilés convergeant vers l'axe
-      for (let k = 0; k < 6; k++) {
-        const t0 = k / 6, t1 = (k + 1) / 6;
-        const off0 = 52 * (1 - t0 * 0.62), off1 = 52 * (1 - t1 * 0.62);
-        const y0 = t0 * 57, y1 = t1 * 57;
-        frustum(x + dx * (off0 + off1) / 2, z + dz * (off0 + off1) / 2, 10 - t0 * 2.5, 10 - t1 * 2.5, y0, y1 - y0 + 0.5, col);
-      }
-    }
-    box(x, z, 70, 70, 57, 6, 0x5e4a3a);
-    frustum(x, z, 30, 19, 63, 52, col);
-    box(x, z, 40, 40, 115, 5, 0x5e4a3a);
-    frustum(x, z, 18, 4.5, 120, 155, col);
-    box(x, z, 9, 9, 274, 8, 0x5e4a3a);
-    frustum(x, z, 2.4, 0.6, 282, 48, 0x4d3e31, 6);
-  }
   // Tour Montparnasse
   { const { x, z } = at(48.8421, 2.3220); box(x, z, 50, 32, 0, 209, 0x2c3138, 0.5); }
   // Sacré-Cœur sur la butte Montmartre
@@ -429,9 +453,79 @@ export function buildLandmarks(T, scene) {
   // Tour Pleyel, Stade de France (nord, au-delà du périphérique)
   { const p = at(48.9180, 2.3440); box(p.x, p.z, 36, 36, 0, 129, 0x445566); const sf = at(48.9245, 2.3602); frustum(sf.x, sf.z, 160, 150, 0, 42, 0xd8dbe0, 24); }
   const geo = B.build(T);
-  const mat = new T.MeshLambertMaterial({ vertexColors: true, fog: true });
+  const mat = haze(new T.MeshLambertMaterial({ vertexColors: true, fog: true }), 4.5);
   const mesh = new T.Mesh(geo, mat);
   mesh.frustumCulled = false;
   scene.add(mesh);
-  return mesh;
+  const eiffel = eiffelTower(T);
+  scene.add(eiffel);
+  return { mesh, eiffelMat: eiffel.children[0].material };
+}
+
+// brume atmosphérique allongée pour les repères lointains (visibles à plusieurs km)
+export function haze(mat, k) {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, r) => {
+    if (prev) prev(sh, r);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <fog_fragment>',
+      `#ifdef USE_FOG\n  float fogFactor = smoothstep( fogNear, fogFar * ${k.toFixed(2)}, vFogDepth ) * 0.85;\n  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );\n#endif`);
+  };
+  mat.customProgramCacheKey = () => 'haze' + k;
+  return mat;
+}
+
+// Tour Eiffel : silhouette ajourée (treillis, arches, plateformes) sur 2 plans croisés
+function eiffelTower(T) {
+  const W = 512, H = 1024, M = H / 330; // px par mètre
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const hw = (y) => 62.5 * Math.pow(Math.max(0, 1 - y / 312), 2.35) + 1.6;
+  const X = (m) => W / 2 + m * M, Y = (m) => H - m * M;
+  // silhouette
+  c.beginPath();
+  for (let y = 0; y <= 300; y += 2) c.lineTo(X(-hw(y)), Y(y));
+  for (let y = 300; y >= 0; y -= 2) c.lineTo(X(hw(y)), Y(y));
+  c.closePath();
+  c.save(); c.clip();
+  // treillis : croisillons serrés
+  c.strokeStyle = '#6a5442'; c.lineWidth = 2.2;
+  for (let k = -H; k < W + H; k += 9) {
+    c.beginPath(); c.moveTo(k, H); c.lineTo(k + H * 0.55, 0); c.stroke();
+    c.beginPath(); c.moveTo(k, H); c.lineTo(k - H * 0.55, 0); c.stroke();
+  }
+  // arêtes et montants
+  c.lineWidth = 5; c.strokeStyle = '#5b4637';
+  for (let y = 0; y < 300; y += 3) { c.fillStyle = '#5b4637'; c.fillRect(X(-hw(y)), Y(y) - 3, 7, 3); c.fillRect(X(hw(y)) - 7, Y(y) - 3, 7, 3); }
+  for (let y = 0; y < 57; y += 3) { const inner = hw(y) - 16 * (1 - y / 70); c.fillRect(X(-inner) - 5, Y(y) - 3, 6, 3); c.fillRect(X(inner) - 1, Y(y) - 3, 6, 3); }
+  c.restore();
+  // grande arche entre les piliers (transparente)
+  c.save(); c.globalCompositeOperation = 'destination-out';
+  c.beginPath(); c.ellipse(X(0), Y(0), 38 * M, 40 * M, 0, Math.PI, 0); c.fill();
+  // jours entre les piliers au-dessus de l'arche
+  c.beginPath(); c.moveTo(X(-22), Y(40)); c.lineTo(X(22), Y(40)); c.lineTo(X(14), Y(54)); c.lineTo(X(-14), Y(54)); c.fill();
+  c.restore();
+  c.strokeStyle = '#5b4637'; c.lineWidth = 6;
+  c.beginPath(); c.ellipse(X(0), Y(0), 38 * M, 40 * M, 0, Math.PI, 0); c.stroke();
+  // plateformes
+  c.fillStyle = '#4e3c2f';
+  c.fillRect(X(-hw(57) - 3), Y(63), (hw(57) + 3) * 2 * M, 6 * M);
+  c.fillRect(X(-hw(115) - 2), Y(119), (hw(115) + 2) * 2 * M, 4 * M);
+  c.fillRect(X(-5), Y(282), 10 * M, 6 * M);
+  // sommet et antenne
+  c.fillRect(X(-2.4), Y(300), 4.8 * M, 18 * M);
+  c.fillRect(X(-0.7), Y(330), 1.4 * M, 30 * M);
+  const tex = new T.CanvasTexture(cv);
+  tex.colorSpace = T.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const mat = haze(new T.MeshLambertMaterial({ map: tex, alphaTest: 0.35, side: T.DoubleSide, fog: true, emissive: 0xffa640, emissiveMap: tex, emissiveIntensity: 0 }), 5);
+  const g = new T.Group();
+  const { x, z } = geoToLocal(48.8584, 2.2945);
+  for (const ry of [0.75, 0.75 + Math.PI / 2]) {
+    const m = new T.Mesh(new T.PlaneGeometry(165, 330), mat);
+    m.position.set(x, 165, z);
+    m.rotation.y = ry;
+    m.frustumCulled = false;
+    g.add(m);
+  }
+  return g;
 }

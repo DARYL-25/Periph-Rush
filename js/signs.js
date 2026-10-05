@@ -11,6 +11,8 @@
 // Police : Barlow Semi Condensed (OFL), proche des « Caractères » L1/L2.
 // ============================================================
 
+import { drawSignText, signTextWidth, L1, L2 } from './signfont.js';
+
 const texCache = new Map();
 const FONT = '"PR Sign", "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif';
 const PPM = 128; // pixels de texture par mètre de panneau
@@ -41,8 +43,14 @@ function finish(THREE, cv, key, meta = {}) {
   return out;
 }
 function font(px, weight = 600) { return `${weight} ${px}px ${FONT}`; }
-function textW(ctx, txt, px, weight) { ctx.font = font(px, weight); return ctx.measureText(txt).width; }
+// lettrage réglementaire : capitales façon « Caractères » (L1 sur fond clair, L2 sur fond foncé)
+const CAP = 0.72;
+const isLight = (c) => /^#(f|e)/i.test(c);
+function textW(ctx, txt, px, weight, color = '#111') { return signTextWidth(txt, px * CAP, isLight(color) ? L2 : L1); }
 function text(ctx, txt, x, y, px, color, align = 'left', weight = 600) {
+  drawSignText(ctx, txt, x, y, px * CAP, color, align, isLight(color) ? L2 : L1);
+}
+function textSys(ctx, txt, x, y, px, color, align = 'left', weight = 600) {
   ctx.font = font(px, weight);
   ctx.fillStyle = color;
   ctx.textAlign = align;
@@ -78,14 +86,14 @@ function drawRef(ctx, ref, x, yMid, px) {
   const kind = ref[0];
   const bg = kind === 'D' ? '#f5c400' : kind === 'E' ? '#127548' : '#c8102e';
   const fg = kind === 'D' ? '#111' : '#fff';
-  const w = textW(ctx, ref, px, 600) + px * 0.6, h = px * 1.15;
+  const w = textW(ctx, ref, px, 600, fg) + px * 0.6, h = px * 1.15;
   ctx.fillStyle = bg; rrect(ctx, x, yMid - h / 2, w, h, px * 0.14); ctx.fill();
   ctx.strokeStyle = fg; ctx.lineWidth = px * 0.06;
   rrect(ctx, x + px * 0.08, yMid - h / 2 + px * 0.08, w - px * 0.16, h - px * 0.16, px * 0.1); ctx.stroke();
   text(ctx, ref, x + w / 2, yMid, px, fg, 'center', 600);
   return w;
 }
-function refW(ctx, ref, px) { return textW(ctx, ref, px, 600) + px * 0.6; }
+function refW(ctx, ref, px) { return textW(ctx, ref, px, 600, ref[0] === 'D' ? '#111' : '#fff') + px * 0.6; }
 
 // flèche directionnelle française (fût + tête triangulaire pleine)
 // angle : 0 = tout droit (haut), PI/4 = sortie à droite, PI/2 = droite, PI = bas
@@ -122,7 +130,7 @@ export function directionPanel(THREE, rows, opts = {}) {
   const arrowZone = opts.arrow ? px * 1.9 : 0;
   let inner = opts.minW ? opts.minW * PPM : 0;
   for (const r of rows) {
-    let w = textW(meas, r.text, px, 600);
+    let w = textW(meas, r.text, px, 600, (COL[r.color] || COL.white).fg);
     for (const ref of r.refs || []) w += refW(meas, ref, px * 0.78) + px * 0.35;
     inner = Math.max(inner, w + pad * 2 + arrowZone);
   }
@@ -144,7 +152,7 @@ export function directionPanel(THREE, rows, opts = {}) {
     ctx.fillStyle = c.bg; ctx.fillRect(px * 0.15, y, W - px * 0.3, rowH);
     let x = px * 0.15 + pad + arrowZone;
     text(ctx, r.text, x, y + rowH / 2, px, c.fg, 'left', 600);
-    x += textW(ctx, r.text, px, 600) + px * 0.35;
+    x += textW(ctx, r.text, px, 600, c.fg) + px * 0.35;
     for (const ref of r.refs || []) x += drawRef(ctx, ref, x, y + rowH / 2, px * 0.78) + px * 0.35;
     y += rowH;
   });
@@ -181,10 +189,10 @@ export function gantryPanel(THREE, cols, totalW) {
     for (const r of col.rows) {
       const c = COL[r.color] || COL.white;
       ctx.fillStyle = c.bg; ctx.fillRect(x0 + px * 0.12, y, w - px * 0.24, rowH);
-      let tw = textW(ctx, r.text, px, 600);
+      let tw = textW(ctx, r.text, px, 600, c.fg);
       let sz = px;
       const refsW = (r.refs || []).reduce((a, ref) => a + refW(ctx, ref, px * 0.78) + px * 0.3, 0);
-      if (tw + refsW > w - px * 0.8) { sz = px * (w - px * 0.8 - refsW) / tw; tw = textW(ctx, r.text, sz, 600); }
+      if (tw + refsW > w - px * 0.8) { sz = px * (w - px * 0.8 - refsW) / tw; tw = textW(ctx, r.text, sz, 600, c.fg); }
       let x = x0 + (w - tw - refsW) / 2;
       text(ctx, r.text, x, y + rowH / 2, sz, c.fg, 'left', 600);
       x += tw + px * 0.3;
@@ -210,26 +218,45 @@ export function speedLimitTexture(THREE, kmh = 50) {
   ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#f6f7f4';
   ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.36, 0, Math.PI * 2); ctx.fill();
-  text(ctx, String(kmh), S / 2, S / 2, S * 0.38, '#111', 'center', 600);
+  text(ctx, String(kmh), S / 2 - 2, S / 2, S * 0.5, '#111', 'center', 600);
   weather(ctx, S, S, 0.4);
   return finish(THREE, cv, key, { round: true });
 }
 
-// --- Contrôle automatique (radar) -----------------------------------
-export function radarTexture(THREE) {
-  const key = 'radar';
+// --- Annonce de radar automatique (modèle 2017) -------------------
+// bordure jaune ; bandeau gris avec la vitesse limite ; pictogrammes noirs
+// (voiture, moto, ondes radar) sur fond blanc
+export function radarTexture(THREE, kmh = 50) {
+  const key = 'radar:' + kmh;
   if (texCache.has(key)) return texCache.get(key);
-  const W = 256, H = 256, cv = makeCanvas(W, H), ctx = cv.getContext('2d');
-  ctx.fillStyle = '#1d4f9c'; rrect(ctx, 0, 0, W, H, 20); ctx.fill();
-  ctx.fillStyle = '#f6f7f4'; rrect(ctx, 16, 16, W - 32, H - 32, 12); ctx.fill();
-  // pictogramme : appareil photo stylisé
+  const W = 320, H = 480, cv = makeCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#f2c500'; rrect(ctx, 0, 0, W, H, 18); ctx.fill();          // bordure jaune
+  ctx.fillStyle = '#8e9397'; rrect(ctx, 18, 18, W - 36, 200, 8); ctx.fill();   // bandeau gris
+  ctx.fillStyle = '#f6f7f4'; rrect(ctx, 18, 222, W - 36, H - 240, 8); ctx.fill(); // fond blanc
+  // vitesse limite (B14)
+  const cx = W / 2, cy = 118, R = 86;
+  ctx.fillStyle = '#c8102e'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f6f7f4'; ctx.beginPath(); ctx.arc(cx, cy, R * 0.74, 0, Math.PI * 2); ctx.fill();
+  text(ctx, String(kmh), cx - 2, cy, R * 0.95, '#111', 'center', 600);
+  // pictogramme voiture (profil)
   ctx.fillStyle = '#111';
-  rrect(ctx, 58, 92, 140, 86, 12); ctx.fill();
-  ctx.fillRect(84, 74, 46, 22);
-  ctx.fillStyle = '#f6f7f4'; ctx.beginPath(); ctx.arc(128, 135, 30, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(128, 135, 19, 0, Math.PI * 2); ctx.fill();
-  text(ctx, 'CONTRÔLE', 128, 205, 26, '#111', 'center', 600);
-  weather(ctx, W, H, 0.4);
+  ctx.beginPath();
+  ctx.moveTo(40, 352); ctx.lineTo(48, 322); ctx.lineTo(78, 316); ctx.lineTo(102, 290); ctx.lineTo(160, 290);
+  ctx.lineTo(186, 318); ctx.lineTo(206, 322); ctx.lineTo(210, 352); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f6f7f4'; ctx.fillRect(108, 297, 22, 18); ctx.fillRect(136, 297, 22, 18);
+  ctx.fillStyle = '#111';
+  for (const x of [80, 170]) { ctx.beginPath(); ctx.arc(x, 354, 17, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f6f7f4'; ctx.beginPath(); ctx.arc(x, 354, 6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#111'; }
+  // pictogramme moto
+  ctx.lineWidth = 7; ctx.strokeStyle = '#111';
+  for (const x of [72, 160]) { ctx.beginPath(); ctx.arc(x, 432, 19, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(72, 432); ctx.lineTo(104, 404); ctx.lineTo(140, 404); ctx.lineTo(160, 432); ctx.stroke();
+  ctx.beginPath(); ctx.arc(118, 388, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(104, 396, 28, 10);
+  // ondes radar
+  ctx.lineWidth = 8; ctx.lineCap = 'round';
+  for (const r of [26, 46, 66]) { ctx.beginPath(); ctx.arc(232, 380, r, -0.75, 0.75); ctx.stroke(); }
+  ctx.fillRect(220, 364, 18, 32);
+  weather(ctx, W, H, 0.5);
   return finish(THREE, cv, key);
 }
 
@@ -295,7 +322,7 @@ export function prPlateTexture(THREE, km) {
   const W = 128, H = 160, cv = makeCanvas(W, H), ctx = cv.getContext('2d');
   ctx.fillStyle = '#f6f7f4'; rrect(ctx, 0, 0, W, H, 10); ctx.fill();
   ctx.strokeStyle = '#111'; ctx.lineWidth = 5; rrect(ctx, 5, 5, W - 10, H - 10, 8); ctx.stroke();
-  text(ctx, String(km), W / 2, 62, 66, '#111', 'center', 600);
+  text(ctx, String(km), W / 2, 62, 48, '#111', 'center', 600);
   ctx.fillStyle = '#c8102e'; ctx.fillRect(18, 108, W - 36, 16);
   text(ctx, 'BP', W / 2, 140, 22, '#111', 'center', 600);
   return finish(THREE, cv, key);
