@@ -104,9 +104,9 @@ class Ramps {
 function makeTreeGeometry(T) {
   const pos = [], nor = [], idx = [], uvs = [];
   const rand = rng(99);
-  const lobes = [[0, 4.7, 0, 1.9], [0.95, 4.0, 0.45, 1.45], [-0.85, 4.1, -0.55, 1.4], [0.25, 5.6, -0.3, 1.25], [-0.3, 3.7, 0.9, 1.2]];
+  const lobes = [[0, 4.7, 0, 1.9], [0.95, 4.0, 0.45, 1.45], [-0.85, 4.1, -0.55, 1.4], [0.25, 5.6, -0.3, 1.25], [-0.3, 3.7, 0.9, 1.2], [1.3, 5.0, -0.8, 1.0]];
   for (const [cx, cy, cz, r] of lobes) {
-    const g = new T.IcosahedronGeometry(1, 0);
+    const g = new T.IcosahedronGeometry(1, 1);
     const p = g.getAttribute('position');
     const base = pos.length / 3;
     const map = new Map();
@@ -114,7 +114,7 @@ function makeTreeGeometry(T) {
       const key = `${p.getX(i).toFixed(3)},${p.getY(i).toFixed(3)},${p.getZ(i).toFixed(3)}`;
       if (!map.has(key)) {
         const nx = p.getX(i), ny = p.getY(i), nz = p.getZ(i);
-        const k = r * (0.85 + rand() * 0.3);
+        const k = r * (0.78 + rand() * 0.42);
         pos.push(cx + nx * k, cy + ny * k * 0.9, cz + nz * k);
         const l = Math.hypot(nx, ny + 0.35, nz);
         nor.push(nx / l, (ny + 0.35) / l, nz / l);
@@ -186,6 +186,7 @@ export class World {
       tpool: new T.MeshBasicMaterial({ map: TX.glowTexture(T, '255,236,200'), transparent: true, opacity: 0.32, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }),
       water: new T.MeshPhongMaterial({ color: 0x35505e, shininess: 90, specular: 0x7799aa, side: DS }),
       bld: atlasify(new T.MeshLambertMaterial({ map: Bt.tex, emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, side: DS })),
+      graf: new T.MeshLambertMaterial({ map: TX.graffitiAtlas(T), alphaTest: 0.35, side: DS, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }),
       trunk: new T.MeshLambertMaterial({ color: 0x5b4a3a }),
       canopy: new T.MeshLambertMaterial({ color: 0xffffff, map: TX.leavesTexture(T) }),
       dark: new T.MeshBasicMaterial({ color: 0x0c0e11 }),
@@ -268,6 +269,8 @@ export class World {
     });
     // bornes d'appel d'urgence tous les 500 m, plaques PR tous les 200 m
     for (let s = 250; s < L; s += 500) F.push({ type: 'sos', s });
+    // mâts de caméras de vidéosurveillance (PC Rivoli) environ tous les 850 m
+    for (let s = 130; s < L; s += 850) { const q = wrap(s + ((s * 7) % 90), L); if (isFree(q, 12)) F.push({ type: 'cctv', s: q, left: ((s / 850) | 0) % 2 === 1 }); }
     for (let s = 0; s < L; s += 500) F.push({ type: 'pr', s: wrap(t.prOrigin + s, L), km: (s / 1000).toFixed(1).replace('.', ',') });
     F.sort((a, b) => a.s - b.s);
     return F;
@@ -364,10 +367,10 @@ export class World {
     };
     const Bb = new Batch(true), bt = this.mats.btiles;
     B.bld = Bb;
-    B.fac = [0, 1, 2, 3, 4, 5, 6].map((i) => new TileView(Bb, bt['f' + i]));
+    B.fac = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => new TileView(Bb, bt['f' + i]));
     B.roof = new TileView(Bb, bt.roof);
     const glow = [];
-    const ctx = { s0, len, rows, B, glow, rand, group, geoms, idx };
+    const ctx = { s0, len, rows, B, glow, rand, group, geoms, idx, graf: new Batch() };
 
     this.buildRoad(ctx);
     this.buildPaint(ctx);
@@ -393,6 +396,7 @@ export class World {
     this.addMesh(ctx, B.metal, M.metal, true, false);
     this.addMesh(ctx, B.lamp, M.lamp, false, false);
     this.flushSigns(ctx);
+    { const g = ctx.graf.build(T); if (g) { group.add(new T.Mesh(g, M.graf)); geoms.push(g); } }
     this.addMesh(ctx, B.tlight, M.tunnelLight, false, false);
     this.addMesh(ctx, B.water, M.water, false, true);
     for (const [b, m] of [[B.pool, M.pool], [B.tpool, M.tpool]]) { const pm = this.addMesh(ctx, b, m, false, false); if (pm) pm.renderOrder = 2; }
@@ -486,9 +490,9 @@ export class World {
 
   // fine bande sombre en travers de la chaussée (joint de dilatation)
   jointAt(B, d, lat0, lat1) {
-    const t = this.track, p = this._p, dark = [0.17, 0.17, 0.19];
+    const t = this.track, p = this._p, dark = [0.05, 0.05, 0.06];
     const pts = [];
-    for (const ds of [0, 0.2]) {
+    for (const ds of [0, 0.1]) {
       t.pointAt(d + ds, p);
       pts.push([p.x + p.rx * lat0, p.y + 0.017, p.z + p.rz * lat0, p.x + p.rx * lat1, p.z + p.rz * lat1]);
     }
@@ -541,6 +545,24 @@ export class World {
         const half = (s) => 0.55 * Math.max(0, 1 - (s - d - 3.2) / 1.8);
         this.paintLine(P2, d, d + 3.2, (s) => c(s) - 0.11, (s) => c(s) + 0.11, 0.016);
         this.paintLine(P2, d + 3.2, d + 5, (s) => c(s) - half(s), (s) => c(s) + half(s), 0.016);
+      }
+    }
+    // grilles d'avaloir le long du caniveau central et de la rive droite, tampons de regard dans les voies
+    {
+      const dk = [0.07, 0.07, 0.08], mh = [0.1, 0.1, 0.11];
+      for (let d = Math.ceil(s0 / 23) * 23; d < s1; d += 23) {
+        if (t.coverAt(d) || t.onBridge(d)) continue;
+        for (const sg of [1, -1]) {
+          const cell = ((Math.floor(d / 23) * 5 + (sg > 0 ? 2 : 0)) % 4);
+          if (cell === 0) this.paintLine(P2, d, d + 0.55, sg * (CFG.INNER_EDGE - 0.75), sg * (CFG.INNER_EDGE - 0.15), 0.016, null, dk);
+          else if (cell === 1) this.paintLine(P2, d, d + 0.55, (s) => sg * (t.mainEdgeAt(s) - 0.65), (s) => sg * (t.mainEdgeAt(s) - 0.05), 0.016, null, dk);
+        }
+      }
+      for (let d = Math.ceil(s0 / 140) * 140; d < s1; d += 140) {
+        if (t.coverAt(d) || t.onBridge(d)) continue;
+        const k = (Math.floor(d / 140) * 7) % 4, sg = (Math.floor(d / 140) % 2) ? 1 : -1;
+        const lat = CFG.INNER_EDGE + LW * (0.5 + (k % Math.max(1, t.lanesAt(d) - 0)));
+        this.paintLine(P2, d, d + 0.62, sg * (lat - 0.31), sg * (lat + 0.31), 0.017, null, mh);
       }
     }
     // joints de dilatation transversaux sur les ouvrages (viaducs, ponts)
@@ -622,6 +644,25 @@ export class World {
     // couronnement béton clair
     band(B.gba, rows, (r) => (trench(r) && !r.cover ? [L(wallX(r)), topY(r)] : null), (r) => (trench(r) && !r.cover ? [L(wallX(r) + 0.45), topY(r)] : null), gbaC, 4, 1);
     band(B.gba, rows, (r) => (trench(r) && !r.cover ? [L(wallX(r) + 0.45), topY(r)] : null), (r) => (trench(r) && !r.cover ? [L(wallX(r) + 0.45), Math.min(0, topY(r))] : null), gbaC, 4, 1);
+    // graffitis en décalques (positions et pièces variées, pas de répétition de tuile)
+    for (const r of rows) {
+      if (!trench(r) || r.cover) continue;
+      const blk = Math.floor(r.s / 6.5);
+      if (blk === r._gb) continue;
+      const hsh = ((blk * 2654435761 + (side > 0 ? 977 : 31)) >>> 0);
+      if (hsh % 100 > 22 || Math.abs(r.s - blk * 6.5) > 3.5) continue;
+      r._gb = blk;
+      const piece = (hsh >>> 8) % 8, w = 4.5 + ((hsh >>> 4) % 40) / 10, hgt = w * 0.5;
+      const top = topY(r), hb = Math.max(r.h, H(r)), yc = hb + Math.min(1.5 + ((hsh >>> 12) % 10) / 10, Math.max(0.7, (top - hb) * 0.45));
+      const t = this.track, pa = {}, pb = {};
+      t.pointAt(r.s, pa); t.pointAt(r.s + w, pb);
+      const lat = L(wallX(r) - 0.04), u0 = (piece % 4) / 4, v0 = 1 - (((piece / 4) | 0) + 1) / 2, col = [1, 1, 1], G = ctx.graf;
+      const ia = G.v(pa.x + pa.rx * lat, yc - hgt / 2, pa.z + pa.rz * lat, u0, v0, col);
+      const ib = G.v(pb.x + pb.rx * lat, yc - hgt / 2, pb.z + pb.rz * lat, u0 + 0.25, v0, col);
+      const ic = G.v(pb.x + pb.rx * lat, yc + hgt / 2, pb.z + pb.rz * lat, u0 + 0.25, v0 + 0.5, col);
+      const id = G.v(pa.x + pa.rx * lat, yc + hgt / 2, pa.z + pa.rz * lat, u0, v0 + 0.5, col);
+      G.quad(ia, ib, ic, id);
+    }
     // lierre retombant en haut de certains murs
     const ivyOn = (r) => trench(r) && !r.cover && H(r) < -3 && ((Math.floor(r.s / 60) * 7 + (side > 0 ? 3 : 0)) % 5 < 2);
     band(B.ivy, rows, (r) => (ivyOn(r) ? [L(wallX(r) - 0.06), topY(r) - 0.1] : null), (r) => (ivyOn(r) ? [L(wallX(r) - 0.08), topY(r) - 1.6 - ((r.s * 13.7) % 1.3)] : null), rgb(0xffffff), 3, 3);
@@ -1125,6 +1166,15 @@ export class World {
           boxAt(B.metal, r, lat, r.h, 0.55, 1.35, 0.4, rgb(0xe8701a));
           boxAt(B.metal, r, lat, r.h + 1.35, 0.6, 0.08, 0.45, rgb(0xd0d0d0));
           this.addSign(ctx, f.s, lat, r.h + 1.95, sosTexture(T), 0.45, 0.6);
+          break;
+        }
+        case 'cctv': {
+          if (t.coverAt(f.s) || this.ramps.at(f.s, r.h).length) break;
+          const lat = f.left ? -side(0.6) : side(0.6);
+          const g = rgb(0x8d9298), gd = rgb(0x5d6268);
+          boxAt(B.metal, r, lat, r.h, 0.2, 7.2, 0.2, g);                 // mât
+          boxAt(B.metal, r, lat, r.h + 7.0, 0.38, 0.28, 0.9, gd);        // caméra
+          boxAt(B.metal, r, lat, r.h, 0.9, 1.25, 0.45, gd);              // armoire technique
           break;
         }
         case 'pr': {

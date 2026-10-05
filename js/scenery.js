@@ -298,10 +298,10 @@ export class Scenery {
   pickFacade(type, side, h, area, r, r2) {
     if (type === 2) return h > 22 ? FAC.office : (r2 < 0.5 ? FAC.office : FAC.modern);
     if (type === 3 || type === 6) return FAC.industry;
-    if (h > 34) return r2 < 0.55 ? FAC.barre : FAC.office;
+    if (h > 34) return r2 < 0.3 ? FAC.barre : r2 < 0.6 ? FAC.office : FAC.tour;
     if (type === 1 || type === 0 || type === 4) {
-      if (side > 0) return r2 < 0.55 ? FAC.hbm : r2 < 0.75 ? FAC.modern : r2 < 0.88 ? FAC.haussmann : FAC.barre;
-      return r2 < 0.38 ? FAC.haussmann : r2 < 0.7 ? FAC.modern : r2 < 0.85 ? FAC.barre : FAC.hbm;
+      if (side > 0) return r2 < 0.4 ? FAC.hbm : r2 < 0.55 ? FAC.modern : r2 < 0.7 ? FAC.haussmann : r2 < 0.85 ? FAC.ocre : r2 < 0.93 ? FAC.barre : FAC.panel;
+      return r2 < 0.3 ? FAC.haussmann : r2 < 0.5 ? FAC.modern : r2 < 0.65 ? FAC.barre : r2 < 0.75 ? FAC.hbm : r2 < 0.87 ? FAC.ocre : FAC.panel;
     }
     if (type === 5) return r2 < 0.6 ? FAC.haussmann : FAC.modern;
     if (type === 7) return FAC.haussmann;
@@ -327,7 +327,7 @@ export class Scenery {
       const pts = b.kind === 'box' ? rectPts(b) : b.pts;
       const h = b.h, B = facB[b.fac], y0 = b.y0 || 0;
       // rez-de-chaussée commerçant sous les immeubles de ville (hauts de 9 m et plus)
-      const shopOK = y0 < 0.5 && h >= 9 && (b.fac === FAC.hbm || b.fac === FAC.haussmann || b.fac === FAC.modern || b.fac === FAC.barre) && b.seed > 0.12;
+      const shopOK = y0 < 0.5 && h >= 9 && (b.fac === FAC.hbm || b.fac === FAC.haussmann || b.fac === FAC.modern || b.fac === FAC.barre || b.fac === FAC.ocre || b.fac === FAC.panel) && b.seed > 0.12;
       const SH = 4.2, SB = facB[FAC.shop];
       // façades
       for (let i = 0; i < pts.length; i++) {
@@ -354,6 +354,11 @@ export class Scenery {
       else {
         const tris = this.T.ShapeUtils.triangulateShape(pts.map(([x, z]) => new this.T.Vector2(x, z)), []);
         for (const [i0, i1, i2] of tris) roofB.tri(ids[i0], ids[i1], ids[i2]);
+      }
+      // couronnement en retrait des tours (silhouette étagée)
+      if (b.kind === 'box' && h > 32 && y0 < 0.5 && b.seed > 0.55 && !b.custom && b.w > 14 && b.d > 14) {
+        const sub = { ...b, w: b.w * 0.68, d: b.d * 0.68, y0: h, h: h + Math.max(5, h * 0.14), seed: 0.1, custom: true, kind: 'box' };
+        this.drawBuilding(sub, facB, roofB);
       }
       // acrotère : rebord clair qui dessine le bâtiment (toutes toitures plates)
       if (!(b.kind === 'box' && b.fac === FAC.haussmann && b.w > 6 && b.d > 6)) {
@@ -452,6 +457,9 @@ const TINTS = [
   [0xf0e6d4, 0xe6dccb, 0xf3eee6, 0xe9d8c6, 0xdfe2e0, 0xf1dfd0], // logements récents
   [0xffffff, 0xd8dcd6, 0xe4d9c8],                     // entrepôts
   [0xffffff, 0xf4efe4, 0xece3d2],                     // commerces
+  [0xffffff, 0xf3e9d3, 0xe9dcc0],                     // brique ocre
+  [0xffffff, 0xf2efe8, 0xe8e5dc],                     // panneaux colorés
+  [0xe8e6e0, 0xd8d6d0, 0xf0ece4],                     // tours béton
 ];
 
 function rectPts(b) {
@@ -518,6 +526,27 @@ export function buildLandmarks(T, scene) {
     frustum(x, z, 112, 104, 0, 28, 0xb2aea4, 24);
     const rg = at(48.8467, 2.2493); box(rg.x, rg.z, 110, 90, 0, 22, 0xb7553a);
   }
+  // Arc de Triomphe : deux piles + linteau (axe vers la Défense ≈ 63° nord-ouest)
+  {
+    const { x, z } = at(48.8738, 2.2950), a = -0.43, ca = Math.cos(a), sa = Math.sin(a);
+    const off = (u) => [x + u * ca, z + u * sa];
+    const l = off(-15), r = off(15);
+    box(l[0], l[1], 14, 22, 0, 36, 0xd9d1bd, a); box(r[0], r[1], 14, 22, 0, 36, 0xd9d1bd, a);
+    box(x, z, 45, 22, 36, 14, 0xd9d1bd, a);
+  }
+  // Panthéon : fronton + tambour + dôme
+  { const { x, z } = at(48.8462, 2.3464); box(x, z, 80, 42, 0, 30, 0xd8d3c6); frustum(x, z, 16, 14, 30, 22, 0xd8d3c6, 16); frustum(x, z, 14, 1.5, 52, 28, 0x9ea5a6, 16); }
+  // Notre-Dame de Paris : façade à deux tours + flèche
+  {
+    const { x, z } = at(48.8530, 2.3499);
+    box(x, z, 48, 130, 0, 33, 0xcfc8b4, 0.3);
+    box(x - 10, z, 12, 14, 33, 36, 0xcfc8b4, 0.3); box(x + 10, z, 12, 14, 33, 36, 0xcfc8b4, 0.3);
+    frustum(x, z + 30, 5, 0.8, 33, 60, 0x8e949a, 8);
+  }
+  // Opéra Garnier : corps + dôme
+  { const { x, z } = at(48.8719, 2.3316); box(x, z, 90, 70, 0, 38, 0xd6ccb2, 0.5); frustum(x, z, 18, 12, 38, 12, 0x8e9a8a, 14); }
+  // tour de l'Horloge de la gare de Lyon
+  { const { x, z } = at(48.8443, 2.3735); box(x, z, 9, 9, 0, 64, 0xcdbf9e); frustum(x, z, 6, 0.8, 64, 14, 0x6e747a, 4); }
   // La Géode (La Villette) : sphère d'acier poli de 36 m
   {
     const { x, z } = at(48.8957, 2.3884);
