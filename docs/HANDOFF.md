@@ -525,3 +525,10 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - Arbres : peupliers élancés (18 %) et feuillages roussis d'automne (12 %).
 - Outils : `tools/snapshots.py` accepte `YAW=` (vue latérale), `tools/voidscan.py` (rayons latéraux, détecte les vides ; 0 trouvé sur le tour).
 - Rappel références Street View : le texte « Blvd Périphérique » / « E15 » sur la chaussée est une surcouche Google, ne PAS le reproduire.
+
+## v9 (relevés Street View, 18 portes)
+- Murs de soutènement en pierre de taille (zone Ivry–Italie–Orléans + 1 tronçon sur 9), écrans antibruit béton beige (majoritaires), tôle nervurée claire, anciens écrans conservés en variantes.
+- Flèches de sélection peintes dans la voie de droite à 210 m et 120 m avant chaque sortie ; joints de dilatation transversaux sur viaducs/ponts (paint : `vertexColors`, `paintLine(..., col)`, `jointAt`).
+- Garde-corps métallique complet (2 lisses + montants) sur les parapets de viaduc ; broussailles sur talus (instances, `bush`), éclairage chaud des couvertures.
+- Non fait faute de relevés exploitables : Pantin→Vincennes, Champerret, Passy, Muette (le navigateur intégré expire souvent). À reprendre.
+- Rappel : textes « Blvd Périphérique » / « E15 » sur la chaussée = surcouche Google, à ne pas reproduire.

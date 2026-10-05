@@ -166,6 +166,7 @@ export class World {
       { name: 'noise0', image: noise[0].image }, { name: 'noise1', image: noise[1].image }, { name: 'noise2', image: noise[2].image },
       { name: 'grass', image: TX.grassTexture(T).image }, { name: 'ivy', image: TX.ivyTexture(T).image }, { name: 'ground', image: TX.groundTexture(T).image },
       { name: 'tiles', image: TX.tilesTexture(T).image }, { name: 'noise3', image: TX.brickWallTexture(T).image },
+      { name: 'stone', image: TX.stoneWallTexture(T).image }, { name: 'noise4', image: TX.beigeNoiseTexture(T).image }, { name: 'noise5', image: TX.ribbedMetalTexture(T).image },
     ]);
     // atlas « bâti » : 6 façades + toitures (jour) et fenêtres allumées (nuit)
     const roof = TX.roofTexture(T);
@@ -174,13 +175,13 @@ export class World {
     const glow = makeAtlasLike(T, Bt, facades.map((f) => ({ image: f.glow.image })).concat([{ image: null }]));
     const m = {
       road: new T.MeshPhongMaterial({ map: asphalt.map, bumpMap: asphalt.bump, bumpScale: 0.6, vertexColors: true, shininess: 6, specular: 0x111111 }),
-      paint: new T.MeshPhongMaterial({ map: TX.paintTexture(T), side: DS, shininess: 18, specular: 0x222222, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }),
+      paint: new T.MeshPhongMaterial({ map: TX.paintTexture(T), vertexColors: true, side: DS, shininess: 18, specular: 0x222222, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }),
       struct: atlasify(new T.MeshLambertMaterial({ map: S.tex, vertexColors: true, side: DS })),
       concrete: new T.MeshLambertMaterial({ vertexColors: true, side: DS }), // compat. events.js
       metal: new T.MeshPhongMaterial({ vertexColors: true, shininess: 50, specular: 0x444444, side: DS }),
       lamp: new T.MeshBasicMaterial({ color: 0x3a3f45 }),
       lampGlow: new T.PointsMaterial({ map: TX.glowTexture(T, '255,226,190'), size: 5.5, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true }),
-      tunnelLight: new T.MeshBasicMaterial({ color: 0xfff1c8 }),
+      tunnelLight: new T.MeshBasicMaterial({ color: 0xffdfa0 }),
       pool: new T.MeshBasicMaterial({ map: TX.glowTexture(T, '255,214,160'), transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }),
       tpool: new T.MeshBasicMaterial({ map: TX.glowTexture(T, '255,236,200'), transparent: true, opacity: 0.32, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }),
       water: new T.MeshPhongMaterial({ color: 0x35505e, shininess: 90, specular: 0x7799aa, side: DS }),
@@ -352,11 +353,12 @@ export class World {
     const geoms = [];
     const rows = this.makeRows(s0, len);
     const S = new Batch(true), tl = this.mats.tiles;
-    const wallTile = tl['wall' + ((idx * 2654435761 >>> 0) % 3)];
+    const stoneZone = (s0 > 2700 && s0 < 4300) || ((idx * 2654435761 >>> 0) % 9 === 0);
+    const wallTile = stoneZone ? tl.stone : tl['wall' + ((idx * 2654435761 >>> 0) % 3)];
     const B = {
       road: new Batch(), paint: new Batch(), metal: new Batch(), lamp: new Batch(), tlight: new Batch(), water: new Batch(),
       pool: new Batch(), tpool: new Batch(),
-      S, wall: new TileView(S, wallTile), gba: new TileView(S, tl.gba), noise: new TileView(S, tl['noise' + [0, 1, 2, 3, 3][((((idx / 3) | 0) * 2654435761) >>> 0) % 5]]),
+      S, wall: new TileView(S, wallTile), gba: new TileView(S, tl.gba), noise: new TileView(S, tl['noise' + [4, 4, 4, 0, 1, 2, 3, 5, 5][((((idx / 3) | 0) * 2654435761) >>> 0) % 9]]),
       grass: new TileView(S, tl.grass), ivy: new TileView(S, tl.ivy), ground: new TileView(S, tl.ground),
       tiles: new TileView(S, tl.tiles),
     };
@@ -464,11 +466,11 @@ export class World {
   }
 
   // ---------- marquage au sol ----------
-  paintLine(B, s0, s1, lat0, lat1, yOff = 0.015, hFn = null) {
+  paintLine(B, s0, s1, lat0, lat1, yOff = 0.015, hFn = null, col = null) {
     const t = this.track, p = this._p;
     const n = Math.max(1, Math.ceil((s1 - s0) / 2.5));
     let prev = null;
-    const white = [1, 1, 1];
+    const white = col || [1, 1, 1];
     for (let i = 0; i <= n; i++) {
       const s = s0 + ((s1 - s0) * i) / n;
       t.pointAt(s, p);
@@ -480,6 +482,18 @@ export class World {
       if (prev) B.quad(prev[0], prev[1], b, a);
       prev = [a, b];
     }
+  }
+
+  // fine bande sombre en travers de la chaussée (joint de dilatation)
+  jointAt(B, d, lat0, lat1) {
+    const t = this.track, p = this._p, dark = [0.17, 0.17, 0.19];
+    const pts = [];
+    for (const ds of [0, 0.2]) {
+      t.pointAt(d + ds, p);
+      pts.push([p.x + p.rx * lat0, p.y + 0.017, p.z + p.rz * lat0, p.x + p.rx * lat1, p.z + p.rz * lat1]);
+    }
+    const [a, b] = pts;
+    B.quad(B.v(a[0], a[1], a[2], 0, 0, dark), B.v(a[3], a[1], a[4], 1, 0, dark), B.v(b[3], b[1], b[4], 1, 1, dark), B.v(b[0], b[1], b[2], 0, 1, dark));
   }
 
   buildPaint(ctx) {
@@ -516,6 +530,24 @@ export class World {
         const half = (s) => 0.55 * (1 - Math.abs((s - d - 2.5) / 2.5));
         this.paintLine(P2, d, d + 5, (s) => sg * (c - half(s) - 0.08), (s) => sg * (c - half(s) + 0.08));
         this.paintLine(P2, d, d + 5, (s) => sg * (c + half(s) - 0.08), (s) => sg * (c + half(s) + 0.08));
+      }
+    }
+    // flèches de sélection peintes dans la voie de droite avant chaque sortie (relevé Porte d'Orléans)
+    for (const x of t.exits) {
+      for (const dd of [210, 120]) {
+        const d = x.s - dd;
+        if (d < s0 || d + 5 > s1 || t.coverAt(d) || t.coverAt(d + 5)) continue;
+        const c = (s) => t.mainEdgeAt(s) - LW / 2;
+        const half = (s) => 0.55 * Math.max(0, 1 - (s - d - 3.2) / 1.8);
+        this.paintLine(P2, d, d + 3.2, (s) => c(s) - 0.11, (s) => c(s) + 0.11, 0.016);
+        this.paintLine(P2, d + 3.2, d + 5, (s) => c(s) - half(s), (s) => c(s) + half(s), 0.016);
+      }
+    }
+    // joints de dilatation transversaux sur les ouvrages (viaducs, ponts)
+    for (let d = Math.ceil(s0 / 42) * 42; d < s1; d += 42) {
+      if (!(t.onViaduct(d) || t.onBridge(d))) continue;
+      for (const sg of [1, -1]) {
+        this.jointAt(P2, d, sg * CFG.INNER_EDGE, sg * t.mainEdgeAt(d));
       }
     }
     // bretelles : rives + zébras de musoir
@@ -603,6 +635,10 @@ export class World {
     band(B.gba, rows, (r) => (via(r) ? [L(parX(r)), H(r) + 0.95] : null), (r) => (via(r) ? [L(parX(r) + 0.45), H(r) + 0.95] : null), gbaC, 4, 1);
     band(B.gba, rows, (r) => (via(r) ? [L(parX(r) + 0.45), H(r) + 0.95] : null), (r) => (via(r) ? [L(parX(r) + 0.45), H(r) - 1.7] : null), rgb(0xc6c3ba), 4, 2);
     band(B.metal, rows, (r) => (via(r) ? [L(parX(r) + 0.25), H(r) + 1.15, steel] : null), (r) => (via(r) ? [L(parX(r) + 0.25), H(r) + 1.22, steel] : null), steel, 4, 1);
+    // garde-corps métallique complet : lisses haute et médiane + montants (relevé Porte Maillot)
+    band(B.metal, rows, (r) => (via(r) ? [L(parX(r) + 0.25), H(r) + 1.5, steel] : null), (r) => (via(r) ? [L(parX(r) + 0.25), H(r) + 1.56, steel] : null), steel, 4, 1);
+    band(B.metal, rows, (r) => (via(r) ? [L(parX(r) + 0.25), H(r) + 1.33, steelD] : null), (r) => (via(r) ? [L(parX(r) + 0.25), H(r) + 1.37, steelD] : null), steel, 4, 1);
+    for (const r of rows) { if (via(r)) boxAt(B.metal, r, L(parX(r) + 0.25), H(r) + 0.95, 0.07, 0.62, 0.07, steelD); }
 
     // 4. talus enherbé
     band(B.grass, rows, (r) => (emb(r) ? [L(E(r) + 1.0), H(r)] : null), (r) => (emb(r) ? [L(E(r) + 1.0 + H(r) * 1.7), 0.02] : null), rgb(0xffffff), 6, 6);
@@ -837,7 +873,7 @@ export class World {
     if (!this._treeGeo) this._treeGeo = makeTreeGeometry(T);
     if (!this._treeTrunk) this._treeTrunk = new T.CylinderGeometry(0.14, 0.22, 3.4, 5).translate(0, 1.7, 0);
     const spots = [];
-    const pushSpot = (x, y, z, sc) => { if (spots.length < 60) spots.push([x, y, z, sc]); };
+    const pushSpot = (x, y, z, sc, bush = 0) => { if (spots.length < 150) spots.push([x, y, z, sc, bush]); };
     for (const r of rows) {
       for (const side of [1, -1]) {
         const E = side > 0 ? r.R : r.Lft, H = side > 0 ? r.RH : r.LH;
@@ -846,6 +882,12 @@ export class World {
           const base = H < -0.35 ? E + 2.6 : H > 0.35 && !r.viaduct ? E + 1.6 + H * (0.4 + rand() * 1.1) : E + 3.2;
           const y = H < -0.35 ? 0 : H > 0.35 && !r.viaduct ? Math.max(0, H - (base - E - 1) / 1.7) : 0;
           if (!r.cover) { const p = P(r, side * (base + rand() * 3), y); pushSpot(p[0], p[1], p[2], 0.8 + rand() * 0.6); }
+        }
+        // broussailles et arbustes sur les talus et au pied des murs (relevé Châtillon / Brancion)
+        if (!r.cover && !r.viaduct && H > -0.35 && rand() < 0.55) {
+          const bx = E + 1.5 + rand() * 2.8 + (H > 0.35 ? H * 1.2 : 0);
+          const p2 = P(r, side * bx, H > 0.35 ? Math.max(0, H - (bx - E - 1) / 1.7) : 0);
+          pushSpot(p2[0], p2[1], p2[2], 0.28 + rand() * 0.34, 1);
         }
         // bois et parcs réels plus loin
         for (const off of [18, 34, 55, 80]) {
@@ -862,14 +904,15 @@ export class World {
     const trunks = new T.InstancedMesh(this._treeTrunk, this.mats.trunk, spots.length);
     const crowns = new T.InstancedMesh(this._treeGeo, this.mats.canopy, spots.length);
     const m4 = new T.Matrix4(), q = new T.Quaternion(), v = new T.Vector3(), sc = new T.Vector3(), col = new T.Color(), up = new T.Vector3(0, 1, 0);
-    spots.forEach(([x, y, z, s], i) => {
+    spots.forEach(([x, y, z, s, bush], i) => {
       q.setFromAxisAngle(up, rand() * 6.28);
-      const kind = rand(); // 70 % platanes/érables, 18 % peupliers élancés, 12 % arbres roussis
+      const kind = bush ? 2 : rand(); // 70 % platanes/érables, 18 % peupliers élancés, 12 % arbres roussis
       const slim = kind > 0.7 && kind < 0.88;
-      m4.compose(v.set(x, y, z), q, slim ? sc.set(s * 0.62, s * (1.5 + rand() * 0.4), s * 0.62) : sc.set(s, s * (0.9 + rand() * 0.3), s));
+      m4.compose(v.set(x, y, z), q, bush ? sc.set(s * 1.3, s * 0.75, s * 1.3) : slim ? sc.set(s * 0.62, s * (1.5 + rand() * 0.4), s * 0.62) : sc.set(s, s * (0.9 + rand() * 0.3), s));
       trunks.setMatrixAt(i, m4);
       crowns.setMatrixAt(i, m4);
-      if (kind >= 0.88) col.setHSL(0.07 + rand() * 0.06, 0.55 + rand() * 0.2, 0.55 + rand() * 0.12);
+      if (bush) col.setHSL(0.2 + rand() * 0.08, 0.3 + rand() * 0.2, 0.42 + rand() * 0.15);
+      else if (kind >= 0.88) col.setHSL(0.07 + rand() * 0.06, 0.55 + rand() * 0.2, 0.55 + rand() * 0.12);
       else col.setHSL(0.19 + rand() * 0.1, 0.25 + rand() * 0.25, 0.62 + rand() * 0.25);
       crowns.setColorAt(i, col);
     });

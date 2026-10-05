@@ -464,3 +464,71 @@ export function brickWallTexture(THREE) {
   c.fillStyle = g; c.fillRect(0, S * 0.7, S, S * 0.3);
   return tex(THREE, cv);
 }
+
+// ---------- v9 : relevés Street View ----------
+// mur de soutènement en pierre de taille / moellons (Ivry – Italie), tuile 6 m × 6 m
+export function stoneWallTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(401);
+  c.fillStyle = '#8c8577'; c.fillRect(0, 0, S, S);
+  const rows = 9, rh = S / rows;
+  for (let j = 0; j < rows; j++) {
+    let x = -rand() * 60;
+    while (x < S) {
+      const w = 50 + rand() * 90, y = j * rh;
+      const t = rand();
+      c.fillStyle = t < 0.3 ? '#9a9383' : t < 0.6 ? '#8a8373' : t < 0.85 ? '#a39b8a' : '#777062';
+      c.fillRect(x + 1, y + 1, w - 2, rh - 2);
+      c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(x + 2, y + 2, w - 4, 3);   // arête éclairée
+      c.fillStyle = 'rgba(0,0,0,0.20)'; c.fillRect(x + 2, y + rh - 5, w - 4, 3);     // ombre portée
+      x += w;
+    }
+  }
+  c.strokeStyle = 'rgba(40,36,30,0.55)'; c.lineWidth = 2;
+  for (let j = 0; j <= rows; j++) { c.beginPath(); c.moveTo(0, j * rh); c.lineTo(S, j * rh); c.stroke(); }
+  speckle(c, S, S, 9000, ['rgba(50,45,38,0.3)', 'rgba(210,205,190,0.22)'], 0.6, 1.6, rand);
+  for (let i = 0; i < 20; i++) { // coulures + mousses
+    const x = rand() * S, w = 4 + rand() * 12, h = S * (0.2 + rand() * 0.5);
+    const g = c.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(25,28,22,0.38)'); g.addColorStop(1, 'rgba(25,28,22,0)');
+    c.fillStyle = g; c.fillRect(x, 0, w, h);
+  }
+  const g2 = c.createLinearGradient(0, S, 0, S * 0.72);
+  g2.addColorStop(0, 'rgba(25,24,20,0.55)'); g2.addColorStop(1, 'rgba(25,24,20,0)');
+  c.fillStyle = g2; c.fillRect(0, S * 0.72, S, S * 0.28);
+  return tex(THREE, cv);
+}
+
+// écran antibruit en béton beige à rainures verticales (Maillot – Clichy)
+export function beigeNoiseTexture(THREE) {
+  const S = 256, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(402);
+  c.fillStyle = '#cbc3b0'; c.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 8) { c.fillStyle = x % 16 ? 'rgba(255,250,235,0.10)' : 'rgba(80,70,50,0.14)'; c.fillRect(x, 0, 4, S); }
+  c.fillStyle = 'rgba(90,82,66,0.55)'; c.fillRect(0, 0, 4, S); c.fillRect(S / 2, 0, 4, S);       // joints de panneaux
+  c.fillStyle = '#b3aa95'; c.fillRect(0, 0, S, 10);                                               // chapeau
+  speckle(c, S, S, 3000, ['rgba(60,55,45,0.2)', 'rgba(255,250,235,0.2)'], 0.8, 2, rand);
+  const g = c.createLinearGradient(0, S, 0, S * 0.55); g.addColorStop(0, 'rgba(30,28,24,0.5)'); g.addColorStop(1, 'rgba(30,28,24,0)');
+  c.fillStyle = g; c.fillRect(0, S * 0.55, S, S * 0.45);
+  for (let i = 0; i < 10; i++) {
+    const x = rand() * S, w = 3 + rand() * 8, h = S * (0.2 + rand() * 0.4);
+    const gg = c.createLinearGradient(0, 0, 0, h); gg.addColorStop(0, 'rgba(40,38,32,0.28)'); gg.addColorStop(1, 'rgba(40,38,32,0)');
+    c.fillStyle = gg; c.fillRect(x, 0, w, h);
+  }
+  return tex(THREE, cv);
+}
+
+// écran antibruit en tôle nervurée verticale gris clair (Saint-Ouen – La Chapelle)
+export function ribbedMetalTexture(THREE) {
+  const S = 256, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(403);
+  c.fillStyle = '#b9bfc4'; c.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 10) {
+    const gr = c.createLinearGradient(x, 0, x + 10, 0);
+    gr.addColorStop(0, 'rgba(255,255,255,0.28)'); gr.addColorStop(0.5, 'rgba(0,0,0,0.0)'); gr.addColorStop(1, 'rgba(40,50,60,0.30)');
+    c.fillStyle = gr; c.fillRect(x, 0, 10, S);
+  }
+  c.fillStyle = '#6d777f'; c.fillRect(0, 0, 8, S); c.fillRect(S / 2, 0, 8, S);                     // poteaux
+  c.fillStyle = '#8f979d'; c.fillRect(0, 0, S, 8);
+  blotches(c, S, S, 10, 'rgba(50,55,60,0.16)', 10, 50, rand);
+  const g = c.createLinearGradient(0, S, 0, S * 0.6); g.addColorStop(0, 'rgba(30,30,28,0.45)'); g.addColorStop(1, 'rgba(30,30,28,0)');
+  c.fillStyle = g; c.fillRect(0, S * 0.6, S, S * 0.4);
+  return tex(THREE, cv);
+}

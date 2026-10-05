@@ -4,7 +4,7 @@
 // Les requêtes matchent en ignoreSearch (les ?v=N de index.html).
 // ============================================================
 
-const CACHE = 'periph-v8';
+const CACHE = 'periph-v9';
 const ASSETS = [
   '.',
   'index.html',
