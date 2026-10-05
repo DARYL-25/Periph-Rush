@@ -68,6 +68,11 @@ const G = {
   '&': [0.66, [P([0.68, 0], [0.12, 0.64], arc(0.27, 0.8, 0.17, 0.2, 200, -20), [0.06, 0.34], arc(0.28, 0.24, 0.24, 0.24, 160, 330), [0.7, 0.45])]],
   ' ': [0.32, []],
   // « m » minuscule des distances (500 m) — x-height 0,72
+  // minuscules (hauteur d'x 0,72) : « vers », unité « m »
+  v: [0.62, [P([0, 0.72], [0.31, 0], [0.62, 0.72])]],
+  e: [0.66, [P([0.02, 0.38], [0.64, 0.38], arc(0.33, 0.36, 0.32, 0.36, 2, 318))]],
+  r: [0.44, [P([0, 0], [0, 0.72]), P([0, 0.4], arc(0.3, 0.42, 0.3, 0.3, 180, 70))]],
+  s: [0.54, [P(arc(0.27, 0.54, 0.24, 0.18, 25, 270), arc(0.27, 0.18, 0.27, 0.18, 90, -155))]],
   m: [0.8, [P([0, 0], [0, 0.72]), P([0, 0.5], arc(0.2, 0.5, 0.2, 0.22, 180, 0), [0.4, 0]), P([0.4, 0.5], arc(0.6, 0.5, 0.2, 0.22, 180, 0), [0.8, 0])]],
 };
 // accents (sur capitales)
@@ -94,14 +99,15 @@ export const L2 = { sw: 0.135, track: 0.21 }; // plus fin, blanc sur couleur
 
 function glyphOf(ch) {
   if (G[ch]) return { g: G[ch] };
+  if (G[ch.toUpperCase()]) return { g: G[ch.toUpperCase()] };
   if (ACCENTED[ch]) return { g: G[ACCENTED[ch][0]], acc: ACC[ACCENTED[ch][1]] };
   if (ch === 'Ç') return { g: G.C, ced: true };
   return { g: G[' '] };
 }
 
 // largeur d'une chaîne (en px) pour une hauteur de capitale `cap`
-export function signTextWidth(str, cap, style = L1) {
-  const s = norm(str);
+export function signTextWidth(str, cap, style = L1, opts = {}) {
+  const s = opts.raw ? str : norm(str);
   let w = 0;
   for (let i = 0; i < s.length; i++) {
     const { g } = glyphOf(s[i]);
@@ -111,10 +117,11 @@ export function signTextWidth(str, cap, style = L1) {
 }
 
 // dessine la chaîne ; y = milieu de la hauteur de capitale
-export function drawSignText(ctx, str, x, y, cap, color, align = 'left', style = L1, maxW = 0) {
-  const s = norm(str);
+export function drawSignText(ctx, str, x, y, cap, color, align = 'left', style = L1, maxW = 0, opts = {}) {
+  const s = opts.raw ? str : norm(str);
+  const ital = opts.italic ? 0.21 : 0;
   let scaleX = 1;
-  let w = signTextWidth(s, cap, style);
+  let w = signTextWidth(s, cap, style, { raw: true });
   if (maxW && w > maxW) { scaleX = maxW / w; w = maxW; }
   let cx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
   const base = y + cap / 2;
@@ -128,7 +135,9 @@ export function drawSignText(ctx, str, x, y, cap, color, align = 'left', style =
   for (let i = 0; i < s.length; i++) {
     const { g, acc, ced } = glyphOf(s[i]);
     const ox = cx + half * scaleX;
-    const X = (gx) => ox + gx * cap * scaleX, Y = (gy) => base - half - gy * (cap - sw);
+    const Xb = (gx) => ox + gx * cap * scaleX, Y = (gy) => base - half - gy * (cap - sw);
+    let curGy = 0;
+    const X = (gx) => Xb(gx) + ital * curGy * cap;
     const paths = g[1].slice();
     if (ced) paths.push(P([0.4, 0], [0.4, -0.12], [0.28, -0.22]));
     // accents : trait plus fin, au-dessus de la capitale
@@ -137,7 +146,7 @@ export function drawSignText(ctx, str, x, y, cap, color, align = 'left', style =
       for (const p of acc) {
         if (p.dot) { ctx.fillRect(X(p.dot[0] + g[0] / 2) - half * 0.8, Y(p.dot[1] + 0.06) - half * 0.8, sw * 0.8, sw * 0.8); continue; }
         ctx.beginPath();
-        p.forEach(([gx, gy], k) => { const xx = X(gx + g[0] / 2 - 0.08), yy = Y(gy + 0.08); k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
+        p.forEach(([gx, gy], k) => { curGy = gy; const xx = X(gx + g[0] / 2 - 0.08), yy = Y(gy + 0.08); k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
         ctx.stroke();
       }
       ctx.lineWidth = sw;
@@ -145,11 +154,12 @@ export function drawSignText(ctx, str, x, y, cap, color, align = 'left', style =
     for (const p of paths) {
       if (p.dot) {
         const [dx, dy] = p.dot;
+        curGy = dy;
         ctx.fillRect(X(dx) - half, Y(dy) - half, sw, sw);
         continue;
       }
       ctx.beginPath();
-      p.forEach(([gx, gy], k) => (k ? ctx.lineTo(X(gx), Y(gy)) : ctx.moveTo(X(gx), Y(gy))));
+      p.forEach(([gx, gy], k) => { curGy = gy; k ? ctx.lineTo(X(gx), Y(gy)) : ctx.moveTo(X(gx), Y(gy)); });
       const a = p[0], z = p[p.length - 1];
       if (Math.hypot(a[0] - z[0], a[1] - z[1]) < 1e-3) ctx.closePath();
       ctx.stroke();
@@ -158,4 +168,62 @@ export function drawSignText(ctx, str, x, y, cap, color, align = 'left', style =
   }
   ctx.restore();
   return w;
+}
+
+// ------------------------------------------------------------
+// Texte composé des panneaux du périphérique, ex. « Pte de CLICHY » :
+// segments { t, k: 'big' | 'small' | 'sup', raw?, italic? }
+//   big   = capitale pleine hauteur ; small = petites capitales (0,62) sur la
+//   ligne de base ; sup = exposant (0,55) aligné en haut (P<sup>TE</sup>, S<sup>T</sup>)
+// ------------------------------------------------------------
+const K = { big: 1, small: 0.62, sup: 0.55 };
+export function richWidth(segs, cap, style = L1) {
+  let w = 0;
+  segs.forEach((g, i) => {
+    w += signTextWidth(g.t, cap * K[g.k || 'big'], style, { raw: g.raw });
+    const next = segs[i + 1];
+    if (next) w += next.k === 'sup' ? cap * 0.04 : g.join ? cap * 0.14 : cap * 0.42;
+  });
+  return w;
+}
+export function drawRich(ctx, segs, x, y, cap, color, align = 'left', style = L1, maxW = 0) {
+  let w = richWidth(segs, cap, style);
+  let k = 1;
+  if (maxW && w > maxW) { k = maxW / w; w = maxW; }
+  const c = cap * k;
+  let cx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  segs.forEach((g, i) => {
+    const sz = c * K[g.k || 'big'];
+    const yy = g.k === 'sup' ? y - c / 2 + sz / 2 : y + c / 2 - sz / 2;
+    cx += drawSignText(ctx, g.t, cx, yy, sz, color, 'left', style, 0, { raw: g.raw, italic: g.italic });
+    const next = segs[i + 1];
+    if (next) cx += next.k === 'sup' ? c * 0.04 : g.join ? c * 0.14 : c * 0.42;
+  });
+  return w;
+}
+
+// « Porte de Saint-Ouen » → [P][TE] [DE] [S][T] [OUEN] (graphie des panneaux du BP)
+export function porteSegments(name) {
+  const segs = [];
+  const m = name.match(/^Porte\s+(de la |de l'|de l’|du |des |de |d'|d’)?(.*)$/i);
+  if (!m) return wordSegments(name);
+  segs.push({ t: 'P', k: 'big' }, { t: 'TE', k: 'sup' });
+  if (m[1]) {
+    const art = m[1].trim().replace('’', "'");
+    if (/'$/.test(art)) { segs.push({ t: art.toUpperCase(), k: 'small', join: true }); }
+    else segs.push({ t: art.toUpperCase(), k: 'small' });
+  }
+  return segs.concat(wordSegments(m[2]));
+}
+function wordSegments(str) {
+  const segs = [];
+  for (const part of str.split(/\s+/)) {
+    const sm = part.match(/^Saint-(.*)$/i) || part.match(/^Sainte-(.*)$/i);
+    if (sm) {
+      const fem = /^Sainte/i.test(part);
+      segs.push({ t: 'S', k: 'big' }, { t: fem ? 'TE' : 'T', k: 'sup' }, { t: sm[1].toUpperCase(), k: 'big' });
+    } else if (/^(de|la|le|les|du|des|sur|en)$/i.test(part)) segs.push({ t: part.toUpperCase(), k: 'small' });
+    else segs.push({ t: part.toUpperCase(), k: 'big' });
+  }
+  return segs;
 }

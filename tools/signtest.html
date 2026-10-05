@@ -1,14 +1,16 @@
-<!doctype html><meta charset="utf-8"><body style="margin:0;background:#556">
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#9ab">
 <script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script>
 <div id="o"></div>
 <script type="module">
 import * as THREE from 'three';
-import { directionPanel, gantryPanel, speedLimitTexture, radarTexture, hovTexture, sosTexture, prPlateTexture, VMSPanel } from '../js/signs.js';
-const add = (t, w=300) => { const c = t.image || t.tex.image; c.style.cssText = `width:${w}px;margin:6px;vertical-align:top`; document.getElementById('o').appendChild(c); };
-add(directionPanel(THREE, [{text:"Porte d'Italie", color:'white', refs:['D 7']}], {arrow:'up', header:'500 m'}), 420);
-add(directionPanel(THREE, [{text:'Lyon - Évry', color:'blue', refs:['A 6b']},{text:'Orly - Rungis', color:'blue', refs:[]},{text:'Porte de Gentilly', color:'white', refs:[]}], {arrow:'exit'}), 420);
-add(gantryPanel(THREE, [{rows:[{text:'Paris - Centre', color:'green', refs:[]},{text:'Porte de Bercy', color:'white', refs:[]}], arrow:'exit'}], 5), 380);
-add(speedLimitTexture(THREE, 50), 120); add(radarTexture(THREE, 50), 140); add(hovTexture(THREE, true), 120); add(sosTexture(THREE), 90); add(prPlateTexture(THREE, '12,5'), 80);
-const v = new VMSPanel(THREE); v.setText(['PTE MAILLOT\t6 MN','PTE DE CLICHY\t11 MN','PTE DE LA CHAPELLE\t17 MN']); add({image: v.cv}, 420);
+import { bpStack, exitLines } from '../js/signs.js';
+const add = (t, w=300) => { const c = t.tex.image; c.style.cssText = `width:${w}px;margin:6px;vertical-align:top`; document.getElementById('o').appendChild(c); };
+const S = (L, w=0) => add(bpStack(THREE, L, w), 0.0 || bpStack(THREE, L, w).w * 95);
+S(exitLines([["Porte de Clichy","white","D 911"]], '600 m'));
+S([{kind:'porte', name:'Porte de Saint-Ouen'}]);
+S(exitLines([["Lille","blue","A 1"],["Charles de Gaulle","blue",""],["Saint-Denis","blue",""],["Porte de la Chapelle","white",""]], null));
+S(exitLines([["Porte de Clignancourt","white","D 14"]], '100 m'));
+S(exitLines([["Paris - Centre","green",""],["Porte de Bercy","white",""]], '400 m'));
+S(exitLines([["Porte d'Italie","white","D 7"]], '100 m'));
 window.done = true;
 </script>

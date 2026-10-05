@@ -263,6 +263,23 @@ signalisation, le plus réaliste possible ». Livré :
 - Paroi de fond derrière les ouvrages en contrebas (plus de « jours » sur le ciel).
 - Cache SW `periph-v6`, `?v=6`.
 
+### Mise à jour v7 (octobre 2026) : panneaux à la graphie réelle du BP
+
+D'après des photos du BP fournies par Daryl :
+- `bpStack()` / `exitLines()` (signs.js) : plaques séparées blanches à liseré noir,
+  « P<sup>TE</sup> DE CLICHY » (exposant, article en petites capitales, nom en capitales :
+  `porteSegments()` dans signfont.js), « S<sup>T</sup> OUEN », cartouche D jaune + distance en
+  italique (« 600 m »), plaques bleues « vers [pictogramme autoroute] A 1 », vertes avec
+  pictogramme avion (« CH. DE GAULLE »).
+- Plan des panneaux par sortie : présignalisation sur la tête du pont de la porte précédente
+  (ou portique), portique ~100 m avant (à gauche la sortie suivante, à droite celle-ci avec
+  « 100 m »), rappel au musoir.
+- Panneaux de bord (50, radar, SOS…) placés devant les murs, jamais dedans.
+- Têtes de ponts des portes : rive de tablier, larmier, bordure, garde-corps à barreaudage.
+- Couvertures carrelées gris clair ; écrans antibruit en briques entre poteaux béton ;
+  candélabres simples en rive en plus des doubles sur le TPC ; portiques à poutre caisson.
+- Cache SW `periph-v7`.
+
 ## 4. Architecture technique détaillée (fichier par fichier)
 
 Aucun build, aucun bundler : HTML + modules ES natifs + Three.js vendorisé. Tout est servi tel quel.

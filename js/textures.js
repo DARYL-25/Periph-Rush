@@ -382,3 +382,53 @@ export function leavesTexture(THREE) {
   blotches(c, S, S, 16, 'rgba(20,30,15,0.45)', 8, 24, rand);
   return tex(THREE, cv);
 }
+
+// carrelage gris clair des parois de couvertures et culées de ponts (tuile 3 m)
+export function tilesTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(81);
+  c.fillStyle = '#b9b8b2'; c.fillRect(0, 0, S, S);
+  const n = 12, t = S / n;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const v = 172 + rand() * 26 | 0;
+    c.fillStyle = `rgb(${v},${v - 1},${v - 5})`;
+    c.fillRect(i * t + 2, j * t + 2, t - 4, t - 4);
+  }
+  c.fillStyle = 'rgba(70,68,62,0.55)';
+  for (let k = 0; k <= n; k++) { c.fillRect(k * t - 1, 0, 2.5, S); c.fillRect(0, k * t - 1, S, 2.5); }
+  // coulures et encrassement bas
+  for (let i = 0; i < 18; i++) { const x = rand() * S, h = S * (0.2 + rand() * 0.6); const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(40,40,36,0.35)'); g.addColorStop(1, 'rgba(40,40,36,0)'); c.fillStyle = g; c.fillRect(x, 0, 4 + rand() * 10, h); }
+  const g2 = c.createLinearGradient(0, S, 0, S * 0.65); g2.addColorStop(0, 'rgba(30,29,26,0.55)'); g2.addColorStop(1, 'rgba(30,29,26,0)');
+  c.fillStyle = g2; c.fillRect(0, S * 0.65, S, S * 0.35);
+  blotches(c, S, S, 14, 'rgba(60,58,50,0.18)', 20, 70, rand);
+  return tex(THREE, cv);
+}
+
+// écran antibruit en panneaux de briques entre poteaux béton à chapeau (tuile 4 m)
+export function brickWallTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(91);
+  c.fillStyle = '#8f4a36'; c.fillRect(0, 0, S, S);
+  for (let y = 0; y < S; y += 9) for (let x = (y / 9) % 2 ? 0 : 10; x < S; x += 20) {
+    c.fillStyle = `rgba(${120 + rand() * 50},${55 + rand() * 25},${40 + rand() * 18},0.7)`; c.fillRect(x, y, 19, 8);
+  }
+  c.fillStyle = 'rgba(210,200,185,0.15)'; for (let y = 8; y < S; y += 9) c.fillRect(0, y, S, 1);
+  // poteaux béton clairs (tous les 2 m) avec chapeau arrondi
+  for (const x of [0, S / 2]) {
+    c.fillStyle = '#c8c3b6'; c.fillRect(x, 0, 40, S);
+    c.fillStyle = 'rgba(0,0,0,0.15)'; c.fillRect(x + 32, 0, 8, S);
+  }
+  // couronnement béton
+  c.fillStyle = '#bdb7aa'; c.fillRect(0, 0, S, 22);
+  // tags
+  const cols = ['#2b2b2b', '#5a6fb0', '#e8e4dc', '#7b3fa0', '#2f7d5a'];
+  for (let t = 0; t < 5; t++) {
+    const x0 = 50 + rand() * 380, y0 = 260 + rand() * 180;
+    c.strokeStyle = cols[(rand() * cols.length) | 0]; c.lineWidth = 3 + rand() * 4; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x0, y0);
+    let x = x0;
+    for (let k = 0; k < 12; k++) { x += 6 + rand() * 12; c.quadraticCurveTo(x - 6, y0 - 40 * rand(), x, y0 + (rand() - 0.5) * 50); }
+    c.stroke();
+  }
+  const g = c.createLinearGradient(0, S, 0, S * 0.7); g.addColorStop(0, 'rgba(25,22,20,0.5)'); g.addColorStop(1, 'rgba(25,22,20,0)');
+  c.fillStyle = g; c.fillRect(0, S * 0.7, S, S * 0.3);
+  return tex(THREE, cv);
+}

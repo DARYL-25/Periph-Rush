@@ -11,7 +11,7 @@
 // Police : Barlow Semi Condensed (OFL), proche des « Caractères » L1/L2.
 // ============================================================
 
-import { drawSignText, signTextWidth, L1, L2 } from './signfont.js';
+import { drawSignText, signTextWidth, drawRich, richWidth, porteSegments, L1, L2 } from './signfont.js';
 
 const texCache = new Map();
 const FONT = '"PR Sign", "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif';
@@ -207,6 +207,114 @@ export function gantryPanel(THREE, cols, totalW) {
   });
   weather(ctx, W, H, 0.7);
   return finish(THREE, cv, key, { transparent: true });
+}
+
+// ============================================================
+// Panneaux du Boulevard périphérique (graphie réelle)
+// Chaque mention est une plaque : blanche à liseré noir (portes, distance),
+// bleue « vers [autoroute] A 1 », verte (pôles, aéroports avec pictogramme),
+// plaque blanche vide. Cartouche D jaune + distance en italique (« 600 m »).
+// lines : [{kind:'ref', ref, dist} | {kind:'vers', ref} | {kind:'green', text, plane}
+//          | {kind:'porte', name} | {kind:'blank'}]
+// ============================================================
+const BP_CAP = 48;                      // hauteur de capitale (px) ≈ 0,31 m
+const BP_H = BP_CAP * 1.95;             // hauteur d'une plaque
+const PLATE = { white: ['#f4f5f2', '#1b1b1b'], blue: ['#1f4e9a', '#f4f5f2'], green: ['#0f7448', '#f4f5f2'] };
+
+function motorwayPicto(ctx, x, y, s) { // pictogramme autoroute : pont + 2 chaussées fuyantes
+  ctx.fillStyle = '#f4f5f2'; rrect(ctx, x, y, s, s, s * 0.12); ctx.fill();
+  ctx.fillStyle = '#1f4e9a';
+  const m = s * 0.12, w = s - 2 * m, top = y + m, bot = y + s - m;
+  ctx.fillRect(x + m, top, w, w * 0.16);                                 // tablier du pont
+  ctx.fillRect(x + m, top, w * 0.12, w * 0.42); ctx.fillRect(x + m + w * 0.88, top, w * 0.12, w * 0.42); // culées
+  const hy = top + w * 0.24, cx = x + s / 2;
+  for (const sd of [-1, 1]) {                                            // chaussées convergentes
+    ctx.beginPath();
+    ctx.moveTo(cx + sd * w * 0.06, bot); ctx.lineTo(cx + sd * w * 0.44, bot);
+    ctx.lineTo(cx + sd * w * 0.08, hy); ctx.lineTo(cx + sd * w * 0.03, hy); ctx.closePath(); ctx.fill();
+  }
+}
+function planePicto(ctx, x, y, s) { // pictogramme aéroport
+  ctx.fillStyle = '#f4f5f2'; rrect(ctx, x, y, s, s, s * 0.08); ctx.fill();
+  ctx.save(); ctx.translate(x + s / 2, y + s / 2); ctx.rotate(-Math.PI / 4); ctx.fillStyle = '#111';
+  const u = s / 10;
+  ctx.beginPath();
+  ctx.moveTo(0, -4.2 * u); ctx.lineTo(0.5 * u, -3.4 * u); ctx.lineTo(0.5 * u, -1 * u); ctx.lineTo(4 * u, 0.8 * u); ctx.lineTo(4 * u, 1.6 * u);
+  ctx.lineTo(0.5 * u, 0.6 * u); ctx.lineTo(0.5 * u, 2.8 * u); ctx.lineTo(1.6 * u, 3.6 * u); ctx.lineTo(1.6 * u, 4.2 * u); ctx.lineTo(0, 3.7 * u);
+  ctx.lineTo(-1.6 * u, 4.2 * u); ctx.lineTo(-1.6 * u, 3.6 * u); ctx.lineTo(-0.5 * u, 2.8 * u); ctx.lineTo(-0.5 * u, 0.6 * u); ctx.lineTo(-4 * u, 1.6 * u);
+  ctx.lineTo(-4 * u, 0.8 * u); ctx.lineTo(-0.5 * u, -1 * u); ctx.lineTo(-0.5 * u, -3.4 * u); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function lineSegs(ln) {
+  if (ln.kind === 'porte') return porteSegments(ln.name);
+  if (ln.kind === 'green') return [{ t: ln.text, k: 'big' }];
+  return [];
+}
+function lineWidthPx(ctx, ln) {
+  const c = BP_CAP;
+  if (ln.kind === 'porte') return richWidth(lineSegs(ln), c, L1);
+  if (ln.kind === 'green') return richWidth(lineSegs(ln), c, L2) + (ln.plane ? c * 1.6 : 0);
+  if (ln.kind === 'vers') return signTextWidth('vers', c, L2, { raw: true }) + c * 1.75 + signTextWidth(ln.ref, c, L2) + c * 0.5;
+  if (ln.kind === 'ref') return (ln.ref ? signTextWidth(ln.ref, c * 0.9, L1) + c * 0.9 : 0) + c * 2 + (ln.dist ? signTextWidth(ln.dist, c, L1, { raw: true }) : 0);
+  return 0;
+}
+export function bpStack(THREE, lines, minW = 0) {
+  const key = 'bp:' + JSON.stringify(lines) + minW;
+  if (texCache.has(key)) return texCache.get(key);
+  const meas = makeCanvas(4, 4).getContext('2d');
+  const c = BP_CAP, padX = c * 1.0;
+  let W = minW * PPM;
+  for (const ln of lines) W = Math.max(W, lineWidthPx(meas, ln) + padX * 2);
+  W = Math.ceil(W);
+  const H = Math.ceil(lines.length * BP_H + 4);
+  const cv = makeCanvas(W, H), ctx = cv.getContext('2d');
+  lines.forEach((ln, i) => {
+    const y0 = i * BP_H + 2, ym = y0 + BP_H / 2;
+    const col = ln.kind === 'vers' ? 'blue' : ln.kind === 'green' ? 'green' : 'white';
+    const [bg, fg] = PLATE[col];
+    ctx.fillStyle = bg; rrect(ctx, 1, y0, W - 2, BP_H - 2, 5); ctx.fill();
+    ctx.strokeStyle = fg; ctx.lineWidth = col === 'white' ? 3 : 2.5;
+    rrect(ctx, col === 'white' ? 2.5 : 6, y0 + (col === 'white' ? 1.5 : 5), W - (col === 'white' ? 5 : 12), BP_H - (col === 'white' ? 5 : 12), 4); ctx.stroke();
+    if (ln.kind === 'porte') drawRich(ctx, lineSegs(ln), W / 2, ym, c, fg, 'center', L1, W - padX * 1.2);
+    else if (ln.kind === 'green') {
+      const tw = richWidth(lineSegs(ln), c, L2), tot = tw + (ln.plane ? c * 1.6 : 0);
+      let x = (W - tot) / 2;
+      if (ln.plane) { planePicto(ctx, x, ym - c * 0.62, c * 1.24); x += c * 1.6; }
+      drawRich(ctx, lineSegs(ln), x, ym, c, fg, 'left', L2);
+    } else if (ln.kind === 'vers') {
+      const tot = lineWidthPx(meas, ln) - c * 0.5;
+      let x = (W - tot) / 2;
+      x += drawSignText(ctx, 'vers', x, ym + c * 0.12, c * 0.95, fg, 'left', L2, 0, { raw: true, italic: true }) + c * 0.45;
+      motorwayPicto(ctx, x, ym - c * 0.62, c * 1.24); x += c * 1.6;
+      drawSignText(ctx, ln.ref, x, ym, c, fg, 'left', L2);
+    } else if (ln.kind === 'ref') {
+      if (ln.ref) { // cartouche départementale jaune à gauche
+        const rw = signTextWidth(ln.ref, c * 0.9, L1) + c * 0.8, rh = c * 1.45;
+        ctx.fillStyle = '#f2b800'; ctx.fillRect(c * 0.35, ym - rh / 2, rw, rh);
+        drawSignText(ctx, ln.ref, c * 0.35 + rw / 2, ym, c * 0.9, '#111', 'center', L1);
+      }
+      if (ln.dist) drawSignText(ctx, ln.dist, W - c * 0.7, ym, c, '#111', 'right', L1, 0, { raw: true, italic: true });
+    }
+  });
+  weather(ctx, W, H, 0.6);
+  return finish(THREE, cv, key);
+}
+
+// conversion des destinations OSM en plaques réelles
+const abbrev = (t) => t.replace(/Charles de Gaulle/i, 'Ch. de Gaulle').replace(/^Saint-/i, 'St-');
+export function exitLines(dests, dist) {
+  const lines = [];
+  const white = dests.filter((d) => d[1] === 'white');
+  const ref = (white.find((d) => d[2] && /^[DN]/.test(d[2])) || [])[2] || null;
+  if (dist || ref) lines.push({ kind: 'ref', ref, dist: dist || null });
+  const seen = new Set();
+  for (const [, color, r] of dests) if (color === 'blue' && r && /^A/.test(r) && !seen.has(r)) { seen.add(r); lines.push({ kind: 'vers', ref: r }); }
+  for (const [t, color] of dests) {
+    if (/Orly|Charles de Gaulle|Roissy/i.test(t)) { const nm = /Orly/i.test(t) ? 'ORLY' : 'CH. DE GAULLE'; if (!lines.some((l) => l.text === nm)) lines.push({ kind: 'green', text: nm, plane: true }); }
+    else if (color === 'green') lines.push({ kind: 'green', text: abbrev(t).toUpperCase().replace(' - ', '-') });
+  }
+  for (const [t, color] of dests) if (color === 'white') lines.push({ kind: 'porte', name: abbrev(t) });
+  return lines;
 }
 
 // --- Limitation de vitesse (B14) -------------------------------------
