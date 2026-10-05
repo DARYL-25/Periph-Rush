@@ -313,14 +313,24 @@ export class Scenery {
       const tint = b.tint || shade(rgb(pal[Math.floor(b.seed * 997) % pal.length]), 0.9 + b.seed * 0.14);
       const pts = b.kind === 'box' ? rectPts(b) : b.pts;
       const h = b.h, B = facB[b.fac], y0 = b.y0 || 0;
+      // rez-de-chaussée commerçant sous les immeubles de ville (hauts de 9 m et plus)
+      const shopOK = y0 < 0.5 && h >= 9 && (b.fac === FAC.hbm || b.fac === FAC.haussmann || b.fac === FAC.modern || b.fac === FAC.barre) && b.seed > 0.12;
+      const SH = 4.2, SB = facB[FAC.shop];
       // façades
       for (let i = 0; i < pts.length; i++) {
         const [x0, z0] = pts[i], [x1, z1] = pts[(i + 1) % pts.length];
         const L = Math.hypot(x1 - x0, z1 - z0);
         if (L < 0.3) continue;
-        const u1 = L / (fac.bay * 4), v1 = h / (fac.floor * 4), v0 = y0 / (fac.floor * 4);
+        const base = shopOK && L > 5 ? SH : 0;
+        if (base) {
+          const sc = shade(rgb(0xffffff), 0.94 + ((i * 5) % 3) * 0.03);
+          const s0 = SB.v(x0, 0, z0, 0, 0, sc), s1 = SB.v(x1, 0, z1, L / (3.4 * 4), 0, sc);
+          const s2 = SB.v(x1, SH, z1, L / (3.4 * 4), 0.25, sc), s3 = SB.v(x0, SH, z0, 0, 0.25, sc);
+          SB.quad(s0, s1, s2, s3);
+        }
+        const u1 = L / (fac.bay * 4), v1 = h / (fac.floor * 4), v0 = (y0 + base) / (fac.floor * 4);
         const c = shade(tint, 0.92 + ((i * 7) % 3) * 0.04);
-        const a0 = B.v(x0, y0, z0, 0, v0, c), a1 = B.v(x1, y0, z1, u1, v0, c);
+        const a0 = B.v(x0, y0 + base, z0, 0, v0, c), a1 = B.v(x1, y0 + base, z1, u1, v0, c);
         const a2 = B.v(x1, h, z1, u1, v1, c), a3 = B.v(x0, h, z0, 0, v1, c);
         B.quad(a0, a1, a2, a3);
       }
@@ -384,6 +394,7 @@ const TINTS = [
   [0xffffff, 0xdfe8f0, 0xe8e8e8],                     // bureaux
   [0xf0e6d4, 0xe6dccb, 0xf3eee6, 0xe9d8c6, 0xdfe2e0, 0xf1dfd0], // logements récents
   [0xffffff, 0xd8dcd6, 0xe4d9c8],                     // entrepôts
+  [0xffffff, 0xf4efe4, 0xece3d2],                     // commerces
 ];
 
 function rectPts(b) {

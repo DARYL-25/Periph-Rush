@@ -362,7 +362,7 @@ export class World {
     };
     const Bb = new Batch(true), bt = this.mats.btiles;
     B.bld = Bb;
-    B.fac = [0, 1, 2, 3, 4, 5].map((i) => new TileView(Bb, bt['f' + i]));
+    B.fac = [0, 1, 2, 3, 4, 5, 6].map((i) => new TileView(Bb, bt['f' + i]));
     B.roof = new TileView(Bb, bt.roof);
     const glow = [];
     const ctx = { s0, len, rows, B, glow, rand, group, geoms, idx };
@@ -864,10 +864,13 @@ export class World {
     const m4 = new T.Matrix4(), q = new T.Quaternion(), v = new T.Vector3(), sc = new T.Vector3(), col = new T.Color(), up = new T.Vector3(0, 1, 0);
     spots.forEach(([x, y, z, s], i) => {
       q.setFromAxisAngle(up, rand() * 6.28);
-      m4.compose(v.set(x, y, z), q, sc.set(s, s * (0.9 + rand() * 0.3), s));
+      const kind = rand(); // 70 % platanes/érables, 18 % peupliers élancés, 12 % arbres roussis
+      const slim = kind > 0.7 && kind < 0.88;
+      m4.compose(v.set(x, y, z), q, slim ? sc.set(s * 0.62, s * (1.5 + rand() * 0.4), s * 0.62) : sc.set(s, s * (0.9 + rand() * 0.3), s));
       trunks.setMatrixAt(i, m4);
       crowns.setMatrixAt(i, m4);
-      col.setHSL(0.2 + rand() * 0.1, 0.25 + rand() * 0.25, 0.62 + rand() * 0.25);
+      if (kind >= 0.88) col.setHSL(0.07 + rand() * 0.06, 0.55 + rand() * 0.2, 0.55 + rand() * 0.12);
+      else col.setHSL(0.19 + rand() * 0.1, 0.25 + rand() * 0.25, 0.62 + rand() * 0.25);
       crowns.setColorAt(i, col);
     });
     crowns.castShadow = true;

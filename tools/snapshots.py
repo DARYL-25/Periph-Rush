@@ -34,6 +34,7 @@ with sync_playwright() as pw:
             break
     else:
         print("\n".join(logs)); raise SystemExit("boot timeout")
+    pg.evaluate("window.__YAW = %s" % os.environ.get("YAW", "0"))
     pg.evaluate("window.__LAT = %s" % os.environ.get("LAT", "7"))
     pg.evaluate("document.getElementById('m-play').click()")
     pg.evaluate("window.__periph.step(5)")
@@ -51,6 +52,7 @@ with sync_playwright() as pw:
               P.step(30);
               P.player.updateCamera(P.camera, 1, true);
               P.step(2);
+              if (window.__YAW) { P.camera.rotateY(window.__YAW); P.renderer.render(P.scene, P.camera); }
               const info = P.renderer.info.render;
               return { calls: info.calls, tris: info.triangles, s: Math.round(s),
                        porte: P.track.nextPorte(s).porte.name };

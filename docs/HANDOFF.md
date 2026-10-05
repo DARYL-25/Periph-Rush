@@ -519,3 +519,9 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 ---
 
 *Fin du document de transfert. Ce texte est conçu pour être collé intégralement en tout début d'une nouvelle conversation avec n'importe quel assistant IA disposant d'un accès au système de fichiers local (`C:\Users\daryl\Periph-Rush`) et idéalement d'outils d'exécution de commandes shell et de navigateur pour reprendre les tests headless décrits en section 6.*
+
+## v8
+- Rez-de-chaussée commerçants (`FACADES[6] = 'shop'`, 4,2 m) sous les immeubles de ville ≥ 9 m (scenery.js `drawBuilding`).
+- Arbres : peupliers élancés (18 %) et feuillages roussis d'automne (12 %).
+- Outils : `tools/snapshots.py` accepte `YAW=` (vue latérale), `tools/voidscan.py` (rayons latéraux, détecte les vides ; 0 trouvé sur le tour).
+- Rappel références Street View : le texte « Blvd Périphérique » / « E15 » sur la chaussée est une surcouche Google, ne PAS le reproduire.

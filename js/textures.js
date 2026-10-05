@@ -215,6 +215,7 @@ export const FACADES = [
   { id: 'office', bay: 1.8, floor: 3.6 },     // bureaux mur-rideau
   { id: 'modern', bay: 3.0, floor: 3.0 },     // logements récents enduit + bardage
   { id: 'industry', bay: 6.0, floor: 6.0 },   // entrepôts, ateliers, équipements
+  { id: 'shop', bay: 3.4, floor: 4.2 },       // rez-de-chaussée commerçant (4,2 m = bas de tuile)
 ];
 
 export function facadeTextures(THREE) {
@@ -318,6 +319,37 @@ export function facadeTextures(THREE) {
           if (rand() < 0.35) lit(x, y, w, h, warm());
         }
       }
+    } else if (id === 'shop') {
+      // rez-de-chaussée : socle en pierre + vitrines, rideaux métalliques, auvents, enseignes
+      // (le bas de la tuile = les 4,2 premiers mètres du bâtiment ; le reste est transparent-neutre)
+      d.fillStyle = '#d9cfba'; d.fillRect(0, 0, S, S);
+      const y0 = S * 0.75, hh = S * 0.25;
+      d.fillStyle = '#cfc5ae'; d.fillRect(0, y0, S, hh);
+      speckle(d, S, S, 2500, ['rgba(120,105,85,0.18)', 'rgba(255,250,240,0.22)'], 1, 2, rand);
+      const awn = ['#9c2f2a', '#2e5a7a', '#2f6a45', '#c8923a', '#6a2f5c', '#3a3a3a'];
+      const sign = ['#f2efe6', '#1e3a5f', '#8a1f24', '#2e6b4a', '#d6b24a', '#222222'];
+      for (let i = 0; i < 4; i++) {
+        const x = i * cell + 6, w = cell - 12, kind = (rand() * 5) | 0;
+        // linteau / enseigne
+        d.fillStyle = sign[(rand() * sign.length) | 0]; d.fillRect(x - 2, y0 + 5, w + 4, hh * 0.2);
+        d.fillStyle = 'rgba(255,255,255,0.65)'; d.fillRect(x + 8, y0 + 5 + hh * 0.06, w * (0.3 + rand() * 0.4), hh * 0.07);
+        if (kind === 0) { // rideau fermé
+          d.fillStyle = '#7d8286'; d.fillRect(x, y0 + hh * 0.3, w, hh * 0.7);
+          for (let k = y0 + hh * 0.3; k < S; k += 4) { d.fillStyle = 'rgba(0,0,0,0.18)'; d.fillRect(x, k, w, 1.2); }
+        } else if (kind === 4) { // porte d'immeuble
+          d.fillStyle = '#26303a'; d.fillRect(x + w * 0.25, y0 + hh * 0.22, w * 0.5, hh * 0.78);
+          d.fillStyle = '#9fb0bd'; d.fillRect(x + w * 0.3, y0 + hh * 0.3, w * 0.4, hh * 0.45);
+          d.fillStyle = '#b79b5a'; d.fillRect(x + w * 0.62, y0 + hh * 0.6, 3, 8);
+        } else { // vitrine + auvent
+          d.fillStyle = '#2d3640'; d.fillRect(x, y0 + hh * 0.34, w, hh * 0.66);
+          d.fillStyle = 'rgba(190,215,235,0.35)'; d.fillRect(x + 3, y0 + hh * 0.38, w * 0.45, hh * 0.4);
+          lit(x, y0 + hh * 0.34, w, hh * 0.66, rand() < 0.55 ? warm() : 'rgba(0,0,0,0)');
+          const c = awn[(rand() * awn.length) | 0];
+          for (let k = 0; k < w; k += 8) { d.fillStyle = (k / 8) % 2 ? c : '#f1ece0'; d.fillRect(x + k, y0 + hh * 0.26, 8, hh * 0.12); }
+        }
+        d.fillStyle = 'rgba(0,0,0,0.25)'; d.fillRect(x - 3, y0, 3, hh);
+      }
+      d.fillStyle = 'rgba(70,60,50,0.35)'; d.fillRect(0, S - 6, S, 6); // pied de mur
     } else { // industry
       d.fillStyle = '#9fa3a3'; d.fillRect(0, 0, S, S);
       for (let x = 0; x < S; x += 10) { d.fillStyle = x % 20 ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.12)'; d.fillRect(x, 0, 5, S); }
