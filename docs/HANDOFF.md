@@ -546,3 +546,26 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - Mobilier : mâts de caméras (`cctv`), grilles d'avaloir et regards peints, issues de secours / coffrets incendie dans les couvertures.
 - Monuments en silhouette : Arc de Triomphe, Panthéon, Notre-Dame, Opéra Garnier, tour de la gare de Lyon.
 - Rappel : ne jamais reproduire les surcouches Street View (« Blvd Périphérique », « E15 »).
+
+## v12 (relevé Street View du tour complet, oct. 2026)
+- Tour complet du sens intérieur sur Street View : 100 points de vue tous les 350 m depuis l'entrée Maillot
+  (notes détaillées : `docs/SURVEY-v12.md`). Rappel : « Blvd Périphérique », « E15 », « E50 » sur la chaussée
+  = surcouche Google, jamais reproduite.
+- Nouveau `js/survey.js` : tables par tronçon (abscisses en m après le départ) pour la rive droite (R) et la rive
+  extérieure d'en face (G) : parement des tranchées (béton, beige, meulière, pierre de taille, moellons, dalles,
+  caissons, fresque, talus), couronnement (balustrade, barreaudage, grillage), équipement hors tranchée (garde-corps
+  vert/noir/gris à barreaudage, glissière, muret, écrans beige/blanc tagué/briques/tôle/lames/vert/médaillons),
+  végétation (platanes, peupliers, pins, marronniers, bois, lierre, haie rouge, arbustes) ; TPC large planté ;
+  style d'éclairage ; appuis des couvertures ; repères ponctuels (SPOTS).
+- `world.js` : `buildSide` piloté par le relevé (`segBand` change de matériau sans trou, `railBand` pour les
+  garde-corps ajourés du nouvel atlas alpha `railAtlas`), tranchées à talus (bois de Boulogne, Asnières, Lilas),
+  graffitis en décalques sur murs ET écrans (`decals`, atlas 16 pièces), DBA double + bande plantée
+  (`medianHalf`), candélabres à crosse en RIVE (simples ou en Y) et en Y sur le TPC au sud (`lampPost`, `tube`),
+  couvertures à plafond béton + poutres, sodium, voiles/colonnes/piles/arcades, issues de secours vertes,
+  `buildSpots` : rame sur le pont-rail de Clichy, passerelles, échangeurs de Bagnolet/Maillot (ponts biais),
+  station-service de la Villette, portique d'équipements + radar sur TPC (Montreuil), panneaux 4x3 et écrans LED
+  fictifs (aucune marque réelle), mâts d'éclairage à couronne (Maillot). Portiques en béton au nord.
+- `track.js` : déblais relevés absents des « layer » OSM (`CUTS` : Italie, Lilas, Dorée, Montreuil, Châtillon).
+- `scenery.js` : Zénith, cheminées d'Ivry, ailes de Balard, immeuble Gallieni.
+- Tunnels : lumière sodium (`weather.js`), hémisphère rehaussée dans les couvertures.
+- Cache SW `periph-v12`, `?v=12` ; `js/survey.js` ajouté au précache.

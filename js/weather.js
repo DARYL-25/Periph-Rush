@@ -191,12 +191,12 @@ export class Ambience {
     this.skyMat.uniforms.sunDir.value.set(c.sunX * 600, 200 + c.sunY * 500, 200).normalize();
     this.skyMat.uniforms.sunCol.value.copy(mix('sunCol'));
     const fog = this.scene.fog;
-    fog.color.copy(fogC).lerp(this._tunnelFog || (this._tunnelFog = new T.Color(0x191410)), tb);
+    fog.color.copy(fogC).lerp(this._tunnelFog || (this._tunnelFog = new T.Color(0x2a1d10)), tb);
     fog.far = lerp(c.fogFar, 300, tb);
     fog.near = lerp(60, 24, tb);
     this.hemi.color.copy(mix('hemiSky')).lerp(this._tunnelHemi || (this._tunnelHemi = new T.Color(0xcfa96a)), tb * 0.8);
     this.hemi.groundColor.copy(mix('hemiGrd'));
-    this.hemi.intensity = c.hemiInt * (1 - tb * 0.25);
+    this.hemi.intensity = c.hemiInt * (1 - tb * 0.25) + tb * 0.45; // couvertures éclairées au sodium jour et nuit
     this.sun.color.copy(mix('sunCol'));
     this.sun.intensity = c.sunInt * (1 - tb * 0.75);
     // le soleil (et sa caméra d'ombre) suivent le joueur
@@ -220,7 +220,7 @@ export class Ambience {
       H.roadMat.specular.setScalar(0.06 + c.wet * 0.45);
       H.roadMat.color.setScalar(1 - c.wet * 0.35);
     }
-    if (H.tunnelLightMat) H.tunnelLightMat.color.setHex(0xfff1c8);
+    if (H.tunnelLightMat) H.tunnelLightMat.color.setHex(0xffb860); // sodium (relevé v12)
 
     // ciel suit la caméra
     if (playerPos) this.sky.position.set(playerPos.x, 0, playerPos.z);

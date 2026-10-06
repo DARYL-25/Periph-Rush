@@ -592,38 +592,360 @@ export function ribbedMetalTexture(THREE) {
   return tex(THREE, cv);
 }
 
-// atlas de graffitis (8 cases 512×256, fond transparent) posés en décalques sur les murs de tranchée
+// atlas de graffitis (16 cases 512×256 sur 4 lignes, fond transparent) posés en décalques sur les parois
 export function graffitiAtlas(THREE) {
-  const W = 2048, H = 512, cv = cnv(W, H), c = cv.getContext('2d'), rand = rng(777);
+  const W = 2048, H = 1024, cv = cnv(W, H), c = cv.getContext('2d'), rand = rng(777);
   c.clearRect(0, 0, W, H);
-  for (let k = 0; k < 8; k++) {
+  const cols = ['#2d6cdf', '#f2f2f2', '#f0b400', '#3bb273', '#ff6a2b', '#18b6c9', '#c9c9c9', '#d23b6e', '#8e44ad', '#111111', '#e8e2d0'];
+  const pick = () => cols[(rand() * cols.length) | 0];
+  const letters = 'AHIMOTUVWXYKRSEZ';
+  const word = (n) => { let w = ''; for (let i = 0; i < n; i++) w += letters[(rand() * letters.length) | 0]; return w; };
+  const kinds = [1, 1, 0, 1, 2, 3, 0, 2, 1, 4, 3, 1, 2, 0, 4, 1];
+  for (let k = 0; k < 16; k++) {
     const cell = cnv(512, 256), g = cell.getContext('2d');
-    // une seule pièce par case, qui remplit la case
-    const kind = [1, 1, 0, 1, 2, 1, 0, 2][k];
-    const cols = ['#2d6cdf', '#f2f2f2', '#f0b400', '#3bb273', '#ff6a2b', '#18b6c9', '#c9c9c9', '#d23b6e'];
-    const pick = () => cols[(rand() * cols.length) | 0];
-    if (kind === 0) { // surface recouverte (« buff »)
-      g.fillStyle = `rgba(${156 + (rand() * 14 | 0)},${154 + (rand() * 14 | 0)},${146 + (rand() * 12 | 0)},0.95)`;
-      g.fillRect(20 + rand() * 30, 30 + rand() * 30, 380 + rand() * 90, 150 + rand() * 60);
-    } else if (kind === 1) { // throw-up : lettres bulles
-      const letters = 'AHIMOTUVWXY';
-      let word = ''; for (let i = 0; i < 3 + (rand() * 2 | 0); i++) word += letters[(rand() * letters.length) | 0];
+    const kind = kinds[k];
+    if (kind === 0) { // surface recouverte (« buff ») de gris ou beige
+      const v = 140 + (rand() * 40 | 0);
+      g.fillStyle = `rgba(${v},${v - 2},${v - 8},0.96)`;
+      g.beginPath(); g.moveTo(20 + rand() * 30, 30 + rand() * 30);
+      g.lineTo(440 + rand() * 50, 25 + rand() * 30); g.lineTo(470 + rand() * 30, 200 + rand() * 40); g.lineTo(30 + rand() * 30, 210 + rand() * 30); g.closePath(); g.fill();
+    } else if (kind === 1) { // throw-up : lettres bulles bicolores
+      const wd0 = word(3 + (rand() * 3 | 0));
       let px = 170; g.font = `900 ${px}px Impact, "Arial Black", sans-serif`;
-      const wd = g.measureText(word).width; if (wd > 460) { px = Math.floor(px * 460 / wd); g.font = `900 ${px}px Impact, "Arial Black", sans-serif`; }
+      const wd = g.measureText(wd0).width; if (wd > 460) { px = Math.floor(px * 460 / wd); g.font = `900 ${px}px Impact, "Arial Black", sans-serif`; }
       g.textAlign = 'center'; g.lineJoin = 'round';
-      g.lineWidth = px * 0.22; g.strokeStyle = '#111'; g.strokeText(word, 256, 175);
-      g.lineWidth = px * 0.1; g.strokeStyle = pick(); g.strokeText(word, 256, 175);
-      g.fillStyle = pick(); g.fillText(word, 256, 175);
-      g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(256 - wd * 0.45, 175 - px * 0.78, wd * 0.9, px * 0.07);
-    } else { // tag signature
-      g.strokeStyle = rand() < 0.6 ? '#141414' : pick(); g.lineWidth = 12; g.lineCap = 'round'; g.lineJoin = 'round';
-      g.beginPath(); g.moveTo(40, 150);
-      for (let i = 0; i < 7; i++) g.bezierCurveTo(40 + i * 62, 40 + rand() * 60, 70 + i * 62, 200 + rand() * 40, 80 + i * 62, 90 + rand() * 90);
-      g.stroke();
-      g.lineWidth = 5; g.strokeStyle = pick(); g.stroke();
+      g.save(); g.translate(256, 175); g.rotate((rand() - 0.5) * 0.15);
+      g.lineWidth = px * 0.24; g.strokeStyle = '#111'; g.strokeText(wd0, 0, 0);
+      g.lineWidth = px * 0.11; g.strokeStyle = pick(); g.strokeText(wd0, 0, 0);
+      const gr = g.createLinearGradient(0, -px, 0, 0); gr.addColorStop(0, pick()); gr.addColorStop(1, pick());
+      g.fillStyle = gr; g.fillText(wd0, 0, 0);
+      g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(-wd * 0.45, -px * 0.78, wd * 0.9, px * 0.07);
+      g.restore();
+    } else if (kind === 2) { // tags signature (plusieurs)
+      for (let n = 0; n < 2 + (rand() * 2 | 0); n++) {
+        g.strokeStyle = rand() < 0.6 ? '#141414' : pick(); g.lineWidth = 5 + rand() * 7; g.lineCap = 'round'; g.lineJoin = 'round';
+        const y0 = 60 + rand() * 140, x0 = 20 + rand() * 120;
+        g.beginPath(); g.moveTo(x0, y0);
+        for (let i = 0; i < 6; i++) g.bezierCurveTo(x0 + i * 50, y0 - 50 * rand(), x0 + i * 50 + 20, y0 + 40 * rand(), x0 + i * 55 + 30, y0 + (rand() - 0.5) * 60);
+        g.stroke();
+      }
+    } else if (kind === 3) { // fresque : aplat coloré + lettres anguleuses (wildstyle simplifié)
+      g.fillStyle = pick(); g.globalAlpha = 0.9;
+      g.beginPath(); g.ellipse(256, 128, 230, 105, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+      g.font = '900 120px Impact, "Arial Black", sans-serif'; g.textAlign = 'center';
+      g.save(); g.translate(256, 170); g.transform(1, 0, -0.25, 1, 0, 0);
+      const wd0 = word(4);
+      g.lineWidth = 16; g.strokeStyle = '#141414'; g.strokeText(wd0, 0, 0); g.fillStyle = pick(); g.fillText(wd0, 0, 0);
+      g.restore();
+      for (let i = 0; i < 12; i++) { g.fillStyle = '#ffffff'; g.beginPath(); g.arc(40 + rand() * 430, 30 + rand() * 190, 2 + rand() * 4, 0, 7); g.fill(); }
+    } else { // personnage / bonhomme stylisé (pochoir)
+      g.fillStyle = pick();
+      g.beginPath(); g.arc(256, 80, 46, 0, Math.PI * 2); g.fill();
+      g.fillRect(226, 120, 60, 110);
+      g.fillStyle = '#111'; g.beginPath(); g.arc(240, 75, 8, 0, 7); g.arc(272, 75, 8, 0, 7); g.fill();
+      g.lineWidth = 6; g.strokeStyle = '#111'; g.strokeRect(226, 120, 60, 110);
     }
     c.drawImage(cell, (k % 4) * 512, ((k / 4) | 0) * 256);
   }
   const t = tex(THREE, cv);
+  return t;
+}
+
+// ============================================================
+// v12 : relevés Street View du tour complet (oct. 2026)
+// ============================================================
+function grime(c, S, rand, n = 18, top = 0.55) {
+  for (let i = 0; i < n; i++) {
+    const x = rand() * S, w = 3 + rand() * 12, h = S * (0.15 + rand() * top);
+    const g = c.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, `rgba(30,30,26,${0.22 + rand() * 0.25})`); g.addColorStop(1, 'rgba(30,30,26,0)');
+    c.fillStyle = g; c.fillRect(x, 0, w, h);
+  }
+  const g2 = c.createLinearGradient(0, S, 0, S * 0.7);
+  g2.addColorStop(0, 'rgba(24,23,20,0.55)'); g2.addColorStop(1, 'rgba(24,23,20,0)');
+  c.fillStyle = g2; c.fillRect(0, S * 0.7, S, S * 0.3);
+}
+
+// mur de meulière (moellons irréguliers ocre/brun, joints clairs épais) — Italie, Bagnolet, Dorée
+export function meuliereTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1201);
+  c.fillStyle = '#9b927f'; c.fillRect(0, 0, S, S); // mortier
+  const cols = ['#8a6f52', '#7a6249', '#9a7d5c', '#6e5a47', '#a58b6a', '#857565', '#6b625a', '#94826b'];
+  for (let y = -10; y < S + 20; y += 22 + rand() * 10) {
+    let x = -rand() * 30;
+    while (x < S + 20) {
+      const w = 26 + rand() * 40, h = 18 + rand() * 14;
+      c.fillStyle = cols[(rand() * cols.length) | 0];
+      c.beginPath();
+      const n = 7, cx = x + w / 2, cy = y + h / 2;
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2, r = 0.82 + rand() * 0.22;
+        const px = cx + Math.cos(a) * w / 2 * r, py = cy + Math.sin(a) * h / 2 * r;
+        k ? c.lineTo(px, py) : c.moveTo(px, py);
+      }
+      c.closePath(); c.fill();
+      // trous de la meulière (pierre caverneuse)
+      for (let k = 0; k < 4; k++) { c.fillStyle = 'rgba(40,30,22,0.35)'; c.fillRect(cx + (rand() - 0.5) * w * 0.6, cy + (rand() - 0.5) * h * 0.5, 2 + rand() * 3, 2 + rand() * 2); }
+      c.fillStyle = 'rgba(255,240,220,0.10)'; c.fillRect(cx - w * 0.3, cy - h * 0.35, w * 0.5, 2);
+      x += w + 3 + rand() * 4;
+    }
+  }
+  speckle(c, S, S, 9000, ['rgba(40,32,24,0.25)', 'rgba(230,220,200,0.18)'], 0.6, 1.6, rand);
+  grime(c, S, rand, 16, 0.5);
+  return tex(THREE, cv);
+}
+
+// pierre de taille calcaire claire (grands blocs réguliers) — Vanves, Versailles, Muette
+export function ashlarTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1202);
+  c.fillStyle = '#b9b09d'; c.fillRect(0, 0, S, S);
+  const rows = 8, rh = S / rows;
+  for (let j = 0; j < rows; j++) {
+    let x = j % 2 ? -64 : 0;
+    while (x < S) {
+      const w = 128;
+      const v = 168 + rand() * 30 | 0;
+      c.fillStyle = `rgb(${v},${v - 6 - (rand() * 6 | 0)},${v - 20 - (rand() * 8 | 0)})`;
+      c.fillRect(x + 2, j * rh + 2, w - 4, rh - 4);
+      c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(x + 3, j * rh + 3, w - 6, 3);
+      c.fillStyle = 'rgba(0,0,0,0.14)'; c.fillRect(x + 3, j * rh + rh - 6, w - 6, 3);
+      x += w;
+    }
+  }
+  speckle(c, S, S, 8000, ['rgba(70,64,52,0.22)', 'rgba(240,235,222,0.2)'], 0.6, 1.5, rand);
+  grime(c, S, rand, 22, 0.6);
+  return tex(THREE, cv);
+}
+
+// dalles de béton clair (≈ 1,5 m) avec tags — Dauphine, Muette, Maillot
+export function slabsTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1203);
+  c.fillStyle = '#c9c4b8'; c.fillRect(0, 0, S, S);
+  const n = 4, t = S / n;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const v = 190 + rand() * 22 | 0;
+    c.fillStyle = `rgb(${v},${v - 3},${v - 12})`; c.fillRect(i * t + 3, j * t + 3, t - 6, t - 6);
+    blotches(c, S, S, 1, 'rgba(120,112,98,0.12)', 20, 50, rand);
+  }
+  c.fillStyle = 'rgba(80,76,68,0.6)';
+  for (let k = 0; k <= n; k++) { c.fillRect(k * t - 2, 0, 4, S); c.fillRect(0, k * t - 2, S, 4); }
+  grime(c, S, rand, 14, 0.5);
+  return tex(THREE, cv);
+}
+
+// béton sombre patiné à caissons (niches rectangulaires) — Châtillon
+export function caissonsTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1204);
+  c.fillStyle = '#6f6b64'; c.fillRect(0, 0, S, S);
+  speckle(c, S, S, 30000, ['rgba(40,38,34,0.35)', 'rgba(150,145,135,0.3)', 'rgba(90,86,78,0.4)'], 0.8, 2.4, rand);
+  for (let i = 0; i < 2; i++) {
+    const x = 24 + i * 256;
+    c.fillStyle = 'rgba(25,24,22,0.55)'; c.fillRect(x, 90, 200, 300);
+    c.fillStyle = '#625e58'; c.fillRect(x + 10, 98, 182, 284);
+    c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(x, 86, 200, 6);
+    c.fillStyle = '#7a766e'; c.fillRect(x - 24, 0, 22, S); // pilastre
+  }
+  c.fillStyle = '#7d7972'; c.fillRect(0, 0, S, 60);
+  grime(c, S, rand, 20, 0.7);
+  return tex(THREE, cv);
+}
+
+// panneaux béton blancs entre poteaux, très tagués — Pantin, Lilas, Montrouge
+export function whitePanelTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1205);
+  c.fillStyle = '#d9d7d0'; c.fillRect(0, 0, S, S);
+  blotches(c, S, S, 30, 'rgba(150,146,135,0.14)', 20, 90, rand);
+  for (const x of [0, S / 2]) { c.fillStyle = '#b8b5ac'; c.fillRect(x, 0, 18, S); c.fillStyle = 'rgba(0,0,0,0.18)'; c.fillRect(x + 14, 0, 4, S); }
+  c.fillStyle = '#c4c1b8'; c.fillRect(0, 0, S, 14);
+  grime(c, S, rand, 10, 0.4);
+  return tex(THREE, cv);
+}
+
+// écran à lames inclinées (bois/cuivre) — Pré-Saint-Gervais
+export function slatsTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1206);
+  c.fillStyle = '#8a6a4f'; c.fillRect(0, 0, S, S);
+  c.save(); c.translate(S / 2, S / 2); c.rotate(-0.42); c.translate(-S, -S);
+  for (let x = 0; x < S * 2; x += 14) {
+    const v = rand();
+    c.fillStyle = v < 0.3 ? '#a5815f' : v < 0.6 ? '#94714f' : v < 0.85 ? '#b38f6b' : '#6f5440';
+    c.fillRect(x, 0, 10, S * 2);
+    c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(x + 10, 0, 4, S * 2);
+  }
+  c.restore();
+  grime(c, S, rand, 8, 0.3);
+  return tex(THREE, cv);
+}
+
+// panneaux verts décorés (fresque végétale) — La Chapelle
+export function greenPanelTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1207);
+  c.fillStyle = '#3f5c3c'; c.fillRect(0, 0, S, S);
+  for (let i = 0; i < 2; i++) {
+    const x = i * 256;
+    c.fillStyle = '#4c6e45'; c.fillRect(x + 12, 40, 232, 440);
+    for (let k = 0; k < 22; k++) { // motifs feuillus stylisés
+      c.fillStyle = ['#7fa35a', '#a9c46b', '#d8c05a', '#2f4a2c'][(rand() * 4) | 0];
+      c.beginPath(); c.ellipse(x + 30 + rand() * 200, 70 + rand() * 380, 8 + rand() * 18, 4 + rand() * 9, rand() * 3, 0, Math.PI * 2); c.fill();
+    }
+    c.fillStyle = '#a99d7f'; c.fillRect(x, 0, 12, S);
+  }
+  c.fillStyle = '#c8bd9a'; c.fillRect(0, 0, S, 26);
+  grime(c, S, rand, 10, 0.35);
+  return tex(THREE, cv);
+}
+
+// écran beige à médaillons ronds gris — Saint-Ouen
+export function medallionTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1208);
+  c.fillStyle = '#cdbf9f'; c.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 8) { c.fillStyle = x % 16 ? 'rgba(255,250,235,0.08)' : 'rgba(80,70,50,0.10)'; c.fillRect(x, 0, 4, S); }
+  for (const x of [0, S / 2]) { c.fillStyle = '#a99c80'; c.fillRect(x, 0, 12, S); }
+  for (const x of [128, 384]) {
+    c.fillStyle = '#6b6e70'; c.beginPath(); c.arc(x, 250, 92, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#4d5052'; c.lineWidth = 10; c.stroke();
+    c.strokeStyle = 'rgba(220,220,215,0.75)'; c.lineWidth = 9; c.beginPath();
+    c.moveTo(x - 40, 210); c.bezierCurveTo(x, 150, x + 30, 330, x + 45, 290); c.stroke();
+  }
+  grime(c, S, rand, 14, 0.5);
+  return tex(THREE, cv);
+}
+
+// fresque murale (graffiti « hall of fame » gris-bleu) — Villette, Italie
+export function frescoTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1209);
+  const g = c.createLinearGradient(0, 0, S, S);
+  g.addColorStop(0, '#3b4a5c'); g.addColorStop(0.5, '#59687a'); g.addColorStop(1, '#2f3a48');
+  c.fillStyle = g; c.fillRect(0, 0, S, S);
+  for (let i = 0; i < 26; i++) {
+    c.strokeStyle = ['#c7d1db', '#1d242c', '#8aa0b5', '#e6e9ec', '#5b8fb8'][(rand() * 5) | 0];
+    c.lineWidth = 6 + rand() * 18; c.lineCap = 'round';
+    c.beginPath(); const x = rand() * S, y = 80 + rand() * 380;
+    c.moveTo(x, y); c.bezierCurveTo(x + 60, y - 80, x + 120, y + 80, x + 200 * rand(), y - 20); c.stroke();
+  }
+  graffiti(c, S, rand, 6, 0.3, 0.9);
+  grime(c, S, rand, 8, 0.3);
+  return tex(THREE, cv);
+}
+
+// béton beige à panneaux verticaux (parois des couvertures, Champerret – Maillot)
+export function beigePanelWallTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1210);
+  c.fillStyle = '#b5ab98'; c.fillRect(0, 0, S, S);
+  blotches(c, S, S, 40, 'rgba(255,250,235,0.08)', 20, 90, rand);
+  blotches(c, S, S, 30, 'rgba(70,62,50,0.12)', 20, 110, rand);
+  speckle(c, S, S, 12000, ['rgba(80,74,64,0.22)', 'rgba(230,224,210,0.22)'], 0.6, 1.8, rand);
+  for (let x = 0; x <= S; x += S / 3) { c.fillStyle = 'rgba(60,54,46,0.55)'; c.fillRect(x - 2, 0, 4, S); c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(x + 2, 0, 2, S); }
+  c.fillStyle = 'rgba(60,54,46,0.4)'; c.fillRect(0, S * 0.18, S, 4);
+  grime(c, S, rand, 24, 0.6);
+  return tex(THREE, cv);
+}
+
+// plafond béton brut des couvertures (coffrage, suie)
+export function ceilingTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1211);
+  c.fillStyle = '#8c877e'; c.fillRect(0, 0, S, S);
+  blotches(c, S, S, 60, 'rgba(30,28,25,0.22)', 30, 140, rand);
+  blotches(c, S, S, 30, 'rgba(200,195,185,0.12)', 20, 80, rand);
+  speckle(c, S, S, 16000, ['rgba(40,38,34,0.3)', 'rgba(190,185,175,0.2)'], 0.6, 2, rand);
+  c.strokeStyle = 'rgba(40,38,34,0.35)'; c.lineWidth = 2;
+  for (let y = 0; y < S; y += S / 8) { c.beginPath(); c.moveTo(0, y); c.lineTo(S, y); c.stroke(); }
+  return tex(THREE, cv);
+}
+
+// bardage métallique gris (halls des expositions, entrepôts)
+export function claddingTexture(THREE) {
+  const S = 256, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1212);
+  c.fillStyle = '#b4b6b4'; c.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 16) {
+    const gr = c.createLinearGradient(x, 0, x + 16, 0);
+    gr.addColorStop(0, 'rgba(255,255,255,0.22)'); gr.addColorStop(0.6, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(50,55,60,0.28)');
+    c.fillStyle = gr; c.fillRect(x, 0, 16, S);
+  }
+  c.fillStyle = 'rgba(70,72,74,0.5)'; c.fillRect(0, S / 2, S, 3);
+  blotches(c, S, S, 10, 'rgba(60,62,60,0.15)', 10, 50, rand);
+  return tex(THREE, cv);
+}
+
+// atlas des garde-corps ajourés (alpha) : barreaudage, balustrade, grillage, bardage d'arbustes
+// 4 cases 256×256 sur une ligne (1024×256) ; teinte par couleur de sommet.
+export function railAtlas(THREE) {
+  const W = 1024, H = 256, cv = cnv(W, H), c = cv.getContext('2d'), rand = rng(1213);
+  c.clearRect(0, 0, W, H);
+  // 0 : barreaudage (lisse haute, lisse basse, barreaux tous les 12 cm) — tuile 2 m × 1,1 m
+  {
+    const x0 = 0;
+    c.fillStyle = '#ffffff';
+    c.fillRect(x0, 0, 256, 16); c.fillRect(x0, 222, 256, 12);
+    for (let x = 4; x < 256; x += 16) c.fillRect(x0 + x, 0, 5, 234);
+    c.fillRect(x0, 0, 10, 256); c.fillRect(x0 + 128, 0, 10, 256); // montants
+  }
+  // 1 : balustrade béton (balustres galbés + main courante) — tuile 2 m × 1 m
+  {
+    const x0 = 256;
+    c.fillStyle = '#ffffff';
+    c.fillRect(x0, 0, 256, 34); c.fillRect(x0, 222, 256, 34);
+    for (let k = 0; k < 8; k++) {
+      const cx = x0 + 16 + k * 32;
+      c.beginPath();
+      c.moveTo(cx - 7, 222); c.quadraticCurveTo(cx - 15, 160, cx - 6, 120); c.quadraticCurveTo(cx - 4, 80, cx - 9, 34);
+      c.lineTo(cx + 9, 34); c.quadraticCurveTo(cx + 4, 80, cx + 6, 120); c.quadraticCurveTo(cx + 15, 160, cx + 7, 222); c.closePath(); c.fill();
+    }
+  }
+  // 2 : grillage à mailles losangées + poteaux — tuile 2,5 m × 2 m
+  {
+    const x0 = 512;
+    c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 1.6;
+    for (let k = -256; k < 256; k += 10) {
+      c.beginPath(); c.moveTo(x0 + k, 0); c.lineTo(x0 + k + 256, 256); c.stroke();
+      c.beginPath(); c.moveTo(x0 + k + 256, 0); c.lineTo(x0 + k, 256); c.stroke();
+    }
+    c.fillStyle = '#ffffff'; c.fillRect(x0, 0, 8, 256); c.fillRect(x0, 0, 256, 6);
+  }
+  // 3 : haie/feuillage découpé (silhouette irrégulière)
+  {
+    const x0 = 768;
+    for (let i = 0; i < 700; i++) {
+      const x = x0 + rand() * 256, y = 40 + Math.pow(rand(), 0.6) * 216;
+      const v = 0.6 + rand() * 0.4;
+      c.fillStyle = `rgba(${255 * v | 0},${255 * v | 0},${255 * v | 0},1)`;
+      c.beginPath(); c.ellipse(x, y, 5 + rand() * 9, 4 + rand() * 7, rand() * 3, 0, Math.PI * 2); c.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+
+// panneaux publicitaires fictifs (4 × 3 m) : 4 affiches inventées, sans marque réelle
+export function billboardAtlas(THREE) {
+  const W = 1024, H = 768, cv = cnv(W, H), c = cv.getContext('2d'), rand = rng(1214);
+  const ads = [
+    { bg: ['#f05a28', '#ffb347'], t1: 'SOLDES', t2: "JUSQU'À -50 %", t3: 'MAISON LUMA', fg: '#ffffff' },
+    { bg: ['#0f3d5e', '#2b8cc4'], t1: 'NOUVELLE', t2: 'ÉLECTRIQUE', t3: 'AUTOMOBILES VEGA', fg: '#ffffff' },
+    { bg: ['#f4f1ea', '#e4ddd0'], t1: 'LE FESTIVAL', t2: 'DU 12 AU 20 JUIN', t3: 'PARC DES RIVES', fg: '#1d1d1d' },
+    { bg: ['#1f6b3a', '#7cc35a'], t1: 'FRAIS', t2: 'ET DE SAISON', t3: 'MARCHÉ VERT', fg: '#ffffff' },
+    { bg: ['#2a2a2e', '#57575e'], t1: 'CINÉMA', t2: 'AU CINÉMA LE 8 MAI', t3: 'LE DERNIER MÉTRO', fg: '#f6c445' },
+    { bg: ['#b5172f', '#e8435a'], t1: 'OFFRE', t2: 'FIBRE 2 GB/S', t3: 'TELCO PLUS', fg: '#ffffff' },
+  ];
+  ads.forEach((a, i) => {
+    const x0 = (i % 2) * 512, y0 = Math.floor(i / 2) * 256;
+    const g = c.createLinearGradient(x0, y0, x0 + 512, y0 + 256);
+    g.addColorStop(0, a.bg[0]); g.addColorStop(1, a.bg[1]);
+    c.fillStyle = g; c.fillRect(x0, y0, 512, 256);
+    // visuel : formes simples
+    c.fillStyle = 'rgba(255,255,255,0.18)';
+    c.beginPath(); c.arc(x0 + 400, y0 + 128, 90 + rand() * 30, 0, Math.PI * 2); c.fill();
+    c.fillStyle = a.fg; c.textBaseline = 'alphabetic';
+    c.font = '900 64px "Arial Black", Impact, sans-serif'; c.fillText(a.t1, x0 + 26, y0 + 92);
+    c.font = '700 34px Arial, sans-serif'; c.fillText(a.t2, x0 + 28, y0 + 140);
+    c.font = '700 26px Arial, sans-serif'; c.fillText(a.t3, x0 + 28, y0 + 222);
+    c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(x0, y0 + 248, 512, 8);
+  });
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
   return t;
 }

@@ -1,0 +1,103 @@
+# Relevé Street View v12 — sens intérieur, départ Porte Maillot (off = m après le départ)
+(D = côté droit/Paris, G = au-delà du TPC, côté banlieue)
+- 0 Maillot : sous la place (couverture).
+- 350 Ternes : couverture, plafond béton brut à poutres, piles centrales rectangulaires massives, borne SOS orange à droite, paroi à bandeau.
+- 700 Champerret : longue couverture, éclairage sodium jaune en paroi.
+- 1050 : couverture à poutres obliques, piles-voiles larges au TPC, paroi droite à panneaux verticaux béton beige.
+- 1400 (Asnières) : à ciel ouvert, talus boisés denses des 2 côtés, DBA basse, candélabres simples en RIVE (pas sur TPC), tours Levallois à G.
+- 1750 : couverture (Asnières), sodium.
+- 2100 : D = haut mur de soutènement pierre/béton + balustrade + arbres ; G = talus boisé ; candélabres en rive D.
+- 2450 (Clichy) : pont-rail (train Transilien) en béton sur piles, caténaires ; D = garde-corps métallique sur muret, culée en pierre lierre/tags, écrans LED publicitaires, talus herbeux ; 50 sur mât.
+- 2800-3150 (Clichy) : à niveau/léger remblai ; D = garde-corps métallique VERT (barreaudage) sur muret béton, arbres, bureaux modernes (Tribunal) ; G = bureaux vitrés, grand panneau publicitaire ; candélabres simples à crosse en rive.
+- 3500 : portique BÉTON (2 grosses piles carrées + poutre) avec PMV et panneaux « D111 600 m / Pte de St Ouen » ; D = grille verte, arbres.
+- 3850 : G = écran beige à panneaux, bureaux ; TPC = DBA avec armoire grise.
+- 4200 : D = haut écran antibruit béton beige (≈4 m) panneaux + tags.
+- 4550 : D = écran beige avec médaillons ronds décoratifs gris ; G = écran beige, grue, immeubles neufs.
+- 4900 : D = grille verte, arbres, barre HLM blanche ; G = écran tôle grise ; TPC LARGE planté (2 DBA + bande d'herbes folles).
+- 5250 : D = écran briques rouges entre poteaux béton + tags, arbres en surplomb ; G = mur béton tagué ; portique PMV + panneaux bleus/verts.
+- 5600 : D = haut mur à panneaux verts décorés, barres d'immeubles ; TPC large enherbé ; candélabres simples en rive des 2 côtés.
+- 5950 : potence D « A1 500 m / ST DENIS ✈ CH. DE GAULLE / LILLE-BRUXELLES / Pte de la Chapelle » ; D = mur béton tagué à poteaux, arbres ; G = arbres denses ; passerelle piétonne en vue.
+- 6300 (Chapelle) : viaduc sur faisceau ferré : garde-corps VERT bas des 2 côtés, vue dégagée, tours ; portiques métalliques légers (treillis).
+- 6650 : viaduc, garde-corps vert, Adidas Arena (grand volume blanc/argent) à D ; bureaux briques rouges à G.
+- 7000 : alignements de grands platanes des 2 côtés sur talus, DBA basse en rive, TPC large planté, mâts simples en rive.
+- 7350 : D = mur de soutènement à balustrade de pierre avant le pont d'Aubervilliers, arbres.
+- 7700 (Villette) : STATION-SERVICE à D (auvent rouge), talus arboré ; G = bureaux (Millénaire), parkings.
+- 8050 : D = mur à fresques grises/bleues, arbres, immeuble moderne ; G = bureaux orange (BNP).
+- 8400 (Ourcq) : candélabres en Y (2 crosses) en rive, glissière métal en W à D, portique béton.
+- 8750 (Pantin) : viaduc, garde-corps vert des 2 côtés, candélabres en Y des 2 côtés ; G = garde-corps à panneaux blancs décorés, tours.
+- NB : AUCUN candélabre sur le TPC jusqu'ici : candélabres en rive (simples ou en Y). TPC = DBA basse, souvent double avec bande enherbée.
+- 9100 : viaduc courbe Pantin, D = garde-corps vert + pins ; G = long écran blanc tagué ; candélabres Y.
+- 9450 : viaduc (canal) : ZÉNITH (chapiteau bleu) à D, cabine radar orange en rive D, joint de chaussée, Géode au loin à G.
+- 9800 : à niveau ; D = DBA de rive + jardinière + arbres ; G = haut mur béton beige tagué + arbres ; jardinière verte sur TPC.
+- 10150-10500 : couverture Pré-Saint-Gervais (sombre, éclairage orangé en paroi).
+- 10850 : D = écran incliné à lames diagonales (bois/cuivre) + bureaux vitrés/hôtel ; G = écran blanc à panneaux.
+- 11200 : D = talus raide couvert de lierre/haie + grands arbres ; G = écran blanc tagué.
+- 11550 (Lilas) : D = talus herbeux, arbres, mur tagué en haut ; G = mur brique, immeubles.
+- 11900 : couverture des Lilas (jardin Serge-Gainsbourg au-dessus).
+- 12250 : D = mur de soutènement en MEULIÈRE (moellons ocre) surmonté d'arbres ; G = talus herbeux, bureaux modernes ; couverture de Bagnolet en vue.
+- 12600 : couverture (jardin au-dessus).
+- 12950 (Bagnolet) : talus herbeux arborés des 2 côtés, tours Mercuriales + immeuble Gallieni (façade colorée) à G ; TPC large enherbé ; portique métallique PMV.
+- 13300 : échangeur A3 : plusieurs ponts-dalles béton qui franchissent le BP en biais, grand mur de soutènement béton à D.
+- 13650 : D = haut mur béton avec garde-corps (bretelle A3 au-dessus), grues ; G = culée de pont, arbres.
+- 14000 : arbres sur talus des 2 côtés.
+- 14350 (Montreuil) : cabine radar grise SUR LE TPC ; passerelle technique (caméras) ; talus herbeux ; armoires grises sur TPC.
+- 14700 : D = talus herbeux (chantier) ; G = mur béton + garde-corps ; pont de la porte de Vincennes en vue.
+- 15050 : D = talus herbeux + marronniers ; G = bureaux briques ; TPC simple DBA.
+- 15400 : D = bande d'arrêt + talus broussailleux et arbres ; G = barres de logements.
+- 15750 (Dorée) : D = talus herbeux, grand graffiti sur mur en haut ; G = mur de soutènement pierre de taille + balustrade, immeubles ; candélabres Y à D.
+- 16100 : D = haies + arbres ; G = pelouse, logements.
+- 16450 : D = grillage vert + grands arbres ; G = haie de vigne vierge rouge, arbres.
+- 16800 : D = haut mur de soutènement pierre/meulière avec lierre retombant, panneau publicitaire, 50 ; G = arbres.
+- 17150 : passage couvert (échangeur de Bercy), sodium, panneaux publicitaires lumineux sur les piles du TPC.
+- 17500 : sous les bretelles de l'échangeur de Bercy (A4) : longue file de piles à G, tablier au-dessus, sodium.
+- 18200 : viaduc (Seine/faisceau) : vue dégagée, garde-corps vert, tours Duo en face, cheminées d'Ivry (panaches), pylônes.
+- 18550 : D = alignement de PEUPLIERS d'Italie ; TPC large planté d'arbustes ; portique.
+- 18900 : viaduc, tours Duo (verre, inclinées) à G-centre, logements neufs (Bruneseau) à D, garde-corps vert ; candélabres en Y SUR LE TPC (secteur sud).
+- 19250 : pied de la tour Duo au ras de la rive D ; pylône de passerelle haubanée en vue.
+- 19600 : viaduc, garde-corps verts des 2 côtés, haubans en diagonale (passerelle), barres de logements.
+- 19950 (Ivry) : D = bureaux vitrés en bord immédiat + grille métallique grise ; G = hôtels (Comfort), bureaux.
+- 20300 (Italie) : tranchée entre 2 hauts murs de MEULIÈRE à pilastres + balustrade/corniche en haut, bureaux au-dessus.
+- 20650 : D = talus très végétalisé ; G = mur meulière ; portique « A6a BORDEAUX-NANTES / LYON-ÉVRY / ORLY-RUNGIS / Pte d'Italie » + PMV ; pont en vue.
+- 21000 : D = mur meulière à contreforts + garde-corps, bâtiments au-dessus ; G = mur pierre, façade-pub ; pied de portique béton sur TPC.
+- 21350 : D = mur pierre avec niches/arcatures rectangulaires et corniche, tour de bureaux ; G = sous le viaduc de l'A6 (piles) ; TPC provisoire.
+- 21700 : D = parapet béton + arbres denses (Cité U) ; G = grande fresque/graffiti couleur, tours, PMV.
+- 22050 : D = parapet béton + arbres ; G = bureaux, peupliers.
+- 22400 (Orléans) : D = glissière métal en W + arbres + mur blanc ; G = immeuble de bureaux à voûtes vitrées.
+- 22750 : D = immeuble blanc à lames verticales ; G = mur tagué, immeubles brique, clocher (Montrouge) ; TPC provisoire.
+- 23100 : D = grille noire à barreaudage sur muret, broussailles, bâtiment blanc ; G = mur graffiti « EFDK », immeubles brique, panneaux publicitaires 4x3.
+- 23450 : portique METALLIQUE (cadre fin) « D906 250 m / Pte de Châtillon / Pte de Montrouge » + PMV sur le pied D ; panneaux pub 4x3 ; immeuble cylindrique ajouré ; barres HLM à G ; séparateur béton bretelle.
+- 23800 : D = mur pierre gris tagué, arbres ; G = bureaux vitrés, parapet pierre.
+- 24150 : TRANCHÉE entre 2 hauts murs en moellons de pierre grise/brune, couronnés d'une balustrade béton ; immeubles au-dessus ; candélabres fixés en tête de mur.
+- 24500 : D = très haut mur sombre en pierre/béton à caissons (niches) patiné, tags ; G = écran béton beige nervuré entre poteaux, bureaux.
+- 25200 (Brancion) : talus herbeux arborés des 2 côtés ; pont-cadre en vue.
+- 25550 (Vanves) : tranchée, D = mur en pierre de taille beige (gros blocs), G = mur béton incliné ; tête de la couverture de Vanves ; grues, immeubles.
+- 25900 : couverture de Vanves (sodium).
+- 26250 (Plaine) : D = mur meulière + accotement herbeux + pins ; G = rangée d'arbres denses.
+- 26600 : tranchée : D = haut mur en pierre calcaire claire + garde-corps en tête ; G = mur pierre ; passerelle en vue.
+- 26950 (Versailles) : D = halls du Parc des Expositions (bardage métallique gris nervuré) au ras + garde-corps vert ; G = Issy, grues.
+- 27300 : D = hall des expos (grand volume beige/gris) + garde-corps vert ; G = bureaux (CNP), tours d'Issy.
+- 27650-28000 (Balard) : D = façade continue du ministère des Armées (floutée sur SV : grand mur/bâtiment) ; G = bureaux, arbres, DBA provisoires.
+- 28350 (Garigliano) : viaduc, D = garde-corps métallique sur parapet + arbres ; G = bureaux ; jardinières sur TPC.
+- 28700 : viaduc (Seine aval), garde-corps vert, joint à peigne, bureaux vitrés à G.
+- 29050 : D = garde-corps vert sur parapet, terrain de sport (piste rouge), peupliers ; G = Boulogne.
+- 29400-29750 : couverture Saint-Cloud / Parc des Princes : plafond béton à poutres transversales, voiles centraux percés d'arcades, sodium, tags sur paroi D.
+- 30100-30450 : longue couverture d'Auteuil (sodium, appliques en paroi).
+- 31150 (bois de Boulogne) : tranchée à talus boisés (feuillus) des 2 côtés, muret béton bas ; petit PMV sur mât ; tête de tunnel béton ; passerelle.
+- 31500 : couverture Passy/Muette (graffitis).
+- 31850 : tunnel de Passy : issues de secours (portes vertes, pictos), niches incendie rouges/orange, sodium, tags.
+- 32200 : couverture à colonnes rondes au TPC, ouvertures latérales lumineuses.
+- 32550 (Muette) : tranchée, D = mur de dalles de pierre claire rectangulaires, borne SOS orange ; couverture à colonnes en vue, arbres au-dessus.
+- 32900 : couverture.
+- 33250 (Dauphine) : D = haut mur en dalles béton claires (tags), arbres au-dessus ; G = talus boisé ; TPC planté fleuri ; portique.
+- 33600 : couverture avec puits de lumière à caillebotis au plafond, colonnes rondes au TPC, paroi beige à panneaux.
+- 33950 : couverture Maillot : piles carrées au TPC, paroi beige taguée, plafond béton.
+- 34300 : à ciel ouvert, bois de Boulogne : arbres denses des 2 côtés, TPC enherbé.
+- 34650 : arrivée Maillot : D = garde-corps métallique sur parapet ; bretelles courbes en ponts au-dessus ; tour Hyatt ; mât d'éclairage haut à couronne.
+
+## Synthèse (règles appliquées en v12)
+1. Éclairage : candélabres en RIVE (crosse simple ou double en Y), quasi jamais sur le TPC sauf secteur sud (Bercy→Italie).
+2. TPC : DBA double avec bande enherbée/arbustive sur une grande partie (nord, est, bois) ; DBA simple ailleurs.
+3. Rives : garde-corps vert à barreaudage sur muret (viaducs et à niveau), murs en meulière / pierre de taille (sud, ouest), écrans antibruit beiges, blancs tagués, briques, tôle, lames inclinées ; talus boisés.
+4. Couvertures : plafond béton brut à poutres, piles-voiles ou colonnes au TPC, éclairage sodium jaune-orangé, parois béton taguées, issues de secours vertes.
+5. Repères : pont-rail de Clichy, échangeur de Bagnolet, Zénith, station-service de la Villette, cheminées d'Ivry, halls des expos, ministère (Balard), mâts de Maillot, panneaux 4x3 et écrans LED.
+6. Ne PAS reproduire « Blvd Périphérique » / « E15 » / « E50 » (surcouche Google).

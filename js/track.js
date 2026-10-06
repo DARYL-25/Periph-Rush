@@ -156,11 +156,11 @@ export class Track {
     // point repère : PR 0 à la Porte de Bercy
     this.prOrigin = (this.portes.find((p) => p.name === 'Porte de Bercy')?.s ?? 1400 * k) - 170;
 
-    this.buildElevation();
-    this.buildLaneDrops();
-
     const maillot = this.junctions.find((j) => j.kind === 'E' && Math.abs(j.s - 17903 * k) < 30);
     this.startS = (maillot ? maillot.s : 17903 * k) + 60; // entrée Porte Maillot
+
+    this.buildElevation();
+    this.buildLaneDrops();
   }
 
   // ---------- altitude : contraintes OSM + relaxation (pentes douces) ----------
@@ -174,6 +174,15 @@ export class Track {
       const s = i * eg, r = runAt(s);
       if (r.tunnel || r.layer < 0) hard[i] = -TRENCH_DEPTH;
       else if (r.bridge) hard[i] = VIADUCT_H + Math.max(0, r.layer - 1) * 2.2;
+    }
+    // v12 : tranchées relevées sur Street View que les « layer » OSM ignorent (déblais à ciel ouvert)
+    // [début, fin] en mètres après le départ de la Porte Maillot, profondeur sous le terrain naturel
+    const CUTS = [[11080, 11820, 5.2], [14150, 14600, 3.6], [15650, 16200, 5.0], [16700, 16980, 5.5], [20150, 21480, 6.4], [23650, 24000, 5.0]];
+    for (const [a, b, dep] of CUTS) {
+      for (let i = 0; i < m; i++) {
+        const off = wrap(i * eg - this.startS, L);
+        if (off >= a && off <= b && Number.isNaN(hard[i])) hard[i] = -dep;
+      }
     }
     // tronçons ouverts courts entre deux tranchées : restent en tranchée
     for (let i = 0; i < m; i++) {

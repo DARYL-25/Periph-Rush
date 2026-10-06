@@ -30,6 +30,12 @@ Jouable directement dans le navigateur, installable en PWA plein écran sur iPho
   (34,95 km), nombre de voies réel (sections à 2, 3 et 4 voies, voies
   d'entrecroisement), 35 couvertures et passages sous les portes, viaducs, les deux
   franchissements de la Seine (Bercy, Garigliano), profil en long tranchée/remblai/viaduc.
+- **Abords relevés sur Street View (v12)** : tour complet du sens intérieur (100 points de vue,
+  `docs/SURVEY-v12.md`) — tranchées en meulière à balustrade (Italie), pierre de taille (Vanves,
+  Versailles), dalles claires (Dauphine), talus boisés (bois de Boulogne), garde-corps verts à barreaudage,
+  écrans antibruit relevés (beige, blanc tagué, briques, tôle, lames inclinées, médaillons), TPC planté,
+  candélabres à crosse en rive et en Y, couvertures au sodium, pont-rail de Clichy avec sa rame,
+  passerelles, échangeur de Bagnolet, Zénith, station-service de la Villette, panneaux publicitaires fictifs.
 - **72 bretelles réelles** : voies de décélération/accélération, musoirs avec
   atténuateurs de choc, zébras, rampes qui remontent vers les portes.
 - **Signalisation française** : présignalisation et portiques d'affectation

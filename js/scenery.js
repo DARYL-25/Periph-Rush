@@ -258,6 +258,11 @@ export class Scenery {
     add(48.8951, 2.3880, [[230, 100, 0, 44]], FAC.office, 20, [1.1, 1.15, 1.2]);
     // Tours Mercuriales (Bagnolet, ~ 90 m)
     add(48.8637, 2.4170, [[30, 30, 0, 92, -32, 0], [30, 30, 0, 92, 32, 0]], FAC.office, 0);
+    // v12 : ministère des Armées (Balard) — longues ailes de bureaux le long du BP (floutées sur Street View)
+    add(48.8331, 2.2801, [[150, 22, 0, 26]], FAC.office, 30, [1.05, 1.08, 1.12]);
+    add(48.8346, 2.2767, [[120, 22, 0, 26]], FAC.office, 30, [1.05, 1.08, 1.12]);
+    // immeuble de bureaux Gallieni (façade colorée) près de la porte de Bagnolet
+    add(48.8655, 2.4160, [[60, 24, 0, 30]], FAC.panel, 90);
   }
 
   // vérifie qu'une emprise reste à distance de la plate-forme routière
@@ -564,6 +569,19 @@ export function buildLandmarks(T, scene) {
   }
   // stade Charléty
   { const { x, z } = at(48.8196, 2.3466); frustum(x, z, 95, 88, 0, 20, 0xb9b6ae, 28); }
+  // v12 — Zénith de Paris (La Villette) : chapiteau bleu et ses pylônes
+  {
+    const { x, z } = at(48.8941, 2.3933);
+    frustum(x, z, 52, 46, 0, 9, 0x2e5fa6, 16); frustum(x, z, 46, 30, 9, 9, 0x3a6db5, 16); frustum(x, z, 30, 6, 18, 8, 0x4778bd, 16);
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; box(x + Math.cos(a) * 34, z + Math.sin(a) * 34, 1.2, 1.2, 0, 32, 0xc9ced3); }
+  }
+  // v12 — centre de valorisation des déchets d'Ivry : deux cheminées
+  {
+    const { x, z } = at(48.8222, 2.3988);
+    box(x, z, 70, 40, 0, 32, 0x9aa1a6, 0.3);
+    frustum(x + 18, z - 6, 3.4, 2.6, 0, 100, 0xc7c9c8, 10); frustum(x + 26, z - 2, 3.4, 2.6, 0, 100, 0xc7c9c8, 10);
+    frustum(x + 18, z - 6, 2.7, 2.7, 92, 4, 0xb3442e, 10); frustum(x + 26, z - 2, 2.7, 2.7, 92, 4, 0xb3442e, 10);
+  }
   // Tour Pleyel, Stade de France (nord, au-delà du périphérique)
   { const p = at(48.9180, 2.3440); box(p.x, p.z, 36, 36, 0, 129, 0x445566); const sf = at(48.9245, 2.3602); frustum(sf.x, sf.z, 160, 150, 0, 42, 0xd8dbe0, 24); }
   const geo = B.build(T);
