@@ -569,3 +569,13 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - `scenery.js` : Zénith, cheminées d'Ivry, ailes de Balard, immeuble Gallieni.
 - Tunnels : lumière sodium (`weather.js`), hémisphère rehaussée dans les couvertures.
 - Cache SW `periph-v12`, `?v=12` ; `js/survey.js` ajouté au précache.
+
+## v13 — « Lutèce », voiture de départ au design original
+- `tools/blender/lutece_build.py` (Blender 4.2+/5.x, ou module `bpy`) : citadine 5 portes au gabarit d'une
+  compacte des années 2000 (4,02 × 1,72 × 1,48 m, empattement 2,58), design propre au jeu (optiques en amande
+  horizontales à projecteurs, barrette chromée, prise d'air hexagonale, feux arrière en bandeau continu,
+  plaque dans le bouclier, custode en pointe). Caisse = cage loftée + Subdivision ; tous les détails sont des
+  « décalques projetés » (contour 2D net → Delaunay contraint → lancer de rayons sur la caisse) : bords propres.
+  `python3 tools/blender/lutece_build.py --render` → `assets/lutece.glb` + `tools/snaps/lutece_*.png`.
+- Catalogue `lutece` (w: 0, joueur uniquement — ~75 k triangles), voiture de départ ; les anciennes sauvegardes
+  la débloquent et la sélectionnent une fois. Cache SW `periph-v13`.
