@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">
+<canvas id="c" width="1600" height="1000"></canvas>
+<script type="module">
+import { glyphForTest as glyph } from '../js/plates.js';
+const c = document.getElementById('c').getContext('2d');
+const rows = [['fe', 'ABCDEFGHJKLMNOPQRSTUVWXYZ', '0123456789', 9.5, 47.5], ['nl', 'BDFGHJKLNPRSTVXZ', '0123456789', 13.5, 46], ['gb', 'ABCDEFGHJKLMNOPRSTUVWXYZ', '0123456789', 13, 50], ['din', 'ABCDEGHKLMNPRSTVWXYZ', '0123456789', 10, 44]];
+let y = 10;
+for (const [st, L, D, sw, cw] of rows) {
+  for (const line of [L, D]) {
+    let x = 10;
+    c.fillStyle = c.strokeStyle = '#111';
+    for (const ch of line) { glyph(c, ch, x, y, cw * 1.2, 75 * 1.2, sw * 1.2, st); x += cw * 1.2 + 6; }
+    y += 100;
+  }
+  y += 20;
+}
+window.done = true;
+</script>

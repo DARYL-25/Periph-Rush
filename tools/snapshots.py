@@ -36,6 +36,11 @@ with sync_playwright() as pw:
         print("\n".join(logs)); raise SystemExit("boot timeout")
     pg.evaluate("window.__YAW = %s" % os.environ.get("YAW", "0"))
     pg.evaluate("window.__LAT = %s" % os.environ.get("LAT", "7"))
+    pg.evaluate("window.__TL = %s" % os.environ.get("TRAFFIC", "null"))
+    pg.evaluate("window.__STEPS = %s" % os.environ.get("STEPS", "30"))
+    pg.evaluate("window.__HOUR = %s" % os.environ.get("HOUR", "null"))
+    pg.evaluate("window.__WX = %r" % os.environ.get("WEATHER", ""))
+    pg.evaluate("window.__CAM = %r" % os.environ.get("CAM", "chase"))
     pg.evaluate("document.getElementById('m-play').click()")
     pg.evaluate("window.__periph.step(5)")
     for off in offsets:
@@ -44,13 +49,17 @@ with sync_playwright() as pw:
               const P = window.__periph;
               const s = (P.track.startS + off) % P.track.length;
               P.player.s = s; P.player.lat = window.__LAT || 7.0; P.player.v = 13;
+              if (window.__TL != null) { P.traffic.level = window.__TL; P.world.trafficLevel = window.__TL; }
               P.traffic.reset(s);
               if (preset) { P.ambience.setPreset(preset, 0); P.game.applyNight(); }
+              if (window.__HOUR != null) { P.ambience.startDay(window.__HOUR, window.__WX || 'soleil'); P.game._night = null; P.game.applyNight(); }
+              P.prog.data.settings.camera = window.__CAM; P.game.applyCamera();
               for (const [k, c] of P.world.chunks) { P.scene.remove(c.group); }
               P.world.chunks.clear();
               P.world.prebuild(s);
-              P.step(30);
-              P.player.updateCamera(P.camera, 1, true);
+              P.step(window.__STEPS);
+              if (P.game.cockpit && P.game.cockpit.active) P.game.cockpit.updateCamera(P.camera, 0.5);
+              else P.player.updateCamera(P.camera, 1, true);
               P.step(2);
               if (window.__YAW) { P.camera.rotateY(window.__YAW); P.renderer.render(P.scene, P.camera); }
               const info = P.renderer.info.render;
