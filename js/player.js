@@ -25,7 +25,7 @@ export class Player {
     this.headTarget = new THREE.Object3D();
     scene.add(this.headlight, this.headTarget);
     this.headlight.target = this.headTarget;
-    this.reset('clio3', 0);
+    this.reset('lutece', 0);
   }
 
   setCar(id, color) {

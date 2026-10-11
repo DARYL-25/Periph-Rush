@@ -40,6 +40,11 @@ export const CATALOG = {
     glass: { belt: 0.55, endX: 0.94 }, lights: 'teardrop', cols: [P.argent, ...commonCols, P.rougeVif, P.grisBleu], w: 8,
     strip: true, antennaFront: true, spokes: 12, plateHigh: true,
     perf: { vmax: 160, acc: 0.45, man: 0.66, frein: 0.55 }, unlock: { start: true } },
+  // citadine 5 portes au design original du jeu (modèle Blender : tools/blender/lutece_build.py)
+  lutece: { name: 'Lutèce', kind: 'hatch', dims: [4.02, 1.72, 1.48], wb: 2.58, wr: 0.305,
+    prof: { nose: 0.33, hood: 0.47, hoodX: 0.27, roofX: 0.45, roofH: 0.98, roofEndX: 0.76, tailH: 0.64 },
+    glass: { belt: 0.55, endX: 0.94 }, lights: 'oval', cols: [P.rougeVif, P.argent, ...commonCols, P.grisBleu], w: 0,
+    perf: { vmax: 165, acc: 0.47, man: 0.68, frein: 0.57 }, unlock: { start: true } },
   clio4:  { name: 'Clio 4', kind: 'hatch', dims: [4.06, 1.73, 1.45], wb: 2.59, wr: 0.30,
     prof: { nose: 0.36, hood: 0.46, hoodX: 0.26, roofX: 0.44, roofH: 0.97, roofEndX: 0.74, tailH: 0.66 },
     glass: { belt: 0.60, endX: 0.93 }, lights: 'slim', cols: [...commonCols, P.rougeVif, P.jaune], w: 8,

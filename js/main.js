@@ -86,6 +86,12 @@ async function boot() {
   } catch (e) {
     console.warn('GLB clio3 indisponible — repli sur le modèle procédural', e);
   }
+  try {
+    const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
+    await factory.loadGLB('lutece', 'assets/lutece.glb', GLTFLoader);
+  } catch (e) {
+    console.warn('GLB lutece indisponible — repli sur le modèle procédural', e);
+  }
 
   await step(40, 'Assemblage des véhicules…');
   // pré-chauffe des géométries des modèles courants (évite les à-coups en jeu)

@@ -13,9 +13,9 @@ const DEFAULT = {
   coins: 0,
   totalKm: 0, totalLaps: 0, runs: 0,
   bestScore: 0, bestDistance: 0, bestLaps: 0, bestCombo: 0,
-  unlocked: ['clio3'],
+  unlocked: ['lutece', 'clio3'],
   purchased: [],
-  selected: 'clio3',
+  selected: 'lutece',
   colors: {},
   challenges: null,
   settings: { audio: true, haptics: true, autoThrottle: false, sensitivity: 1.0, quality: 'auto' },
@@ -40,7 +40,10 @@ export class Progression {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        return { ...structuredClone(DEFAULT), ...d, settings: { ...DEFAULT.settings, ...(d.settings || {}) } };
+        const out = { ...structuredClone(DEFAULT), ...d, settings: { ...DEFAULT.settings, ...(d.settings || {}) } };
+        // v13 : la Lutèce devient la voiture de départ (sélectionnée une fois pour les anciennes sauvegardes)
+        if (!out.unlocked.includes('lutece')) { out.unlocked.unshift('lutece'); if (out.selected === 'clio3') out.selected = 'lutece'; }
+        return out;
       }
     } catch (e) { /* sauvegarde corrompue → repartir proprement */ }
     return structuredClone(DEFAULT);
