@@ -324,6 +324,32 @@ export class Track {
     return { s, alt: this.elevationAt(s), flags: wood ? 'T' : 'B', name: wood ? wood.name : '' };
   }
 
+  // portes de départ proposées : entrée (bretelle d'accès) qui suit la sortie
+  // de chaque porte, triées dans le sens de circulation depuis Maillot
+  startPortes() {
+    if (this._starts) return this._starts;
+    const L = this.length, seen = new Set(), out = [];
+    for (const p of this.portes) {
+      if (seen.has(p.name)) continue;
+      seen.add(p.name);
+      let best = null, bd = Infinity;
+      for (const e of this.entries) {
+        const d = wrap(e.s - p.exitS, L);
+        if (d < 900 && d < bd) { bd = d; best = e; }
+      }
+      if (best && out.some((o) => o.entry === best)) best = null; // entrée partagée : départ au droit de la porte
+      const s = /Maillot/.test(p.name) ? this.startS : wrap((best ? best.s : p.s) + 60, L);
+      out.push({ name: p.name, s, entry: best });
+    }
+    out.sort((a, b) => wrap(a.s - this.startS, L) - wrap(b.s - this.startS, L));
+    this._starts = out;
+    return out;
+  }
+  startFor(name) {
+    const p = this.startPortes().find((o) => o.name === name);
+    return p ? p.s : this.startS;
+  }
+
   nextPorte(s) {
     s = wrap(s, this.length);
     let best = null, bestD = Infinity;

@@ -93,6 +93,23 @@ class Ramps {
     }
     return merged;
   }
+  // géométrie d'UNE bretelle en s (pour les PNJ qui l'empruntent) ; null hors bretelle
+  one(r, s, hMain) {
+    const L = this.track.length;
+    const u = wrap(s - r.s0, L);
+    if (u > wrap(r.s1 - r.s0, L)) return null;
+    let gap = 0, w = r.W, hr = hMain, t = 0;
+    if (r.kind === 'W') return { gap, w, hr, t, parallel: true };
+    const v = r.kind === 'X' ? s - r.j.s : r.j.s - s;
+    const vv = v < -L / 2 ? v + L : v > L / 2 ? v - L : v;
+    if (vv < -r.par) w = r.W * smoothstep(-r.par - r.taper, -r.par, vv);
+    else if (vv > 0) {
+      t = vv / r.div;
+      gap = r.G * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(t, 1)));
+      hr = lerp(hMain, r.target, smoothstep(0.12, 0.95, t));
+    }
+    return { gap, w, hr, t, vv, parallel: gap < 0.35 };
+  }
   // largeur praticable supplémentaire à droite (voies parallèles) — pour le joueur
   parallelWidth(s, hMain = 0) {
     let w = 0;
@@ -276,12 +293,30 @@ export class World {
     for (let s = 900; s < L; s += 1600) if (isFree(s, 10)) F.push({ type: 'hov', s });
     // radars fixes
     // radars fixes (cabines grises et tourelles) annoncés ~250 m avant
-    [1850, 4550, 8300, 12950, 16450, 20250, 23950, 27300, 30900, 33650].forEach((s0, i) => {
-      let s = s0 * t.kOSM;
+    // v16 : emplacements réels du sens intérieur (radars-auto.com) + 2 radars de voie réservée
+    const pS = (name) => t.portes.find((p) => p.name === name)?.s;
+    const RADARS = [['Porte de Champerret'], ["Porte d'Ivry"], ['Porte de Bagnolet'], ['Porte de Sèvres'], ['Porte Dauphine'],
+      ['Porte des Lilas'], ['Porte de la Chapelle'], ['Porte Brancion']];
+    this.radars = [];
+    RADARS.forEach(([name], i) => {
+      const s0 = pS(name);
+      if (s0 == null) return;
+      let s = s0 + 160;
       for (let k = 0; k < 10 && (!isFree(s, 30) || this.ramps.at(s, 0).length); k++) s += 35;
+      s = wrap(s, L);
       F.push({ type: 'radar', s, tower: i % 2 === 1 });
       F.push({ type: 'radarSign', s: wrap(s - 240, L) });
+      this.radars.push({ s, kind: 'speed', name });
     });
+    for (const [a, b] of [['Porte de Clignancourt', 'Porte de Saint-Ouen'], ['Porte de la Muette', 'Porte Dauphine']]) {
+      const sa = pS(a), sb = pS(b);
+      if (sa == null || sb == null) continue;
+      let d = wrap(sb - sa, L); if (d > L / 2) d -= L;
+      let s = wrap(sa + d / 2, L);
+      for (let k = 0; k < 10 && !isFree(s, 20); k++) s += 30;
+      F.push({ type: 'radar', s: wrap(s, L), tower: true });
+      this.radars.push({ s: wrap(s, L), kind: 'hov', name: `${a} → ${b}` });
+    }
     // bornes d'appel d'urgence tous les 500 m, plaques PR tous les 200 m
     for (let s = 250; s < L; s += 500) F.push({ type: 'sos', s });
     // mâts de caméras de vidéosurveillance (PC Rivoli) environ tous les 850 m
@@ -323,7 +358,8 @@ export class World {
 
   // halos au sol : suivent l'allumage des candélabres (piloté par l'ambiance)
   tick() {
-    this.mats.pool.opacity = this.mats.lampGlow.opacity * 0.85;
+    // chaussée mouillée : les halos des candélabres se reflètent (plus intenses)
+    this.mats.pool.opacity = Math.min(1, this.mats.lampGlow.opacity * 0.85 * (1 + (this.wetLevel || 0) * 0.9));
     // la tour Eiffel s'illumine (doré) la nuit
     if (this.landmarks && this.landmarks.eiffelMat) this.landmarks.eiffelMat.emissiveIntensity = this.mats.lampGlow.opacity * 4.5;
   }
@@ -1635,8 +1671,20 @@ export class World {
       const majors = ['Porte Maillot', 'Porte de la Chapelle', 'Porte de Bagnolet', 'Porte de Bercy', "Porte d'Italie", "Porte d'Orléans", 'Porte de Saint-Cloud', 'Porte de Clichy', 'Porte de Vincennes', 'Porte de Sèvres', 'Porte de la Villette', "Porte d'Auteuil"];
       const ahead = t.portes.filter((p) => majors.includes(p.name)).map((p) => ({ p, d: wrap(p.s - v.s, L) })).filter((o) => o.d > 1200).sort((a, b) => a.d - b.d).slice(0, 3);
       const abbr = (n) => n.replace(/^Porte (de la |de l'|de |d'|du |des )?/i, (m) => 'PTE ' + (m.match(/(de la |de l'|du |des )/i)?.[0] || '')).toUpperCase().replace('SAINT-', 'ST-');
-      const slow = 0.85 + 0.3 * Math.sin(v.s * 0.001 + now * 0.00002);
-      const lines = ahead.map((o) => `${abbr(o.p.name)}\t${Math.max(1, Math.round((o.d / 1000) / (38 * slow) * 60))} MN`);
+      // vitesse moyenne affichée selon le niveau de trafic choisi
+      const lvl = this.trafficLevel ?? 1;
+      const kmh = [52, 29, 12][lvl];
+      const slow = (lvl === 0 ? 0.92 : 0.8) + (lvl === 0 ? 0.12 : 0.4) * (0.5 + 0.5 * Math.sin(v.s * 0.0013 + now * 0.00002));
+      let lines = ahead.map((o) => `${abbr(o.p.name)}\t${Math.max(1, Math.round((o.d / 1000) / (kmh * slow) * 60))} MN`);
+      const k = this.vms.indexOf(v);
+      const [a, b] = ahead;
+      if (a && b) {
+        if (lvl === 2 && k % 3 === 1) lines = ['VOIE DE GAUCHE', 'RESERVEE COVOITURAGE', 'TAXIS · BUS · SECOURS'];
+        else if (lvl === 2 && k % 2 === 0) lines = [k % 4 === 0 ? 'BOUCHON' : 'PERIPH SATURE', `${abbr(a.p.name)} > ${abbr(b.p.name)}`, k % 4 === 0 ? 'ARRETS FREQUENTS' : 'PRUDENCE'];
+        else if (this.wetLevel > 0.5 && k % 4 === 3) lines = ['PLUIE', 'CHAUSSEE GLISSANTE', 'ESPACEZ-VOUS'];
+        else if (lvl === 1 && k % 3 === 0) lines = ['RALENTISSEMENTS', `${abbr(a.p.name)} > ${abbr(b.p.name)}`, ''];
+        else if (lvl === 0 && k % 5 === 0) lines = ['PERIPH FLUIDE', '', ''];
+      }
       v.panel.setText(lines);
     }
   }

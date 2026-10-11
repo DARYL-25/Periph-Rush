@@ -9,6 +9,7 @@ import { CFG } from './config.js';
 import { rng } from './utils.js';
 import { Track } from './track.js';
 import { PlatePool } from './plates.js';
+import { Fleet } from './fleet.js';
 import { VehicleFactory, CATALOG, PLAYER_IDS } from './vehicles.js';
 import { World } from './world.js';
 import { loadSignFont } from './signs.js';
@@ -76,7 +77,7 @@ async function boot() {
   const track = new Track();
 
   await step(30, 'Immatriculations préfecture…');
-  const plates = new PlatePool(THREE, rng(777), 36);
+  const plates = new PlatePool(THREE, rng(777));
   const factory = new VehicleFactory(THREE, plates);
 
   await step(36, 'Chargement de la Clio 3 (modèle Blender)…');
@@ -94,6 +95,14 @@ async function boot() {
       try { await factory.loadGLB(id, `assets/fleet/${file || id}.glb`, GLTFLoader); }
       catch (e) { console.warn('GLB ' + id + ' indisponible — repli procédural', e); }
     }));
+    // LOD lointains (≈ 1/3 des triangles) pour le trafic dense
+    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia'];
+    await Promise.all(FAR.map(async (id) => {
+      try { await factory.loadGLB(id + '_far', `assets/fleet/${id}_far.glb`, GLTFLoader); }
+      catch (e) { console.warn('LOD lointain ' + id + ' indisponible', e); }
+      try { await factory.loadGLB(id + '_ufar', `assets/fleet/${id}_ufar.glb`, GLTFLoader); }
+      catch (e) { console.warn('LOD très lointain ' + id + ' indisponible', e); }
+    }));
   }
 
   await step(40, 'Assemblage des véhicules…');
@@ -101,6 +110,7 @@ async function boot() {
   const warm = Object.keys(CATALOG);
   for (let i = 0; i < warm.length; i++) {
     factory.geometry(warm[i]);
+    factory.farGeometry(warm[i]); factory.farGeometry(warm[i], '_ufar');
     if (i % 8 === 7) await step(40 + (i / warm.length) * 20, 'Assemblage des véhicules…');
   }
 
@@ -111,7 +121,8 @@ async function boot() {
   ambience.register(world.ambienceHooks());
   ambience.register({ renderer });
 
-  const traffic = new Traffic(THREE, scene, track, factory);
+  const fleet = new Fleet(THREE, scene, factory, plates);
+  const traffic = new Traffic(THREE, scene, track, factory, fleet);
   const events = new Events(THREE, scene, track, factory, world);
   const player = new Player(THREE, scene, track, factory);
   player.input = ui.input;
@@ -119,10 +130,17 @@ async function boot() {
   const game = new Game({ THREE, scene, track, world, traffic, events, player, ambience, score, ui, audio });
 
   await step(78, 'Ouverture de la Porte Maillot…');
-  player.reset(prog.data.selected, track.startS, prog.selectedColor(prog.data.selected));
-  world.prebuild(track.startS);
-  traffic.reset(track.startS);
-  ambience.setPreset('jour', 0);
+  ui.setTrack(track);
+  {
+    const set = prog.data.settings;
+    const s0 = track.startFor(set.startPorte);
+    traffic.level = set.traffic ?? 1;
+    world.trafficLevel = traffic.level;
+    player.reset(prog.data.selected, s0, prog.selectedColor(prog.data.selected));
+    world.prebuild(s0);
+    traffic.reset(s0);
+  }
+  ambience.startDay(game.startHour(prog.data.settings), prog.data.settings.weather || 'auto');
   ambience.update(0.016, player.bundle.group.position, false);
 
   // ---------- garage (showroom séparé) ----------
@@ -180,12 +198,16 @@ async function boot() {
     ui.show('garage');
   });
   ui.on('garageBack', () => { state = 'menu'; ui.show('menu'); });
+  ui.on('preview', () => {
+    if (state !== 'menu') return;
+    game.preview(prog.data.settings.startPorte, prog.data.settings.traffic ?? 1);
+  });
   ui.on('garageCar', (id, colorIdx) => showGarageCar(id, colorIdx));
   ui.on('garageColor', (id, colorIdx) => showGarageCar(id, colorIdx));
   ui.on('pause', () => {
     if (state !== 'running' || game.state !== 'running') return;
     state = 'paused';
-    audio.stopEngine();
+    audio.stopEngine(); audio.siren(0); audio.stopRadio();
     ui.show('pause');
   });
   ui.on('resume', () => { state = 'running'; ui.showHUD(); });
@@ -195,9 +217,11 @@ async function boot() {
   });
   ui.on('quitToMenu', () => {
     state = 'menu';
-    audio.stopEngine();
+    audio.stopEngine(); audio.siren(0); audio.stopRadio();
     ui.show('menu');
+    game.preview(prog.data.settings.startPorte, prog.data.settings.traffic ?? 1);
   });
+  ui.on('camera', () => game.applyCamera());
   ui.on('settings', () => {
     player.autoThrottle = prog.data.settings.autoThrottle;
     applyQuality(prog.data.settings.quality);
@@ -211,7 +235,7 @@ async function boot() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && state === 'running' && game.state === 'running') {
       state = 'paused';
-      audio.stopEngine();
+      audio.stopEngine(); audio.siren(0); audio.stopRadio();
       ui.show('pause');
     }
   });
@@ -225,6 +249,8 @@ async function boot() {
     const dpr = Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'med' ? 1.6 : 1.15);
     renderer.setPixelRatio(dpr);
     traffic.quality = tier === 'high' ? 1 : tier === 'med' ? 0.8 : 0.6;
+    ambience.setShadowQuality(tier);
+    fleet.lodScale = tier === 'high' ? 1 : tier === 'med' ? 0.8 : 0.6;
   }
   applyQuality(prog.data.settings.quality);
   let qualityTimer = 0;
@@ -268,12 +294,19 @@ async function boot() {
     if (rawDt <= 0) return;
     last = now;
     fpsEMA = fpsEMA * 0.95 + (1 / Math.max(rawDt, 0.001)) * 0.05;
+    const drawScene = () => {
+      fleet.wet = ambience.wet;
+      fleet.night = ambience.headlightsOn;
+      fleet.update(rawDt, camera);
+      game.beforeRender(rawDt, camera, renderer);
+      renderer.render(scene, camera);
+    };
 
     if (state === 'running') {
       game.update(rawDt, camera);
       autoTuneQuality(rawDt);
       if (game.state === 'over') state = 'over';
-      renderer.render(scene, camera);
+      drawScene();
     } else if (state === 'garage') {
       attractT += rawDt;
       const r = 9.2 + Math.max(0, (garageBundle?.ud.L ?? 4) - 4) * 1.1;
@@ -285,14 +318,14 @@ async function boot() {
         attractT += rawDt;
         game.attractUpdate(rawDt, camera, attractT);
       }
-      renderer.render(scene, camera);
+      drawScene();
     }
   };
   renderer.setAnimationLoop(tick);
 
   // hook de debug/tests (console)
   window.__periph = {
-    renderer, scene, camera, track, world, traffic, events, player, game, ambience, prog,
+    renderer, scene, camera, track, world, traffic, events, player, game, ambience, prog, fleet,
     fps: () => fpsEMA, state: () => state, tier: () => qualityTier,
     // mini-capture : rend une frame et renvoie un JPEG data-URL (test hors écran)
     snap: (w = 420, q = 0.6) => {

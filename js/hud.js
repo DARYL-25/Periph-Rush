@@ -25,6 +25,7 @@ export class UI {
 
   // ---------- écrans ------------------------------------------------------
   show(id) {
+    $('porte-sheet').classList.add('hidden');
     for (const s of ['menu', 'garage', 'defis', 'reglages', 'pause', 'gameover']) {
       $(s).classList.toggle('hidden', s !== id);
     }
@@ -80,6 +81,38 @@ export class UI {
     $('set-auto').onchange = (e) => { this.prog.data.settings.autoThrottle = e.target.checked; this.prog.save(); this.emit('settings'); };
     $('set-sens').oninput = (e) => { this.prog.data.settings.sensitivity = parseFloat(e.target.value); this.prog.save(); this.emit('settings'); };
     $('set-quality').onchange = (e) => { this.prog.data.settings.quality = e.target.value; this.prog.save(); this.emit('settings'); };
+    $('set-traffic').onchange = (e) => this.setTraffic(parseInt(e.target.value, 10));
+    $('set-weather').onchange = (e) => { this.prog.data.settings.weather = e.target.value; this.prog.save(); this.queuePreview(); };
+    $('set-hour').onchange = (e) => { this.prog.data.settings.startHour = e.target.value; this.prog.save(); this.queuePreview(); };
+    $('set-camera').onchange = (e) => { this.prog.data.settings.camera = e.target.value; this.prog.save(); this.emit('camera'); };
+    $('set-radio').onchange = (e) => { this.prog.data.settings.radio = e.target.checked; this.prog.save(); this.emit('settings'); };
+    $('btn-cam').addEventListener('click', () => {
+      const st = this.prog.data.settings;
+      st.camera = st.camera === 'cockpit' ? 'chase' : 'cockpit';
+      this.prog.save();
+      this.emit('camera');
+    });
+
+    // menu : porte de départ + niveau de trafic
+    $('start-prev').onclick = () => { this.audio.click(); this.stepStart(-1); };
+    $('start-next').onclick = () => { this.audio.click(); this.stepStart(1); };
+    $('start-open').onclick = () => { this.audio.click(); this.openPorteSheet(); };
+    $('sheet-close').onclick = () => { this.audio.click(); $('porte-sheet').classList.add('hidden'); };
+    $('porte-sheet').onclick = (e) => { if (e.target.id === 'porte-sheet') $('porte-sheet').classList.add('hidden'); };
+    const cycle = (key, vals, ev) => () => {
+      this.audio.click();
+      const st = this.prog.data.settings;
+      st[key] = vals[(vals.indexOf(st[key] || vals[0]) + 1) % vals.length];
+      this.prog.save();
+      this.refreshSetup();
+      if (ev === 'preview') this.queuePreview(); else this.emit(ev);
+    };
+    $('pill-wx').onclick = cycle('weather', ['auto', 'soleil', 'pluie'], 'preview');
+    $('pill-hour').onclick = cycle('startHour', ['auto', 'matin', 'midi', 'soir', 'nuit'], 'preview');
+    $('pill-cam').onclick = cycle('camera', ['chase', 'cockpit'], 'camera');
+    for (const b of document.querySelectorAll('#traffic-seg button')) {
+      b.onclick = () => { this.audio.click(); this.setTraffic(parseInt(b.dataset.lv, 10)); };
+    }
   }
 
   applySteer() {
@@ -113,8 +146,30 @@ export class UI {
     $('hud-coins').textContent = `🪙 ${fmtInt(state.coins)}`;
     $('hud-lap').textContent = state.laps > 0 ? `TOUR ${state.laps + 1}` : 'TOUR 1';
     $('hud-mult').textContent = `×${state.mult.toFixed(1).replace('.', ',')}`;
-    if (state.porte) {
-      $('hud-porte').textContent = `${state.porte.name} · ${Math.max(0, Math.round(state.porteDist / 10) * 10)} m`;
+    if (state.clock) {
+      $('hud-time').textContent = state.clock;
+      $('hud-wx').textContent = { soleil: '☀', nuit: '☾', pluie: '☂', brouillard: '≋' }[state.weather] || '☀';
+    }
+    if (state.permis != null) {
+      $('hud-permis').textContent = `${state.permis} pts${state.fines ? ` · ${state.fines.toLocaleString('fr-FR')} €` : ''}`;
+      $('hud-permis').classList.toggle('bad', state.permis < 12);
+    }
+    if (state.health != null) {
+      const f = $('hud-health-fill');
+      f.style.width = `${Math.max(0, state.health)}%`;
+      f.style.background = state.health > 60 ? '#3ddc84' : state.health > 30 ? '#ffb020' : '#ff4b3e';
+      $('hud-health').classList.toggle('hidden', state.health >= 100);
+    }
+    if (state.gps) {
+      state.gps.forEach((g, i) => {
+        const el = $('gps-' + i);
+        if (!el) return;
+        const d = g.d < 1000 ? `${Math.max(0, Math.round(g.d / 50) * 50)} m` : `${(g.d / 1000).toFixed(1).replace('.', ',')} km`;
+        const key = `${g.name}|${d}`;
+        if (el._k === key) return;
+        el._k = key;
+        el.innerHTML = `<i>${i ? 'PUIS' : 'SORTIE'}</i><b>${g.name.replace(/^Porte /, 'P<sup>te</sup> ')}</b><span>${d}</span>`;
+      });
     }
     const w = $('hud-warning');
     if (state.warning) {
@@ -122,6 +177,16 @@ export class UI {
       w.classList.remove('hidden');
     } else w.classList.add('hidden');
   }
+
+  flashRadar() {
+    const f = $('radar-flash');
+    f.classList.remove('hidden');
+    f.classList.add('on');
+    requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
+    setTimeout(() => f.classList.add('hidden'), 700);
+  }
+
+  setCameraButton(mode) { $('btn-cam').textContent = mode === 'cockpit' ? '◎' : '◉'; }
 
   popup(text, cls = '') {
     const el = document.createElement('div');
@@ -132,11 +197,131 @@ export class UI {
   }
 
   // ---------- menu ------------------------------------------------------------
+  setTrack(track) {
+    this.track = track;
+    this.starts = track.startPortes();
+    // contour de l'anneau pour la mini-carte
+    const pts = [], p = {};
+    for (let i = 0; i < 360; i++) { track.pointAt((i / 360) * track.length, p); pts.push([p.x, p.z]); }
+    this.ringPts = pts;
+  }
+
+  startIndex() {
+    const name = this.prog.data.settings.startPorte;
+    return Math.max(0, this.starts.findIndex((o) => o.name === name));
+  }
+  stepStart(dir) {
+    const n = this.starts.length;
+    this.setStart(this.starts[(this.startIndex() + dir + n) % n].name);
+  }
+  setStart(name) {
+    this.prog.data.settings.startPorte = name;
+    this.prog.save();
+    this.refreshSetup();
+    this.queuePreview();
+  }
+  setTraffic(lv) {
+    this.prog.data.settings.traffic = lv;
+    this.prog.save();
+    this.refreshSetup();
+    this.queuePreview();
+  }
+  queuePreview() { // évite de reconstruire la scène à chaque appui rapide
+    clearTimeout(this._prevT);
+    this._prevT = setTimeout(() => this.emit('preview'), 380);
+  }
+
+  openPorteSheet() {
+    const list = $('porte-list');
+    list.innerHTML = '';
+    const cur = this.startIndex();
+    this.starts.forEach((o, i) => {
+      const b = document.createElement('button');
+      b.className = 'porte-item' + (i === cur ? ' sel' : '');
+      b.innerHTML = `<i>${String(i + 1).padStart(2, '0')}</i><span>${o.name.replace(/^Porte /, 'Pte ')}</span>`;
+      b.onclick = () => { this.audio.click(); $('porte-sheet').classList.add('hidden'); this.setStart(o.name); };
+      list.appendChild(b);
+    });
+    $('porte-sheet').classList.remove('hidden');
+    list.children[cur]?.scrollIntoView({ block: 'center' });
+  }
+
+  refreshSetup() {
+    if (!this.starts) return;
+    const set = this.prog.data.settings;
+    const i = this.startIndex(), o = this.starts[i];
+    $('start-name').textContent = o.name;
+    const km = ((o.s - this.track.startS + this.track.length) % this.track.length) / 1000;
+    $('start-sub').textContent = `${i + 1}/${this.starts.length} · ${i === 0 ? 'départ historique' : `${km.toFixed(1).replace('.', ',')} km après Maillot`}`;
+    for (const b of document.querySelectorAll('#traffic-seg button')) b.classList.toggle('sel', +b.dataset.lv === set.traffic);
+    $('traffic-desc').textContent = ['Ça roule, place aux chronos', 'Ralentissements et accordéons', 'Saturé, arrêts, motos en interfile'][set.traffic] || '';
+    $('set-traffic').value = String(set.traffic);
+    $('pill-wx-v').textContent = { auto: 'Variable', soleil: 'Sec', pluie: 'Pluie' }[set.weather || 'auto'];
+    $('pill-hour-v').textContent = { auto: 'Selon trafic', matin: 'Matin', midi: 'Midi', soir: 'Soir', nuit: 'Nuit' }[set.startHour || 'auto'];
+    $('pill-cam-v').textContent = set.camera === 'cockpit' ? 'Cockpit' : 'Extérieure';
+    this.drawRing(o.s);
+  }
+
+  drawRing(selS) {
+    const cv = $('ring-map');
+    const r = cv.getBoundingClientRect();
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const W = Math.max(200, Math.round((r.width || 300) * dpr)), H = Math.max(80, Math.round((r.height || 132) * dpr));
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    const pts = this.ringPts;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const [x, z] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+    const pad = 12 * dpr;
+    const k = Math.min((W - 2 * pad) / (x1 - x0), (H - 2 * pad) / (z1 - z0));
+    const ox = W / 2 - ((x0 + x1) / 2) * k, oy = H / 2 - ((z0 + z1) / 2) * k;
+    const P = (x, z) => [ox + x * k, oy + z * k];
+    ctx.lineJoin = 'round';
+    const path = () => { ctx.beginPath(); pts.forEach(([x, z], i) => ctx[i ? 'lineTo' : 'moveTo'](...P(x, z))); ctx.closePath(); };
+    path(); ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.lineWidth = 9 * dpr; ctx.stroke();
+    path(); ctx.strokeStyle = 'rgba(255,209,43,0.75)'; ctx.lineWidth = 2.2 * dpr; ctx.stroke();
+    // trafic : teinte de l'anneau
+    const col = ['#3ddc84', '#ffb020', '#ff4b3e'][this.prog.data.settings.traffic] || '#ffb020';
+    path(); ctx.strokeStyle = col; ctx.globalAlpha = 0.28; ctx.lineWidth = 5 * dpr; ctx.stroke(); ctx.globalAlpha = 1;
+    // portes
+    const p = {};
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    for (const o of this.starts) {
+      this.track.pointAt(o.s, p);
+      const [x, y] = P(p.x, p.z);
+      ctx.beginPath(); ctx.arc(x, y, 1.8 * dpr, 0, Math.PI * 2); ctx.fill();
+    }
+    // départ choisi + sens de circulation
+    this.track.pointAt(selS, p);
+    const [sx, sy] = P(p.x, p.z);
+    const q = {};
+    this.track.pointAt(selS + 400, q);
+    const [qx, qy] = P(q.x, q.z);
+    const a = Math.atan2(qy - sy, qx - sx);
+    ctx.fillStyle = 'rgba(255,209,43,0.25)';
+    ctx.beginPath(); ctx.arc(sx, sy, 11 * dpr, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffd12b'; ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath(); ctx.arc(sx, sy, 5.5 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(18 * dpr, 0); ctx.lineTo(10 * dpr, -5 * dpr); ctx.lineTo(10 * dpr, 5 * dpr); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = `700 ${10 * dpr}px -apple-system, sans-serif`;
+    ctx.fillText('PARIS', W / 2 - 15 * dpr, H / 2 + 4 * dpr);
+  }
+
   refreshMenu() {
     const d = this.prog.data;
+    $('menu-coins').textContent = fmtInt(d.coins);
     $('menu-records').innerHTML =
-      `Record : <b>${fmtInt(d.bestScore)}</b> pts · ${fmtKm(d.bestDistance)} · ${d.bestLaps} tour(s)<br>` +
-      `Total : ${d.totalKm.toFixed(0)} km · ${d.totalLaps} tours · 🪙 ${fmtInt(d.coins)}`;
+      `<div class="rec best"><small>Record</small><b>${fmtInt(d.bestScore)}</b></div>` +
+      `<div class="rec"><small>Distance max</small><b>${fmtKm(d.bestDistance)}</b></div>` +
+      `<div class="rec"><small>Tours bouclés</small><b>${d.totalLaps}</b></div>`;
+    $('tile-car').textContent = CATALOG[d.selected]?.name || '';
+    const ch = d.challenges?.list || [];
+    $('tile-defis').textContent = `${ch.filter((c) => c.done).length}/${ch.length} réussis aujourd’hui`;
+    this.refreshSetup();
     const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     $('menu-hint').style.display = standalone ? 'none' : '';
   }
@@ -167,6 +352,11 @@ export class UI {
     $('set-auto').checked = s.autoThrottle;
     $('set-sens').value = s.sensitivity;
     $('set-quality').value = s.quality;
+    $('set-traffic').value = String(s.traffic ?? 1);
+    $('set-weather').value = s.weather || 'auto';
+    $('set-hour').value = s.startHour || 'auto';
+    $('set-camera').value = s.camera || 'chase';
+    $('set-radio').checked = s.radio !== false;
   }
 
   // ---------- garage -------------------------------------------------------------
@@ -233,9 +423,9 @@ export class UI {
   currentGarageCar() { return PLAYER_IDS[this.garageIndex]; }
 
   // ---------- fin de partie ---------------------------------------------------------
-  showGameOver(result, severity, damageText, extras) {
+  showGameOver(result, severity, damageText, extras, customTitle = null) {
     const title = $('go-title');
-    title.textContent = severity < 0.35 ? 'ACCROCHAGE !' : severity < 0.7 ? 'ACCIDENT !' : 'GROS ACCIDENT !';
+    title.textContent = customTitle || (severity < 0.35 ? 'ACCROCHAGE !' : severity < 0.7 ? 'ACCIDENT !' : 'GROS ACCIDENT !');
     title.classList.toggle('small-hit', severity < 0.35);
     $('go-damage').textContent = damageText;
     $('go-score').textContent = fmtInt(result.points);

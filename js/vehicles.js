@@ -228,6 +228,17 @@ export const CATALOG = {
     cols: [P.jaune, P.blancVan, P.orange], w: 0.5 },
   municipal: { name: 'Ville de Paris', kind: 'box', dims: [5.4, 2.05, 2.4], wb: 3.3, wr: 0.34,
     cols: [P.vertParis], w: 1, municipal: true },
+  // v16 : variété du trafic (designs génériques)
+  semi: { name: 'Poids lourd', kind: 'semi', dims: [16.5, 2.55, 3.95], wb: 3.8, wr: 0.5,
+    cols: [P.blanc, P.bleuF, P.rouge, P.grisF, P.vertF, P.blancVan], w: 1.6 },
+  scooter_liv: { name: 'Scooter livraison', kind: 'moto', dims: [1.95, 0.72, 1.32], wb: 1.35, wr: 0.22, moto: 'scooter', topbox: true,
+    cols: [P.noir, P.blanc, P.grisF, P.rouge], w: 2.6 },
+  police: { name: 'Police', kind: 'sedan', glbId: 'concorde', dims: [4.68, 1.82, 1.46], wb: 2.76, wr: 0.32, plateR: 0.61, plateF: 0.40, brakeY: 0.93,
+    cols: [0x1c2a4a], w: 0, emergency: 'police' },
+  samu: { name: 'SAMU', kind: 'van', glbId: 'cargo', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
+    cols: [0xeef0f2], w: 0, emergency: 'samu' },
+  pompiers: { name: 'Pompiers', kind: 'box', dims: [6.6, 2.3, 2.95], wb: 3.7, wr: 0.42,
+    cols: [0xb3121a], w: 0, emergency: 'pompiers', stripe: true, stripeCol: 0xe8eaed },
 };
 
 // ---------- calibration globale des silhouettes ----------------------
@@ -359,7 +370,9 @@ export class VehicleFactory {
   setNight(on) {
     this.lensFMat.emissiveIntensity = on ? 2.4 : 0;
     this.lensRMat.emissiveIntensity = on ? 1.5 : 0;
+    if (this.instMats) { this.instMats[4].emissiveIntensity = this.lensFMat.emissiveIntensity; this.instMats[5].emissiveIntensity = this.lensRMat.emissiveIntensity; }
   }
+  specOf(id) { return CATALOG[id]; }
 
   paint(hex, dirt = 0) {
     const key = `${hex}:${dirt}`;
@@ -388,10 +401,11 @@ export class VehicleFactory {
     let g;
     const gid = m.glbId || id;
     if (this.glb?.has(gid)) g = this.glbGeometry(gid, m);
-    else if (!m.prof && !['moto', 'box', 'tow', 'bus'].includes(m.kind)) { g = this.geometry(m.kind === 'van' ? 'camionnette' : m.kind === 'suv' ? 'suv_g' : m.kind === 'sedan' ? 'berline_g' : 'citadine_g'); this.geomCache.set(id, g); return g; }
+    else if (!m.prof && !['moto', 'box', 'tow', 'bus', 'semi'].includes(m.kind)) { g = this.geometry(m.kind === 'van' ? 'camionnette' : m.kind === 'suv' ? 'suv_g' : m.kind === 'sedan' ? 'berline_g' : 'citadine_g'); this.geomCache.set(id, g); return g; }
     else if (m.kind === 'moto') g = this.motoGeometry(m);
     else if (m.kind === 'box' || m.kind === 'tow') g = this.boxTruckGeometry(m);
     else if (m.kind === 'bus') g = this.busGeometry(m);
+    else if (m.kind === 'semi') g = this.semiGeometry(m);
     else g = this.carGeometry(m);
     this.geomCache.set(id, g);
     return g;
@@ -811,10 +825,53 @@ export class VehicleFactory {
       lensR.push(xform(new T.BoxGeometry(0.05, 0.22, 0.12), { x: -L / 2 + 0.005, y: yBot + 0.5, z: side * (W / 2 - 0.15) }));
     }
     if (m.municipal) box(det, 0.4, 0.12, 0.3, { x: L / 2 - cabL * 0.5, y: cabH + 0.08 }, 0xffa020);
-    if (m.stripe) box(det, L * 0.6, 0.3, 0.02, { x: -L * 0.15, y: H * 0.6, z: W / 2 + 0.005 }, 0xd9b430);
+    if (m.stripe) for (const sd of [-1, 1]) box(det, L * 0.6, 0.3, 0.02, { x: -L * 0.15, y: H * 0.6, z: sd * (W / 2 + 0.005) }, m.stripeCol ?? 0xd9b430);
 
     const geom = this.assemble({ paint, glass, det, bright, lensF, lensR });
     geom.userData = { fx: L / 2 - cabL * 0.55, rx: -L / 2 + L * 0.22, wr, W, L, H, yBot };
+    return geom;
+  }
+
+  // ---------- poids lourd : tracteur + semi-remorque (design générique) ----
+  semiGeometry(m) {
+    const T = this.T;
+    const [L, W, H] = m.dims;
+    const wr = m.wr;
+    const paint = [], det = [], bright = [], lensF = [], lensR = [], glass = [];
+    const box = (arr, w, h, d, tf, col) => {
+      const g = xform(new T.BoxGeometry(w, h, d), tf);
+      arr.push(arr === det ? colorize(T, g, col ?? 0x24262a) : g);
+    };
+    const cabL = 2.35, cabH = 3.55, fx = L / 2;
+    // cabine
+    box(paint, cabL, cabH - 1.0, W * 0.98, { x: fx - cabL / 2, y: 1.0 + (cabH - 1.0) / 2 });
+    box(det, cabL * 0.98, 0.9, W * 0.96, { x: fx - cabL / 2, y: 0.62 }, 0x2c3035);
+    box(det, 0.12, 0.55, W * 0.7, { x: fx + 0.02, y: 1.3 }, 0x1b1d20); // calandre
+    glass.push(xform(new T.BoxGeometry(0.04, 1.0, W * 0.9), { x: fx + 0.01, y: 2.45 }));
+    for (const sd of [-1, 1]) glass.push(xform(new T.BoxGeometry(0.9, 0.75, 0.03), { x: fx - 0.6, y: 2.45, z: sd * (W * 0.49 + 0.01) }));
+    box(det, 0.25, 0.32, 0.08, { x: fx - 0.1, y: 2.5, z: W / 2 + 0.28 }, 0x1b1d20);
+    box(det, 0.25, 0.32, 0.08, { x: fx - 0.1, y: 2.5, z: -(W / 2 + 0.28) }, 0x1b1d20);
+    box(paint, cabL * 0.8, 0.5, W * 0.9, { x: fx - cabL * 0.55, y: cabH + 0.2 }); // déflecteur
+    // châssis + remorque
+    box(det, L - 0.4, 0.3, W * 0.6, { x: 0, y: 0.95 }, 0x1d1f22);
+    const trL = L - cabL - 0.6, trH = H - 1.25;
+    box(det, trL, trH, W, { x: -L / 2 + trL / 2, y: 1.25 + trH / 2 }, 0xd9dcdf);
+    box(det, trL, 0.1, W + 0.02, { x: -L / 2 + trL / 2, y: 1.28 }, 0x6a7076);
+    // roues : 2 essieux tracteur, 3 essieux remorque
+    const rimG = this.rim(wr, false);
+    const axles = [fx - 0.9, fx - cabL - 1.2, -L / 2 + 1.0, -L / 2 + 2.35, -L / 2 + 3.7];
+    for (const ax of axles) {
+      for (const side of [-1, 1]) {
+        det.push(colorize(T, xform(tireGeometry(T, wr, 0.38), { x: ax, y: wr, z: side * (W / 2 - 0.2) }), 0x141619));
+        bright.push(xform(rimG.clone(), { x: ax, y: wr, z: side * (W / 2 - 0.2) + side * 0.07 }));
+      }
+    }
+    for (const side of [-1, 1]) {
+      lensF.push(xform(new T.BoxGeometry(0.05, 0.16, 0.36), { x: fx + 0.03, y: 0.85, z: side * (W / 2 - 0.3) }));
+      lensR.push(xform(new T.BoxGeometry(0.05, 0.22, 0.3), { x: -L / 2 - 0.01, y: 0.95, z: side * (W / 2 - 0.25) }));
+    }
+    const geom = this.assemble({ paint, glass, det, bright, lensF, lensR });
+    geom.userData = { fx: fx - 0.9, rx: -L / 2 + 2.35, wr, W, L, H, yBot: 0.6 };
     return geom;
   }
 
@@ -900,6 +957,10 @@ export class VehicleFactory {
         box(det, 0.38, 0.42, 0.2, { x: rx + 0.12, y: 0.66, z: -(W / 2 - 0.06) }, 0x9aa0a6);
       }
     }
+    if (m.topbox) { // coffre isotherme de livreur (couleurs génériques)
+      const bc = [0x1fb5a8, 0xe0452f, 0x2a2e33, 0xf2c200][Math.round(L * 1000) % 4];
+      box(det, 0.44, 0.42, 0.44, { x: rx + 0.12, y: 1.18 }, bc);
+    }
     const jacket = [0x23272c, 0x3a2e2a, 0x2c3a4a, 0x40342c][Math.round(L * 100) % 4];
     const helmet = [0x14171a, 0xc23531, 0xe8eaed, 0x3466a8][Math.round(W * 100) % 4];
     box(det, 0.36, 0.36, 0.44, { x: seatX + (isMaxi ? 0.3 : 0.18), y: seatY + 0.12 }, 0x2a2e33);
@@ -953,6 +1014,17 @@ export class VehicleFactory {
     return geom;
   }
 
+  // LOD lointain (GLB décimé) pour les PNJ, si disponible
+  farGeometry(id, suffix = '_far') {
+    const key = id + '#' + suffix;
+    if (this.geomCache.has(key)) return this.geomCache.get(key);
+    const m = CATALOG[id];
+    const fid = (m.glbId || id) + suffix;
+    const g = this.glb?.has(fid) ? this.glbGeometry(fid, m) : null;
+    this.geomCache.set(key, g);
+    return g;
+  }
+
   // ---------- instanciation d'un véhicule -------------------------------
   build(id, { color, dirt = 0, forPlayer = false } = {}) {
     const T = this.T;
@@ -966,7 +1038,15 @@ export class VehicleFactory {
     mesh.castShadow = true;
     mesh.userData.ud = ud;
     const group = new T.Group();
-    group.add(mesh);
+    const farG = forPlayer ? null : this.farGeometry(id);
+    if (farG) { // bascule automatique par distance à la caméra
+      const lod = new T.LOD();
+      lod.addLevel(mesh, 0);
+      const far = new T.Mesh(farG, mats);
+      far.rotation.y = -Math.PI / 2;
+      lod.addLevel(far, 34);
+      group.add(lod);
+    } else group.add(mesh);
 
     // plaques
     const plate = this.plates.get();

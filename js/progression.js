@@ -18,7 +18,7 @@ const DEFAULT = {
   selected: 'lutece',
   colors: {},
   challenges: null,
-  settings: { audio: true, haptics: true, autoThrottle: false, sensitivity: 1.0, quality: 'auto' },
+  settings: { audio: true, haptics: true, autoThrottle: false, sensitivity: 1.0, quality: 'auto', traffic: 1, startPorte: 'Porte Maillot', weather: 'auto', startHour: 'auto', radio: true, camera: 'chase' },
 };
 
 const CHALLENGE_POOL = [

@@ -54,6 +54,12 @@ export class Score {
     return { pts, combo: this.combo };
   }
 
+  penalty(pts) { // amendes, accrochages…
+    this.points = Math.max(0, this.points - pts);
+    this.cleanTime = 0;
+    this.combo = 0;
+  }
+
   lap() {
     this.points += CFG.LAP_SCORE;
     this.lapBonuses++;
@@ -70,6 +76,8 @@ export class Score {
       bestCombo: this.bestCombo,
       coins: this.coins,
       overspeed: player.overspeedTime,
+      fines: this.fines || 0,
+      points12: this.permis ?? 12,
     };
   }
 }
