@@ -33,109 +33,128 @@ export const CATALOG = {
   // ——— Renault ———
   clio2:  { name: 'Clio 2', kind: 'hatch', dims: [3.81, 1.64, 1.42], wb: 2.47, wr: 0.28,
     prof: { nose: 0.34, hood: 0.50, hoodX: 0.30, roofX: 0.46, roofH: 0.97, roofEndX: 0.78, tailH: 0.62 },
-    glass: { belt: 0.56, endX: 0.94 }, lights: 'round', cols: [...commonCols, P.vertF, P.beige], w: 5,
+    glass: { belt: 0.56, endX: 0.94 }, lights: 'round', cols: [...commonCols, P.vertF, P.beige], w: 0,
     perf: { vmax: 150, acc: 0.38, man: 0.62, frein: 0.5 }, unlock: { km: 15 } },
   clio3:  { name: 'Clio 3', kind: 'hatch', dims: [3.99, 1.72, 1.49], wb: 2.58, wr: 0.30,
     prof: { nose: 0.33, hood: 0.47, hoodX: 0.27, roofX: 0.45, roofH: 0.98, roofEndX: 0.76, tailH: 0.64 },
-    glass: { belt: 0.55, endX: 0.94 }, lights: 'teardrop', cols: [P.argent, ...commonCols, P.rougeVif, P.grisBleu], w: 8,
+    glass: { belt: 0.55, endX: 0.94 }, lights: 'teardrop', cols: [P.argent, ...commonCols, P.rougeVif, P.grisBleu], w: 0,
     strip: true, antennaFront: true, spokes: 12, plateHigh: true,
     perf: { vmax: 160, acc: 0.45, man: 0.66, frein: 0.55 }, unlock: { start: true } },
   // citadine 5 portes au design original du jeu (modèle Blender : tools/blender/lutece_build.py)
-  lutece: { name: 'Lutèce', kind: 'hatch', dims: [4.02, 1.72, 1.48], wb: 2.58, wr: 0.305,
+  lutece: { name: 'Lutèce', kind: 'hatch', dims: [4.02, 1.72, 1.48], wb: 2.58, wr: 0.305, plateR: 0.515, plateF: 0.557, brakeY: 0.92,
     prof: { nose: 0.33, hood: 0.47, hoodX: 0.27, roofX: 0.45, roofH: 0.98, roofEndX: 0.76, tailH: 0.64 },
     glass: { belt: 0.55, endX: 0.94 }, lights: 'oval', cols: [P.rougeVif, P.argent, ...commonCols, P.grisBleu], w: 0,
     perf: { vmax: 165, acc: 0.47, man: 0.68, frein: 0.57 }, unlock: { start: true } },
+  // ——— flotte au design ORIGINAL modélisée dans Blender (tools/blender/fleet_build.py, assets/fleet/) ———
+  lutece_t: { name: 'Lutèce', kind: 'hatch', dims: [4.02, 1.72, 1.48], wb: 2.58, wr: 0.305, plateR: 0.515, plateF: 0.557, brakeY: 0.92,
+    cols: [P.rougeVif, P.argent, ...commonCols, P.grisBleu], w: 8 },
+  mistral: { name: 'Mistral', kind: 'hatch', dims: [3.85, 1.70, 1.52], wb: 2.46, wr: 0.30, plateR: 0.56, plateF: 0.53, brakeY: 0.98,
+    cols: [P.jaune, P.beige, P.vertF, ...commonCols, P.rougeVif], w: 7 },
+  aurore: { name: 'Aurore', kind: 'hatch', dims: [4.30, 1.80, 1.45], wb: 2.64, wr: 0.315, plateR: 0.56, plateF: 0.43, brakeY: 0.96,
+    cols: [P.bleuNuit, ...commonCols, P.grisBleu, P.rougeVif], w: 8 },
+  concorde: { name: 'Concorde', kind: 'sedan', dims: [4.68, 1.82, 1.46], wb: 2.76, wr: 0.32, plateR: 0.61, plateF: 0.40, brakeY: 0.93,
+    cols: [P.noir, P.grisF, P.bleuNuit, ...commonCols], w: 6 },
+  riviera: { name: 'Riviera', kind: 'wagon', dims: [4.62, 1.80, 1.50], wb: 2.70, wr: 0.315, plateR: 0.56, plateF: 0.44, brakeY: 0.96,
+    cols: [P.argent, P.grisBleu, P.bordeaux, ...commonCols], w: 5 },
+  atlas: { name: 'Atlas', kind: 'suv', dims: [4.45, 1.84, 1.64], wb: 2.66, wr: 0.345, plateR: 0.68, plateF: 0.55, brakeY: 1.10,
+    cols: [P.kaki, P.blancVan, P.noir, ...commonCols], w: 6 },
+  odyssee: { name: 'Odyssée', kind: 'mono', dims: [4.55, 1.84, 1.68], wb: 2.80, wr: 0.32, plateR: 0.61, plateF: 0.52, brakeY: 1.08,
+    cols: [P.argent, P.bleuNuit, P.beige, ...commonCols], w: 4 },
+  cargo: { name: 'Cargo', kind: 'van', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
+    cols: [P.blancVan, P.blancVan, P.blancVan, P.grisF, P.jaune], w: 6 },
+  furia: { name: 'Furia', kind: 'fastback', dims: [4.75, 1.88, 1.40], wb: 2.85, wr: 0.335, plateR: 0.56, plateF: 0.36, brakeY: 0.90, sport: 1,
+    cols: [P.noir, P.argent, P.rougeVif, P.bleuNuit], w: 0.45 },
   clio4:  { name: 'Clio 4', kind: 'hatch', dims: [4.06, 1.73, 1.45], wb: 2.59, wr: 0.30,
     prof: { nose: 0.36, hood: 0.46, hoodX: 0.26, roofX: 0.44, roofH: 0.97, roofEndX: 0.74, tailH: 0.66 },
-    glass: { belt: 0.60, endX: 0.93 }, lights: 'slim', cols: [...commonCols, P.rougeVif, P.jaune], w: 8,
+    glass: { belt: 0.60, endX: 0.93 }, lights: 'slim', cols: [...commonCols, P.rougeVif, P.jaune], w: 0,
     perf: { vmax: 168, acc: 0.52, man: 0.7, frein: 0.62 }, unlock: { km: 40 } },
   clio5:  { name: 'Clio 5', kind: 'hatch', dims: [4.05, 1.80, 1.44], wb: 2.58, wr: 0.30,
     prof: { nose: 0.37, hood: 0.46, hoodX: 0.25, roofX: 0.43, roofH: 0.97, roofEndX: 0.73, tailH: 0.66 },
-    glass: { belt: 0.61, endX: 0.92 }, lights: 'slim', cols: [...commonCols, P.orange, P.rougeVif], w: 7,
+    glass: { belt: 0.61, endX: 0.92 }, lights: 'slim', cols: [...commonCols, P.orange, P.rougeVif], w: 0,
     perf: { vmax: 172, acc: 0.56, man: 0.72, frein: 0.66 }, unlock: { km: 90 } },
   clio6:  { name: 'Clio 6', kind: 'hatch', dims: [4.12, 1.80, 1.45], wb: 2.59, wr: 0.31,
     prof: { nose: 0.40, hood: 0.47, hoodX: 0.24, roofX: 0.42, roofH: 0.96, roofEndX: 0.71, tailH: 0.68 },
-    glass: { belt: 0.62, endX: 0.91 }, lights: 'blade', cols: [P.blancNacre, P.noir, P.grisNardo, P.rouge, P.bleuNuit], w: 2.5,
+    glass: { belt: 0.62, endX: 0.91 }, lights: 'blade', cols: [P.blancNacre, P.noir, P.grisNardo, P.rouge, P.bleuNuit], w: 0,
     perf: { vmax: 178, acc: 0.62, man: 0.75, frein: 0.7 }, unlock: { km: 160 } },
   megane: { name: 'Mégane', kind: 'hatch', dims: [4.36, 1.81, 1.45], wb: 2.67, wr: 0.31,
     prof: { nose: 0.35, hood: 0.45, hoodX: 0.27, roofX: 0.45, roofH: 0.96, roofEndX: 0.75, tailH: 0.62 },
-    glass: { belt: 0.58, endX: 0.93 }, lights: 'slim', cols: [...commonCols, P.rougeVif], w: 6,
+    glass: { belt: 0.58, endX: 0.93 }, lights: 'slim', cols: [...commonCols, P.rougeVif], w: 0,
     perf: { vmax: 182, acc: 0.6, man: 0.68, frein: 0.68 }, unlock: { coins: 900 } },
   scenic: { name: 'Scénic', kind: 'mono', dims: [4.34, 1.84, 1.65], wb: 2.70, wr: 0.31,
     prof: { nose: 0.30, hood: 0.42, hoodX: 0.16, roofX: 0.36, roofH: 0.98, roofEndX: 0.82, tailH: 0.72, mono: true },
-    glass: { belt: 0.50, endX: 0.95 }, lights: 'oval', cols: [...commonCols, P.beige], w: 4,
+    glass: { belt: 0.50, endX: 0.95 }, lights: 'oval', cols: [...commonCols, P.beige], w: 0,
     perf: { vmax: 170, acc: 0.48, man: 0.55, frein: 0.58 }, unlock: { coins: 700 } },
   trafic: { name: 'Trafic', kind: 'van', dims: [5.08, 1.96, 1.97], wb: 3.10, wr: 0.33,
     prof: { nose: 0.30, hood: 0.42, hoodX: 0.13, roofX: 0.30, roofH: 0.99, roofEndX: 0.97, tailH: 0.95, mono: true },
-    glass: { belt: 0.46, endX: 0.42, panel: true }, lights: 'oval', cols: [P.blancVan, P.blancVan, P.gris, P.bleu, P.rouge], w: 4.5,
+    glass: { belt: 0.46, endX: 0.42, panel: true }, lights: 'oval', cols: [P.blancVan, P.blancVan, P.gris, P.bleu, P.rouge], w: 0,
     perf: { vmax: 155, acc: 0.35, man: 0.42, frein: 0.45 }, unlock: { coins: 1200 } },
   // ——— Peugeot ———
   p206:  { name: '206', kind: 'hatch', dims: [3.83, 1.65, 1.44], wb: 2.44, wr: 0.28,
     prof: { nose: 0.28, hood: 0.44, hoodX: 0.28, roofX: 0.46, roofH: 0.97, roofEndX: 0.77, tailH: 0.60 },
-    glass: { belt: 0.55, endX: 0.94 }, lights: 'feline', cols: [...commonCols, P.rougeVif, P.jaune], w: 6,
+    glass: { belt: 0.55, endX: 0.94 }, lights: 'feline', cols: [...commonCols, P.rougeVif, P.jaune], w: 0,
     perf: { vmax: 152, acc: 0.4, man: 0.65, frein: 0.5 }, unlock: { km: 25 } },
   p207:  { name: '207', kind: 'hatch', dims: [4.03, 1.75, 1.47], wb: 2.54, wr: 0.29,
     prof: { nose: 0.30, hood: 0.44, hoodX: 0.28, roofX: 0.46, roofH: 0.97, roofEndX: 0.76, tailH: 0.62 },
-    glass: { belt: 0.56, endX: 0.94 }, lights: 'feline', cols: [...commonCols], w: 6,
+    glass: { belt: 0.56, endX: 0.94 }, lights: 'feline', cols: [...commonCols], w: 0,
     perf: { vmax: 160, acc: 0.45, man: 0.64, frein: 0.55 }, unlock: { coins: 450 } },
   p208:  { name: '208', kind: 'hatch', dims: [4.06, 1.75, 1.43], wb: 2.54, wr: 0.30,
     prof: { nose: 0.37, hood: 0.46, hoodX: 0.25, roofX: 0.43, roofH: 0.96, roofEndX: 0.72, tailH: 0.66 },
-    glass: { belt: 0.61, endX: 0.92 }, lights: 'blade', cols: [...commonCols, P.jaune, P.orange], w: 7,
+    glass: { belt: 0.61, endX: 0.92 }, lights: 'blade', cols: [...commonCols, P.jaune, P.orange], w: 0,
     perf: { vmax: 170, acc: 0.55, man: 0.72, frein: 0.65 }, unlock: { coins: 800 } },
   p307:  { name: '307', kind: 'hatch', dims: [4.21, 1.76, 1.51], wb: 2.61, wr: 0.30,
     prof: { nose: 0.30, hood: 0.44, hoodX: 0.24, roofX: 0.42, roofH: 0.97, roofEndX: 0.78, tailH: 0.60 },
-    glass: { belt: 0.54, endX: 0.94 }, lights: 'feline', cols: [...commonCols, P.beige], w: 5,
+    glass: { belt: 0.54, endX: 0.94 }, lights: 'feline', cols: [...commonCols, P.beige], w: 0,
     perf: { vmax: 165, acc: 0.46, man: 0.6, frein: 0.55 }, unlock: { coins: 500 } },
   p308:  { name: '308', kind: 'hatch', dims: [4.37, 1.80, 1.44], wb: 2.68, wr: 0.31,
     prof: { nose: 0.36, hood: 0.45, hoodX: 0.26, roofX: 0.44, roofH: 0.96, roofEndX: 0.74, tailH: 0.64 },
-    glass: { belt: 0.60, endX: 0.92 }, lights: 'blade', cols: [...commonCols, P.vertMamba], w: 6,
+    glass: { belt: 0.60, endX: 0.92 }, lights: 'blade', cols: [...commonCols, P.vertMamba], w: 0,
     perf: { vmax: 185, acc: 0.62, man: 0.7, frein: 0.7 }, unlock: { coins: 1100 } },
   p2008: { name: '2008', kind: 'suv', dims: [4.30, 1.77, 1.55], wb: 2.60, wr: 0.32,
     prof: { nose: 0.42, hood: 0.55, hoodX: 0.24, roofX: 0.42, roofH: 0.97, roofEndX: 0.76, tailH: 0.70 },
-    glass: { belt: 0.62, endX: 0.92 }, lights: 'blade', cols: [...commonCols, P.orange], w: 5, clearance: 0.34,
+    glass: { belt: 0.62, endX: 0.92 }, lights: 'blade', cols: [...commonCols, P.orange], w: 0, clearance: 0.34,
     perf: { vmax: 172, acc: 0.52, man: 0.6, frein: 0.6 }, unlock: { coins: 1000 } },
   p3008: { name: '3008', kind: 'suv', dims: [4.45, 1.84, 1.62], wb: 2.68, wr: 0.33,
     prof: { nose: 0.44, hood: 0.56, hoodX: 0.24, roofX: 0.42, roofH: 0.96, roofEndX: 0.78, tailH: 0.70 },
-    glass: { belt: 0.62, endX: 0.93 }, lights: 'blade', cols: [...commonCols, P.bordeaux], w: 5.5, clearance: 0.36,
+    glass: { belt: 0.62, endX: 0.93 }, lights: 'blade', cols: [...commonCols, P.bordeaux], w: 0, clearance: 0.36,
     perf: { vmax: 180, acc: 0.55, man: 0.55, frein: 0.62 }, unlock: { coins: 1400 } },
   p5008: { name: '5008', kind: 'suv', dims: [4.64, 1.84, 1.65], wb: 2.84, wr: 0.33,
     prof: { nose: 0.44, hood: 0.56, hoodX: 0.22, roofX: 0.40, roofH: 0.97, roofEndX: 0.84, tailH: 0.74 },
-    glass: { belt: 0.60, endX: 0.94 }, lights: 'blade', cols: [...commonCols], w: 3.5, clearance: 0.36,
+    glass: { belt: 0.60, endX: 0.94 }, lights: 'blade', cols: [...commonCols], w: 0, clearance: 0.36,
     perf: { vmax: 178, acc: 0.5, man: 0.5, frein: 0.6 }, unlock: { coins: 1500 } },
   // ——— Citroën ———
   c1: { name: 'C1', kind: 'hatch', dims: [3.46, 1.62, 1.46], wb: 2.34, wr: 0.27,
     prof: { nose: 0.34, hood: 0.48, hoodX: 0.26, roofX: 0.42, roofH: 0.98, roofEndX: 0.80, tailH: 0.68 },
-    glass: { belt: 0.54, endX: 0.95 }, lights: 'round', cols: [...commonCols, P.rougeVif, P.jaune], w: 4.5,
+    glass: { belt: 0.54, endX: 0.95 }, lights: 'round', cols: [...commonCols, P.rougeVif, P.jaune], w: 0,
     perf: { vmax: 145, acc: 0.42, man: 0.78, frein: 0.5 }, unlock: { km: 8 } },
   c3: { name: 'C3', kind: 'hatch', dims: [3.99, 1.75, 1.47], wb: 2.54, wr: 0.29,
     prof: { nose: 0.36, hood: 0.50, hoodX: 0.24, roofX: 0.42, roofH: 0.97, roofEndX: 0.78, tailH: 0.66 },
-    glass: { belt: 0.58, endX: 0.93 }, lights: 'split', cols: [...commonCols, P.rougeVif, P.blancNacre], w: 6,
+    glass: { belt: 0.58, endX: 0.93 }, lights: 'split', cols: [...commonCols, P.rougeVif, P.blancNacre], w: 0,
     perf: { vmax: 162, acc: 0.46, man: 0.66, frein: 0.56 }, unlock: { coins: 500 } },
   c4: { name: 'C4', kind: 'fastback', dims: [4.36, 1.80, 1.53], wb: 2.67, wr: 0.31,
     prof: { nose: 0.40, hood: 0.50, hoodX: 0.24, roofX: 0.42, roofH: 0.95, roofEndX: 0.66, tailH: 0.56 },
-    glass: { belt: 0.60, endX: 0.90 }, lights: 'split', cols: [...commonCols, P.bordeaux], w: 4.5, clearance: 0.32,
+    glass: { belt: 0.60, endX: 0.90 }, lights: 'split', cols: [...commonCols, P.bordeaux], w: 0, clearance: 0.32,
     perf: { vmax: 178, acc: 0.55, man: 0.62, frein: 0.62 }, unlock: { coins: 1100 } },
   // ——— Mercedes ———
   a250: { name: 'A 250', kind: 'hatch', dims: [4.42, 1.80, 1.44], wb: 2.73, wr: 0.31,
     prof: { nose: 0.36, hood: 0.44, hoodX: 0.27, roofX: 0.45, roofH: 0.95, roofEndX: 0.72, tailH: 0.62 },
-    glass: { belt: 0.60, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.rouge, P.bleuNuit], w: 3, sport: 0.3,
+    glass: { belt: 0.60, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.rouge, P.bleuNuit], w: 0, sport: 0.3,
     perf: { vmax: 200, acc: 0.72, man: 0.74, frein: 0.75 }, unlock: { coins: 2200 } },
   gla250: { name: 'GLA 250', kind: 'suv', dims: [4.41, 1.83, 1.61], wb: 2.73, wr: 0.33,
     prof: { nose: 0.42, hood: 0.52, hoodX: 0.25, roofX: 0.43, roofH: 0.96, roofEndX: 0.75, tailH: 0.68 },
-    glass: { belt: 0.60, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.bleuNuit], w: 2.5, clearance: 0.35,
+    glass: { belt: 0.60, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.bleuNuit], w: 0, clearance: 0.35,
     perf: { vmax: 195, acc: 0.68, man: 0.62, frein: 0.7 }, unlock: { coins: 2400 } },
   c63s: { name: 'C 63 S', kind: 'sedan', dims: [4.75, 1.84, 1.44], wb: 2.84, wr: 0.34,
     prof: { nose: 0.35, hood: 0.44, hoodX: 0.30, roofX: 0.47, roofH: 0.94, roofEndX: 0.72, tailH: 0.56 },
-    glass: { belt: 0.60, endX: 0.86 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisNardo, P.rougeSport, P.bleuNuit], w: 0.35, sport: 1,
+    glass: { belt: 0.60, endX: 0.86 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisNardo, P.rougeSport, P.bleuNuit], w: 0, sport: 1,
     perf: { vmax: 235, acc: 0.95, man: 0.78, frein: 0.85 }, unlock: { laps: 4, coins: 6000 } },
   // ——— BMW ———
   bmw120: { name: 'Série 1 · 120', kind: 'hatch', dims: [4.32, 1.77, 1.43], wb: 2.69, wr: 0.31,
     prof: { nose: 0.36, hood: 0.46, hoodX: 0.30, roofX: 0.47, roofH: 0.95, roofEndX: 0.73, tailH: 0.60 },
-    glass: { belt: 0.59, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.bleu, P.rouge], w: 3.5, sport: 0.2,
+    glass: { belt: 0.59, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.bleu, P.rouge], w: 0, sport: 0.2,
     perf: { vmax: 195, acc: 0.66, man: 0.75, frein: 0.72 }, unlock: { coins: 1800 } },
   m5: { name: 'M5', kind: 'sedan', dims: [4.98, 1.90, 1.47], wb: 2.98, wr: 0.35,
     prof: { nose: 0.36, hood: 0.45, hoodX: 0.30, roofX: 0.48, roofH: 0.94, roofEndX: 0.73, tailH: 0.56 },
-    glass: { belt: 0.60, endX: 0.86 }, lights: 'slim', cols: [P.noir, P.blanc, P.grisNardo, P.bleuSport, P.grisF], w: 0.35, sport: 1,
+    glass: { belt: 0.60, endX: 0.86 }, lights: 'slim', cols: [P.noir, P.blanc, P.grisNardo, P.bleuSport, P.grisF], w: 0, sport: 1,
     perf: { vmax: 240, acc: 0.96, man: 0.76, frein: 0.85 }, unlock: { laps: 5, coins: 6500 } },
   gs: { name: 'GS 1250', kind: 'moto', dims: [2.21, 0.95, 1.43], wb: 1.52, wr: 0.32, moto: 'adv',
     cols: [P.blanc, P.noir, P.bleuSport, P.rouge, P.kaki], w: 2,
@@ -143,32 +162,32 @@ export const CATALOG = {
   // ——— Toyota ———
   yaris: { name: 'Yaris', kind: 'hatch', dims: [3.94, 1.75, 1.50], wb: 2.56, wr: 0.29,
     prof: { nose: 0.36, hood: 0.48, hoodX: 0.24, roofX: 0.42, roofH: 0.97, roofEndX: 0.74, tailH: 0.66 },
-    glass: { belt: 0.58, endX: 0.93 }, lights: 'blade', cols: [...commonCols, P.rougeVif, P.blancNacre], w: 6,
+    glass: { belt: 0.58, endX: 0.93 }, lights: 'blade', cols: [...commonCols, P.rougeVif, P.blancNacre], w: 0,
     perf: { vmax: 165, acc: 0.5, man: 0.7, frein: 0.6 }, unlock: { coins: 650 } },
   auris: { name: 'Auris', kind: 'hatch', dims: [4.33, 1.76, 1.47], wb: 2.60, wr: 0.30,
     prof: { nose: 0.33, hood: 0.45, hoodX: 0.26, roofX: 0.44, roofH: 0.96, roofEndX: 0.76, tailH: 0.62 },
-    glass: { belt: 0.57, endX: 0.93 }, lights: 'oval', cols: [...commonCols], w: 4,
+    glass: { belt: 0.57, endX: 0.93 }, lights: 'oval', cols: [...commonCols], w: 0,
     perf: { vmax: 172, acc: 0.5, man: 0.63, frein: 0.6 }, unlock: { coins: 750 } },
   corolla: { name: 'Corolla', kind: 'sedan', dims: [4.37, 1.79, 1.44], wb: 2.64, wr: 0.31,
     prof: { nose: 0.34, hood: 0.45, hoodX: 0.27, roofX: 0.45, roofH: 0.95, roofEndX: 0.72, tailH: 0.56 },
-    glass: { belt: 0.58, endX: 0.86 }, lights: 'slim', cols: [...commonCols, P.blancNacre], w: 5,
+    glass: { belt: 0.58, endX: 0.86 }, lights: 'slim', cols: [...commonCols, P.blancNacre], w: 0,
     perf: { vmax: 178, acc: 0.55, man: 0.65, frein: 0.65 }, unlock: { coins: 950 } },
   // ——— Audi ———
   a1: { name: 'A1', kind: 'hatch', dims: [4.03, 1.74, 1.41], wb: 2.56, wr: 0.30,
     prof: { nose: 0.37, hood: 0.46, hoodX: 0.26, roofX: 0.44, roofH: 0.96, roofEndX: 0.72, tailH: 0.64 },
-    glass: { belt: 0.60, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.rouge, P.jaune], w: 3,
+    glass: { belt: 0.60, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.rouge, P.jaune], w: 0,
     perf: { vmax: 180, acc: 0.58, man: 0.73, frein: 0.68 }, unlock: { coins: 1300 } },
   a3: { name: 'A3', kind: 'hatch', dims: [4.34, 1.82, 1.43], wb: 2.64, wr: 0.31,
     prof: { nose: 0.36, hood: 0.45, hoodX: 0.28, roofX: 0.46, roofH: 0.95, roofEndX: 0.73, tailH: 0.60 },
-    glass: { belt: 0.59, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.bleuNuit, P.rouge], w: 3.5,
+    glass: { belt: 0.59, endX: 0.92 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.bleuNuit, P.rouge], w: 0,
     perf: { vmax: 195, acc: 0.64, man: 0.72, frein: 0.72 }, unlock: { coins: 1700 } },
   q3: { name: 'Q3', kind: 'suv', dims: [4.48, 1.86, 1.62], wb: 2.68, wr: 0.33,
     prof: { nose: 0.44, hood: 0.55, hoodX: 0.25, roofX: 0.43, roofH: 0.96, roofEndX: 0.78, tailH: 0.70 },
-    glass: { belt: 0.61, endX: 0.93 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.orange, P.bleuNuit], w: 3, clearance: 0.35,
+    glass: { belt: 0.61, endX: 0.93 }, lights: 'slim', cols: [P.blanc, P.noir, P.grisF, P.argent, P.orange, P.bleuNuit], w: 0, clearance: 0.35,
     perf: { vmax: 190, acc: 0.6, man: 0.58, frein: 0.66 }, unlock: { coins: 2000 } },
   rs6: { name: 'RS 6', kind: 'wagon', dims: [4.99, 1.95, 1.46], wb: 2.93, wr: 0.36,
     prof: { nose: 0.38, hood: 0.46, hoodX: 0.28, roofX: 0.46, roofH: 0.95, roofEndX: 0.82, tailH: 0.66 },
-    glass: { belt: 0.60, endX: 0.95 }, lights: 'blade', cols: [P.grisNardo, P.noir, P.blanc, P.vertMamba, P.bleuSport], w: 0.4, sport: 1,
+    glass: { belt: 0.60, endX: 0.95 }, lights: 'blade', cols: [P.grisNardo, P.noir, P.blanc, P.vertMamba, P.bleuSport], w: 0, sport: 1,
     perf: { vmax: 245, acc: 0.98, man: 0.72, frein: 0.88 }, unlock: { laps: 6, coins: 7000 } },
   // ——— deux-roues ———
   tmax530: { name: 'T-Max 530', kind: 'moto', dims: [2.20, 0.78, 1.42], wb: 1.58, wr: 0.26, moto: 'maxiscooter',
@@ -186,14 +205,14 @@ export const CATALOG = {
   // ——— trafic générique (non jouable) ———
   berline_g: { name: 'Berline', kind: 'sedan', dims: [4.6, 1.82, 1.45], wb: 2.75, wr: 0.32,
     prof: { nose: 0.34, hood: 0.45, hoodX: 0.28, roofX: 0.46, roofH: 0.95, roofEndX: 0.72, tailH: 0.56 },
-    glass: { belt: 0.58, endX: 0.86 }, lights: 'oval', cols: commonCols, w: 5 },
+    glass: { belt: 0.58, endX: 0.86 }, lights: 'oval', cols: commonCols, w: 0 },
   citadine_g: { name: 'Citadine', kind: 'hatch', dims: [3.7, 1.66, 1.47], wb: 2.4, wr: 0.28,
     prof: { nose: 0.33, hood: 0.47, hoodX: 0.27, roofX: 0.44, roofH: 0.97, roofEndX: 0.78, tailH: 0.65 },
-    glass: { belt: 0.55, endX: 0.94 }, lights: 'round', cols: commonCols, w: 5 },
+    glass: { belt: 0.55, endX: 0.94 }, lights: 'round', cols: commonCols, w: 0 },
   suv_g: { name: 'SUV', kind: 'suv', dims: [4.5, 1.85, 1.65], wb: 2.7, wr: 0.33,
     prof: { nose: 0.43, hood: 0.55, hoodX: 0.24, roofX: 0.42, roofH: 0.96, roofEndX: 0.79, tailH: 0.71 },
-    glass: { belt: 0.60, endX: 0.93 }, lights: 'oval', cols: commonCols, w: 4, clearance: 0.35 },
-  taxi: { name: 'Taxi', kind: 'sedan', dims: [4.6, 1.82, 1.45], wb: 2.75, wr: 0.32,
+    glass: { belt: 0.60, endX: 0.93 }, lights: 'oval', cols: commonCols, w: 0, clearance: 0.35 },
+  taxi: { name: 'Taxi', kind: 'sedan', dims: [4.68, 1.82, 1.46], wb: 2.76, wr: 0.32, plateR: 0.61, plateF: 0.40, brakeY: 0.93,
     prof: { nose: 0.34, hood: 0.45, hoodX: 0.28, roofX: 0.46, roofH: 0.95, roofEndX: 0.72, tailH: 0.56 },
     glass: { belt: 0.58, endX: 0.86 }, lights: 'oval', cols: [P.taxiG, P.noir, P.grisF, P.bleuNuit], w: 3, taxi: true },
   fourgon: { name: 'Fourgon', kind: 'box', dims: [5.6, 2.05, 2.5], wb: 3.4, wr: 0.35,
@@ -202,7 +221,7 @@ export const CATALOG = {
     cols: [P.blancVan, P.jaune, P.marron], w: 2, stripe: true },
   camionnette: { name: 'Camionnette', kind: 'van', dims: [4.4, 1.85, 1.85], wb: 2.9, wr: 0.31,
     prof: { nose: 0.32, hood: 0.45, hoodX: 0.15, roofX: 0.32, roofH: 0.99, roofEndX: 0.96, tailH: 0.94, mono: true },
-    glass: { belt: 0.48, endX: 0.45, panel: true }, lights: 'oval', cols: [P.blancVan, P.blancVan, P.gris, P.bleu], w: 4 },
+    glass: { belt: 0.48, endX: 0.45, panel: true }, lights: 'oval', cols: [P.blancVan, P.blancVan, P.gris, P.bleu], w: 0 },
   bus: { name: 'Bus', kind: 'bus', dims: [12.0, 2.55, 3.1], wb: 6.0, wr: 0.45,
     cols: [0xdfe5e2], w: 1.2 },
   depanneuse: { name: 'Dépanneuse', kind: 'tow', dims: [6.5, 2.2, 2.6], wb: 3.6, wr: 0.37,
@@ -332,7 +351,7 @@ export class VehicleFactory {
     this.lensRMat = new THREE.MeshStandardMaterial({ color: 0x81201c, roughness: 0.2, metalness: 0.3, emissive: 0xff2418, emissiveIntensity: 0 });
     this.glowBrake = new THREE.MeshBasicMaterial({ color: 0xff3524 });
     this.glowOrange = new THREE.MeshBasicMaterial({ color: 0xffa020 });
-    this.plateGeom = new THREE.PlaneGeometry(0.5, 0.11);
+    this.plateGeom = new THREE.PlaneGeometry(0.52, 0.11); // 520 × 110 mm
     this.materials = [null, this.glassMat, this.matteMat, this.brightMat, this.lensFMat, this.lensRMat];
   }
 
@@ -367,7 +386,9 @@ export class VehicleFactory {
     if (this.geomCache.has(id)) return this.geomCache.get(id);
     const m = CATALOG[id];
     let g;
-    if (this.glb?.has(id)) g = this.glbGeometry(id);
+    const gid = m.glbId || id;
+    if (this.glb?.has(gid)) g = this.glbGeometry(gid, m);
+    else if (!m.prof && !['moto', 'box', 'tow', 'bus'].includes(m.kind)) { g = this.geometry(m.kind === 'van' ? 'camionnette' : m.kind === 'suv' ? 'suv_g' : m.kind === 'sedan' ? 'berline_g' : 'citadine_g'); this.geomCache.set(id, g); return g; }
     else if (m.kind === 'moto') g = this.motoGeometry(m);
     else if (m.kind === 'box' || m.kind === 'tow') g = this.boxTruckGeometry(m);
     else if (m.kind === 'bus') g = this.busGeometry(m);
@@ -435,10 +456,10 @@ export class VehicleFactory {
     return tpl;
   }
 
-  glbGeometry(id) {
+  glbGeometry(id, spec = null) {
     const T = this.T;
     const tpl = this.glb.get(id);
-    const m = CATALOG[id];
+    const m = spec || CATALOG[id];
     // PNJ : tout fusionné (roues comprises, statiques) dans les 6 groupes
     const parts = {};
     for (const k of Object.keys(tpl.parts)) parts[k] = tpl.parts[k].map((g) => g.clone());
@@ -951,13 +972,13 @@ export class VehicleFactory {
     const plate = this.plates.get();
     const rearPlate = new T.Mesh(this.plateGeom, plate.mat);
     // plaque arrière sur le hayon (Clio 3…) ou sur le bouclier selon le modèle
-    rearPlate.position.set(0, m.plateHigh ? ud.H * 0.37 : ud.yBot + 0.26, -ud.L / 2 - 0.02);
+    rearPlate.position.set(0, m.plateR ?? (m.plateHigh ? ud.H * 0.37 : ud.yBot + 0.26), -ud.L / 2 - 0.02);
     rearPlate.rotation.y = Math.PI;
     if (ud.moto) { rearPlate.scale.setScalar(0.6); rearPlate.position.y = ud.wr + 0.35; }
     group.add(rearPlate);
     if (!ud.moto) {
       const frontPlate = new T.Mesh(this.plateGeom, plate.mat);
-      frontPlate.position.set(0, ud.yBot + 0.22, ud.L / 2 + 0.02);
+      frontPlate.position.set(0, m.plateF ?? ud.yBot + 0.22, ud.L / 2 + 0.02);
       group.add(frontPlate);
     }
 
@@ -966,7 +987,7 @@ export class VehicleFactory {
     const brake = new T.Group();
     for (const side of ud.moto ? [0] : [-1, 1]) {
       const q = new T.Mesh(brakeG, this.glowBrake);
-      q.position.set(side * (ud.W / 2 - 0.42), ud.H * (m.prof ? m.prof.tailH - 0.09 : 0.35), -ud.L / 2 - 0.03);
+      q.position.set(side * (ud.W / 2 - 0.42), m.brakeY ?? ud.H * (m.prof ? m.prof.tailH - 0.09 : 0.35), -ud.L / 2 - 0.03);
       q.rotation.y = Math.PI;
       brake.add(q);
     }

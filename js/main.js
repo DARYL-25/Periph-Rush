@@ -76,7 +76,7 @@ async function boot() {
   const track = new Track();
 
   await step(30, 'Immatriculations préfecture…');
-  const plates = new PlatePool(THREE, rng(777), 48);
+  const plates = new PlatePool(THREE, rng(777), 36);
   const factory = new VehicleFactory(THREE, plates);
 
   await step(36, 'Chargement de la Clio 3 (modèle Blender)…');
@@ -86,11 +86,14 @@ async function boot() {
   } catch (e) {
     console.warn('GLB clio3 indisponible — repli sur le modèle procédural', e);
   }
-  try {
+  // flotte au design original (Blender) : voiture du joueur en haute définition + modèles du trafic
+  {
     const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
-    await factory.loadGLB('lutece', 'assets/lutece.glb', GLTFLoader);
-  } catch (e) {
-    console.warn('GLB lutece indisponible — repli sur le modèle procédural', e);
+    const FLEET = [['lutece', 'lutece_hi'], ['lutece_t', 'lutece'], ['mistral'], ['aurore'], ['concorde'], ['taxi'], ['riviera'], ['atlas'], ['odyssee'], ['cargo'], ['furia']];
+    await Promise.all(FLEET.map(async ([id, file]) => {
+      try { await factory.loadGLB(id, `assets/fleet/${file || id}.glb`, GLTFLoader); }
+      catch (e) { console.warn('GLB ' + id + ' indisponible — repli procédural', e); }
+    }));
   }
 
   await step(40, 'Assemblage des véhicules…');

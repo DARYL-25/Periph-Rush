@@ -14,7 +14,7 @@ const CAR_IDS = TRAFFIC_IDS.filter((id) => CATALOG[id].kind !== 'moto');
 const CAR_W = CAR_IDS.map((id) => CATALOG[id].w);
 const MOTO_IDS = TRAFFIC_IDS.filter((id) => CATALOG[id].kind === 'moto');
 const MOTO_W = MOTO_IDS.map((id) => CATALOG[id].w);
-const SPORT_IDS = ['rs6', 'm5', 'c63s'];
+const SPORT_IDS = ['furia']; // berline sportive rare (chauffards)
 
 export class Traffic {
   constructor(THREE, scene, track, factory) {

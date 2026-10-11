@@ -60,15 +60,17 @@ function drawRegionLogo(ctx, cx, cy, w, h, kind) {
   ctx.fill();
   ctx.save();
   ctx.translate(cx, cy);
+  if (kind !== 'star') ctx.scale(1.35, 1.35);
   switch (kind) {
-    case 'star': { // pétales alternés rouge/bleu (esprit IdF)
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        ctx.fillStyle = i % 2 ? '#c8102e' : '#0055a4';
-        ctx.beginPath();
-        ctx.ellipse(Math.cos(a) * 5, Math.sin(a) * 5, 3.4, 1.8, a, 0, Math.PI * 2);
-        ctx.fill();
+    case 'star': { // étoile rouge à 8 branches (esprit Île-de-France, sans texte)
+      ctx.fillStyle = '#e2231a';
+      ctx.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 8, r = i % 2 ? 4 : 11;
+        ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r - 2);
       }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#1f5fb8'; ctx.fillRect(-12, 11, 24, 2.2);
       break;
     }
     case 'bands': {
@@ -153,97 +155,185 @@ function drawRegionLogo(ctx, cx, cy, w, h, kind) {
   ctx.restore();
 }
 
-// Dessine une plaque SIV sur un canvas 384×80 → nette en jeu, légère en mémoire
+// ---------------------------------------------------------------
+// Police « bâton » des plaques SIV, dessinée au trait (indépendante des
+// polices de l'appareil) : chasse étroite, fût constant, panses arrondies.
+// Coordonnées normalisées : a ∈ [0,1] (largeur), b ∈ [0,1] (hauteur)
+// de la ligne médiane du trait. M/L = segments, Q = courbe quadratique,
+// O = ovale (stade) plein, E = ellipse.
+// ---------------------------------------------------------------
+const OVAL = [['O', 0, 0, 1, 1]];
+const GLYPHS = {
+  A: [['M', 0, 1], ['L', 0.42, 0], ['L', 0.58, 0], ['L', 1, 1], ['M', 0.17, 0.68], ['L', 0.83, 0.68]],
+  B: [['M', 0, 0], ['L', 0, 1], ['L', 0.52, 1], ['Q', 1, 1, 1, 0.735], ['Q', 1, 0.47, 0.5, 0.47], ['L', 0, 0.47], ['M', 0, 0], ['L', 0.5, 0], ['Q', 0.93, 0, 0.93, 0.235], ['Q', 0.93, 0.47, 0.5, 0.47]],
+  C: [['M', 0.98, 0.2], ['Q', 0.9, 0, 0.5, 0], ['Q', 0, 0, 0, 0.3], ['L', 0, 0.7], ['Q', 0, 1, 0.5, 1], ['Q', 0.9, 1, 0.98, 0.8]],
+  D: [['M', 0, 0], ['L', 0, 1], ['L', 0.45, 1], ['Q', 1, 1, 1, 0.7], ['L', 1, 0.3], ['Q', 1, 0, 0.45, 0], ['L', 0, 0]],
+  E: [['M', 1, 0], ['L', 0, 0], ['L', 0, 1], ['L', 1, 1], ['M', 0, 0.48], ['L', 0.82, 0.48]],
+  F: [['M', 1, 0], ['L', 0, 0], ['L', 0, 1], ['M', 0, 0.48], ['L', 0.82, 0.48]],
+  G: [['M', 0.98, 0.2], ['Q', 0.9, 0, 0.5, 0], ['Q', 0, 0, 0, 0.3], ['L', 0, 0.7], ['Q', 0, 1, 0.5, 1], ['Q', 1, 1, 1, 0.7], ['L', 1, 0.52], ['L', 0.55, 0.52]],
+  H: [['M', 0, 0], ['L', 0, 1], ['M', 1, 0], ['L', 1, 1], ['M', 0, 0.48], ['L', 1, 0.48]],
+  I: [['M', 0.5, 0], ['L', 0.5, 1]],
+  J: [['M', 1, 0], ['L', 1, 0.7], ['Q', 1, 1, 0.5, 1], ['Q', 0, 1, 0, 0.72]],
+  K: [['M', 0, 0], ['L', 0, 1], ['M', 1, 0], ['L', 0.04, 0.64], ['M', 0.33, 0.42], ['L', 1, 1]],
+  L: [['M', 0, 0], ['L', 0, 1], ['L', 1, 1]],
+  M: [['M', 0, 1], ['L', 0, 0], ['L', 0.5, 0.62], ['L', 1, 0], ['L', 1, 1]],
+  N: [['M', 0, 1], ['L', 0, 0], ['L', 1, 1], ['L', 1, 0]],
+  O: OVAL,
+  P: [['M', 0, 1], ['L', 0, 0], ['L', 0.5, 0], ['Q', 1, 0, 1, 0.27], ['Q', 1, 0.54, 0.5, 0.54], ['L', 0, 0.54]],
+  Q: [...OVAL, ['M', 0.6, 0.76], ['L', 1, 1.04]],
+  R: [['M', 0, 1], ['L', 0, 0], ['L', 0.5, 0], ['Q', 1, 0, 1, 0.27], ['Q', 1, 0.54, 0.5, 0.54], ['L', 0, 0.54], ['M', 0.45, 0.54], ['L', 1, 1]],
+  S: [['M', 0.96, 0.15], ['Q', 0.85, 0, 0.5, 0], ['Q', 0.02, 0, 0.02, 0.26], ['Q', 0.02, 0.47, 0.5, 0.5], ['Q', 1, 0.53, 1, 0.75], ['Q', 1, 1, 0.5, 1], ['Q', 0.13, 1, 0.03, 0.85]],
+  T: [['M', 0, 0], ['L', 1, 0], ['M', 0.5, 0], ['L', 0.5, 1]],
+  U: [['M', 0, 0], ['L', 0, 0.72], ['Q', 0, 1, 0.5, 1], ['Q', 1, 1, 1, 0.72], ['L', 1, 0]],
+  V: [['M', 0, 0], ['L', 0.5, 1], ['L', 1, 0]],
+  W: [['M', 0, 0], ['L', 0.22, 1], ['L', 0.5, 0.32], ['L', 0.78, 1], ['L', 1, 0]],
+  X: [['M', 0, 0], ['L', 1, 1], ['M', 1, 0], ['L', 0, 1]],
+  Y: [['M', 0, 0], ['L', 0.5, 0.5], ['L', 1, 0], ['M', 0.5, 0.5], ['L', 0.5, 1]],
+  Z: [['M', 0, 0], ['L', 1, 0], ['L', 0, 1], ['L', 1, 1]],
+  0: OVAL,
+  1: [['M', 0.12, 0.22], ['L', 0.64, 0], ['L', 0.64, 1]],
+  2: [['M', 0.02, 0.2], ['Q', 0.1, 0, 0.5, 0], ['Q', 1, 0, 1, 0.28], ['Q', 1, 0.45, 0.75, 0.6], ['L', 0, 1], ['L', 1, 1]],
+  3: [['M', 0.03, 0.14], ['Q', 0.15, 0, 0.5, 0], ['Q', 0.97, 0, 0.97, 0.24], ['Q', 0.97, 0.46, 0.42, 0.47], ['Q', 1, 0.48, 1, 0.74], ['Q', 1, 1, 0.5, 1], ['Q', 0.12, 1, 0.02, 0.85]],
+  4: [['M', 0.72, 1], ['L', 0.72, 0], ['L', 0, 0.72], ['L', 1, 0.72]],
+  5: [['M', 0.95, 0], ['L', 0.08, 0], ['L', 0.03, 0.46], ['Q', 0.25, 0.38, 0.52, 0.38], ['Q', 1, 0.38, 1, 0.68], ['Q', 1, 1, 0.5, 1], ['Q', 0.12, 1, 0.02, 0.86]],
+  6: [['M', 0.92, 0.1], ['Q', 0.78, 0, 0.5, 0], ['Q', 0, 0, 0, 0.5], ['L', 0, 0.7], ['Q', 0, 1, 0.5, 1], ['Q', 1, 1, 1, 0.7], ['Q', 1, 0.41, 0.5, 0.41], ['Q', 0.08, 0.41, 0, 0.62]],
+  7: [['M', 0, 0], ['L', 1, 0], ['L', 0.3, 1]],
+  8: [['E', 0.5, 0.235, 0.44, 0.235], ['E', 0.5, 0.735, 0.5, 0.265]],
+  9: null, // 6 retourné
+};
+GLYPHS[9] = GLYPHS[6].map((c) => {
+  const o = [c[0]];
+  for (let i = 1; i < c.length; i += 2) o.push(1 - c[i], 1 - c[i + 1]);
+  return o;
+});
+
+// dessine un caractère dans la boîte (x, y, w, h), trait de largeur sw
+function glyph(ctx, ch, x, y, w, h, sw) {
+  const g = GLYPHS[ch];
+  if (!g) return;
+  const ix = x + sw / 2, iy = y + sw / 2, iw = w - sw, ih = h - sw;
+  const X = (a) => ix + a * iw, Y = (b) => iy + b * ih;
+  ctx.lineWidth = sw;
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'miter';
+  ctx.miterLimit = 2.2;
+  ctx.beginPath();
+  for (const c of g) {
+    if (c[0] === 'M') ctx.moveTo(X(c[1]), Y(c[2]));
+    else if (c[0] === 'L') ctx.lineTo(X(c[1]), Y(c[2]));
+    else if (c[0] === 'Q') ctx.quadraticCurveTo(X(c[1]), Y(c[2]), X(c[3]), Y(c[4]));
+    else if (c[0] === 'O') { // stade : panses demi-cercles
+      const r = iw / 2, cx = X(0.5), t = Y(0) + r, bo = Y(1) - r;
+      ctx.moveTo(X(0), bo); ctx.lineTo(X(0), t);
+      ctx.arc(cx, t, r, Math.PI, 0); ctx.lineTo(X(1), bo); ctx.arc(cx, bo, r, 0, Math.PI); ctx.closePath();
+    } else if (c[0] === 'E') {
+      ctx.moveTo(X(c[1] + c[3]), Y(c[2]));
+      ctx.ellipse(X(c[1]), Y(c[2]), c[3] * iw, c[4] * ih, 0, 0, Math.PI * 2);
+    }
+  }
+  ctx.stroke();
+}
+
+// texte complet centré dans [x0, x1], hauteur de caractère ch (mm à l'échelle du canvas)
+function plateString(ctx, txt, x0, x1, yc, ch, cw, sw, gap, dashW) {
+  let total = 0;
+  for (const c of txt) total += c === '-' ? dashW + 2 * gap : c === ' ' ? cw * 0.6 : cw + gap;
+  total -= gap;
+  let x = (x0 + x1) / 2 - total / 2;
+  const y = yc - ch / 2;
+  for (const c of txt) {
+    if (c === '-') { x += gap; ctx.fillRect(x, yc - sw * 0.62, dashW, sw * 1.24); x += dashW + gap; }
+    else if (c === ' ') x += cw * 0.6;
+    else { glyph(ctx, c, x, y, cw, ch, sw); x += cw + gap; }
+  }
+}
+
+// étoile européenne à 5 branches
+function star5(ctx, x, y, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.42 : r;
+    ctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Plaque SIV aux proportions réglementaires : 520 × 110 mm, rendue à 1 px/mm.
+// Caractères bâtons noirs de 75 mm de haut, bandes bleues de 44 mm.
 function drawPlate(rand) {
-  const W = 384, H = 80;
+  const W = 520, H = 110;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  const foreign = rand() < 0.055 ? pick(rand, FOREIGN) : null;
+  const foreign = rand() < 0.05 ? pick(rand, FOREIGN) : null;
 
-  // — fond réfléchissant (léger dégradé + reflet diagonal) —
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-  const bg = foreign ? foreign.bg : '#f6f7f9';
-  bgGrad.addColorStop(0, bg);
-  bgGrad.addColorStop(0.55, foreign ? bg : '#eceef1');
-  bgGrad.addColorStop(1, foreign ? bg : '#dfe2e6');
-  ctx.fillStyle = bgGrad;
-  ctx.beginPath();
-  ctx.roundRect(0, 0, W, H, 8);
-  ctx.fill();
-  // reflet diagonal doux
+  // fond blanc rétroréfléchissant + liseré noir fin + reflets
+  const bg = foreign ? foreign.bg : '#f3f4f6';
+  ctx.fillStyle = '#c9ccd0';
+  ctx.beginPath(); ctx.roundRect(0, 0, W, H, 9); ctx.fill();
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, foreign ? bg : '#fbfbfc'); g.addColorStop(1, foreign ? bg : '#e6e8eb');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.roundRect(2, 2, W - 4, H - 4, 8); ctx.fill();
+  if (!foreign) { // « TPMR » en filigrane du film réfléchissant
+    ctx.fillStyle = 'rgba(160,165,172,0.10)';
+    ctx.font = '700 9px Arial, sans-serif';
+    for (let y = 14; y < H; y += 18) for (let x = (y / 18) % 2 ? 60 : 90; x < W - 50; x += 70) ctx.fillText('TPMR', x, y);
+  }
   const sheen = ctx.createLinearGradient(0, 0, W, H);
-  sheen.addColorStop(0.28, 'rgba(255,255,255,0)');
-  sheen.addColorStop(0.42, 'rgba(255,255,255,0.35)');
-  sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
-  ctx.fillStyle = sheen;
-  ctx.fillRect(0, 0, W, H);
-  // liseré
-  ctx.strokeStyle = 'rgba(40,44,50,0.45)';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.roundRect(1.5, 1.5, W - 3, H - 3, 7);
-  ctx.stroke();
+  sheen.addColorStop(0.22, 'rgba(255,255,255,0)'); sheen.addColorStop(0.36, 'rgba(255,255,255,0.45)'); sheen.addColorStop(0.46, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sheen; ctx.fillRect(0, 0, W, H);
 
-  const BAND = 40;
-  let x0 = 14, x1 = W - 14;
+  const BAND = 44, PAD = 6;
+  let x0 = 10, x1 = W - 10;
   if (!foreign || !foreign.noBand) {
-    // — bande euro gauche : couronne de 12 étoiles + F —
-    ctx.fillStyle = '#003399';
-    ctx.beginPath();
-    ctx.roundRect(2, 2, BAND, H - 4, [7, 0, 0, 7]);
-    ctx.fill();
-    ctx.fillStyle = '#ffcc00';
-    const ecx = 2 + BAND / 2, ecy = 24, er = 11;
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-      const sx = ecx + Math.cos(a) * er, sy = ecy + Math.sin(a) * er;
-      // petite étoile à 5 branches (2 triangles suffisent à cette taille)
-      ctx.beginPath();
-      ctx.moveTo(sx, sy - 2); ctx.lineTo(sx + 1.9, sy + 1.4); ctx.lineTo(sx - 1.9, sy + 1.4);
-      ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(sx, sy + 2); ctx.lineTo(sx + 1.9, sy - 1.4); ctx.lineTo(sx - 1.9, sy - 1.4);
-      ctx.closePath(); ctx.fill();
-    }
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 26px "Arial", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(foreign ? foreign.c : 'F', ecx, 60);
-    x0 = 2 + BAND + 10;
+    // bande euro : 12 étoiles jaunes + lettre du pays (blanche, police bâton)
+    ctx.fillStyle = '#1f5fb8';
+    ctx.beginPath(); ctx.roundRect(PAD, PAD, BAND, H - 2 * PAD, [5, 0, 0, 5]); ctx.fill();
+    ctx.fillStyle = '#ffd400';
+    const ecx = PAD + BAND / 2, ecy = 33, er = 14;
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; star5(ctx, ecx + Math.cos(a) * er, ecy + Math.sin(a) * er, 3.1); }
+    ctx.strokeStyle = '#ffffff';
+    const code = foreign ? foreign.c : 'F';
+    const gw = code.length > 1 ? 15 : 20;
+    for (let i = 0; i < code.length; i++) glyph(ctx, code[i], ecx - (code.length * (gw + 3) - 3) / 2 + i * (gw + 3), 58, gw, 36, 6.5);
+    x0 = PAD + BAND + 6;
   }
   let dept = null;
   if (!foreign) {
-    // — identifiant territorial droit : logo région EN HAUT, département EN BAS —
+    // identifiant territorial : logo régional (en haut) + n° de département (en bas)
     dept = pickWeighted(rand, DEPTS, DEPT_W);
-    ctx.fillStyle = '#003399';
-    ctx.beginPath();
-    ctx.roundRect(W - 2 - BAND, 2, BAND, H - 4, [0, 7, 7, 0]);
-    ctx.fill();
-    drawRegionLogo(ctx, W - 2 - BAND / 2, 22, 30, 26, regionOf(dept));
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 27px "Arial", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(dept, W - 2 - BAND / 2, 60);
-    x1 = W - 2 - BAND - 10;
+    const bx = W - PAD - BAND;
+    ctx.fillStyle = '#1f5fb8';
+    ctx.beginPath(); ctx.roundRect(bx, PAD, BAND, H - 2 * PAD, [0, 5, 5, 0]); ctx.fill();
+    drawRegionLogo(ctx, bx + BAND / 2, 30, 36, 38, regionOf(dept));
+    ctx.strokeStyle = '#ffffff';
+    glyph(ctx, dept[0], bx + 4, 56, 17, 40, 6);
+    glyph(ctx, dept[1], bx + 23, 56, 17, 40, 6);
+    x1 = bx - 6;
+    // numéro d'homologation TPPR (petit, gris)
+    ctx.fillStyle = 'rgba(60,64,70,0.55)';
+    ctx.font = '600 7px Arial, sans-serif';
+    ctx.fillText('TPPR ' + (10000 + ((rand() * 89999) | 0)), bx - 62, H - 9);
   }
 
-  // — caractères bâtons noirs —
+  // caractères : 75 mm de haut, ~45 mm de chasse, fût 11 mm
   const txt = foreign ? foreign.fmt(rand) : plateText(rand);
-  ctx.fillStyle = foreign ? foreign.fg : '#14161a';
-  ctx.font = `700 ${foreign ? 40 : 46}px "Arial Narrow", "Helvetica Neue", Arial, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '2px';
-  ctx.fillText(txt, (x0 + x1) / 2, H / 2 + 2);
+  ctx.strokeStyle = foreign ? foreign.fg : '#121316';
+  ctx.fillStyle = foreign ? foreign.fg : '#121316';
+  const n = [...txt].filter((c) => c !== '-' && c !== ' ').length;
+  const avail = x1 - x0;
+  const ch = 76, sw = 11, gap = 5.5, dashW = 13;
+  let cw = (avail - (n - 1) * gap - [...txt].filter((c) => c === '-').length * (dashW + 2 * gap) - [...txt].filter((c) => c === ' ').length * 26) / n;
+  cw = Math.min(cw, 46);
+  plateString(ctx, txt, x0, x1, H / 2, ch, cw, sw, gap, dashW);
   return { canvas: cv, text: txt, dept };
 }
 
 // Pool de textures partagées (évite 1 canvas par véhicule)
 export class PlatePool {
-  constructor(THREE, rand, size = 48) {
+  constructor(THREE, rand, size = 36) {
     this.THREE = THREE;
     this.items = [];
     for (let i = 0; i < size; i++) {
@@ -258,3 +348,4 @@ export class PlatePool {
   }
   get() { return this.items[(this.rand() * this.items.length) | 0]; }
 }
+export const drawPlateForTest = (rand) => drawPlate(rand);
