@@ -579,3 +579,15 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
   `python3 tools/blender/lutece_build.py --render` → `assets/lutece.glb` + `tools/snaps/lutece_*.png`.
 - Catalogue `lutece` (w: 0, joueur uniquement — ~75 k triangles), voiture de départ ; les anciennes sauvegardes
   la débloquent et la sélectionnent une fois. Cache SW `periph-v13`.
+
+## v14 — plaques réglementaires + flotte Blender au design original
+- Plaques (`plates.js`) : 520 × 110 mm à 1 px/mm, police « bâton » dessinée au trait (glyphes vectoriels,
+  indépendante des polices de l'appareil), caractères de 76 mm, bandes bleues de 44 mm, étoiles à 5 branches,
+  identifiant territorial (logo régional stylisé + département), filigrane TPMR, numéro TPPR. Planche de contrôle :
+  `tools/platetest.html`.
+- `tools/blender/vkit.py` (kit générique) + `tools/blender/fleet_build.py` (designs) → `assets/fleet/*.glb` :
+  Lutèce (hi ≈ 83 k tris pour le joueur, lo ≈ 15 k pour le trafic), Mistral, Aurore, Concorde (+ taxi), Riviera,
+  Atlas, Odyssée, Cargo, Furia (sportive rare). Profils paramétriques (`profile()`), avants/arrières génériques
+  (`front_kit`, `rear_kit`). Aucun modèle réel, aucun logo.
+- Les anciens modèles procéduraux sortent du trafic (w: 0) mais restent au garage. Hauteurs de plaques et feux stop
+  par modèle (`plateR`, `plateF`, `brakeY`). Cache SW `periph-v14`.
