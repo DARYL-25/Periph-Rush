@@ -591,3 +591,70 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
   (`front_kit`, `rear_kit`). Aucun modèle réel, aucun logo.
 - Les anciens modèles procéduraux sortent du trafic (w: 0) mais restent au garage. Hauteurs de plaques et feux stop
   par modèle (`plateR`, `plateF`, `brakeY`). Cache SW `periph-v14`.
+
+## v15 — plaques étrangères, niveaux de trafic, porte de départ, nouveaux menus
+- Plaques (`plates.js`) : moteur de police au trait avec **styles par pays** (`fr`, `din`, `gb`, `fe` = panses
+  chanfreinées / O octogonal façon FE-Schrift, `nl` = carré gras façon Kenteken). Mises en page : D (vignettes HU +
+  sceau du Land entre indicatif et lettres, suffixe E rare), NL (jaune, sidecodes), B (rouge + liseré rouge),
+  CH (écu suisse + écu cantonal stylisé, « GE·123456 », pas de bande UE), E (4 chiffres + 3 consonnes),
+  GB (jaune, bande drapeau + « UK », Charles Wright large), MA (MA | série | lettre arabe dessinée au trait sur la
+  lettre latine | préfecture). Étranger ≈ 8 % pondéré D 32 · B 19 · NL 16 · CH 11 · E 10 · GB 8 · MA 4.
+  France : **101 départements** (métropole, 2A/2B, DOM) avec région → logo stylisé ; poids IDF ≫ 69/13/59/33/45/60/74/06
+  > départements voisins > reste. `PlatePool` tient un petit lot par pays, tirage pondéré à chaque véhicule.
+  Planche : `tools/platetest.html?seed=N` (2 plaques par pays).
+- Trafic (`traffic.js`, `TRAFFIC_LEVELS`) : 0 fluide · 1 dense · 2 heure de pointe. Effectif, cap, part de motos,
+  interfile, bouchons (fréquence/longueur/sévérité, arrêt complet en pointe) par niveau ; `baseLimit()` = zones
+  lentes (dense) ou **ondes accordéon** remontant le flux avec arrêts (pointe). Naissances hors de vue en cours de
+  partie. **Interfile** : couloir 0 (voie gauche / voie 2) privilégié en pointe, changement de couloir glissé sur
+  2,2 s (`gapFrom/gapTo/gapT`, fin de la téléportation), rabattement si une voie disparaît, motos ignorées par les
+  voitures centrées sur leur voie (et inversement).
+- LOD lointains `assets/fleet/*_far.glb` (≈ 1/4 des triangles, `tools/blender/far_lod.py`, décimation du lo) via
+  `THREE.LOD` à 34 m pour tenir l'heure de pointe.
+- PMV (`world.updateVMS`) : temps de parcours selon le niveau (≈ 52 / 29 / 12 km/h) + messages BOUCHON / PERIPH
+  SATURE / RALENTISSEMENTS / PERIPH FLUIDE ; message d'accueil adapté au départ.
+- Porte de départ : `track.startPortes()` (entrée qui suit la sortie de chaque porte), `track.startFor(name)` ;
+  le tour bouclé se compte depuis la porte choisie (`player.startS`). Réglages persistés `settings.traffic`,
+  `settings.startPorte`.
+- Menus refaits : Barlow Condensed (OFL, `assets/fonts`), écran d'accueil en cartes (logo, records, carte de
+  l'anneau avec la porte choisie, sélecteur de porte + feuille de liste, segment trafic, bouton ROULER animé, tuiles
+  Garage/Défis), aperçu 3D en direct de la porte et du trafic choisis (`game.preview`). Mise en page portrait et
+  paysage. Cache SW `periph-v15`.
+
+## v16 — grosse mise à jour réalisme
+- **Plaques** : polices dédiées par pays (`FE_OVR` pour D/B : 0 en rectangle arrondi, O elliptique, 3 à
+  sommet plat, 6/9 à jambage droit ; `NL_OVR` Kenteken carrée grasse ; GB large) — France inchangée. Atlas
+  de plaques (`PlatePool.atlasTexture/uvOf`) pour le rendu instancié. Planches : `tools/platetest.html`,
+  `tools/fontspec.html`.
+- **Bretelles jouables** (`player.updateRamp/latLimits/groundY`) : plus de mur invisible ; on bascule sur une
+  sortie tant que le musoir (séparation à `gap > 1,3 m`) n'a pas commencé, à cheval = choc sur l'atténuateur.
+  Au-delà de t > 0,42 sur une sortie → `game.exitPeriph()` « SORTIE · PERDU ». Bandeau d'alerte dès qu'on
+  s'engage.
+- **Rendu instancié** (`js/fleet.js`) : `InstancedMesh` par modèle × 3 LOD (proche, `_far` ≈ 3,5 k tris,
+  `_ufar` ≈ 1 k tris, `tools/blender/far_lod.py [--ultra]`), couleur par instance, calques instanciés (plaques,
+  stop, clignotants/warnings, gyrophares bleus/orange, reflets sur chaussée mouillée, gerbes d'eau). Les PNJ
+  manipulent des poignées `{group, brake, blink, speed…}`. Distances de LOD selon la qualité.
+- **Trafic** (`traffic.js` réécrit) : modes `lane / interfile / exit / enter / emerg` ; personnalités (normal,
+  pressé = queue de poisson, « du dimanche ») ; sorties par les bretelles (rabattement à droite, changement de
+  dernière seconde, file d'attente sur les sorties chargées qui déborde sur la voie de droite) ; insertions
+  depuis les entrées (on force en bout de voie d'accélération, courtoisie des voisins) ; voie de gauche réservée
+  en heure de pointe (covoiturage/taxis/bus/secours, plus fluide) ; secours (police, SAMU, pompiers) dans le
+  corridor entre voie 1 et 2, les autres s'écartent ; warnings au freinage d'urgence ; klaxons (bouchons,
+  joueur qui bloque, motos) ; poids lourds, scooters de livraison. 150 véhicules max en pointe.
+- **Code de la route** (`js/rules.js`) : radars fixes aux emplacements réels du sens intérieur (Champerret,
+  Ivry, Bagnolet, Sèvres, Dauphine, Lilas, Chapelle, Brancion) + 2 radars de voie réservée ; barème français
+  (marge 5 km/h), points de permis (12), refus de céder le passage aux secours ; « PERMIS INVALIDÉ » à 0.
+- **Météo et heure** (`weather.js`) : horloge continue (×20), palette selon la hauteur du soleil, averses
+  (mode Variable/Sec/Pluie), chaussée qui se mouille puis sèche, brouillard matinal, phares obligatoires sous la
+  pluie, reflets d'environnement atténués la nuit, halos des candélabres renforcés sur le mouillé ; densité du
+  trafic selon l'heure (sauf heure de pointe). Ombres 4096/2048/1024 selon la qualité.
+- **Conduite** : adhérence (mouillé), sous-virage, inertie latérale, roulis/plongée ; dégâts progressifs
+  (`game.hit`) : accrochage léger = carrosserie −x %, rebond, pénalité ; partie finie seulement sur choc grave.
+- **Vue cockpit** (`js/cockpit.js`, bouton ◉ ou réglage) : planche, capot, volant animé, combiné (régime,
+  rapport, vitesse), essuie-glaces + gouttes, rétroviseurs réels (rendu arrière partagé).
+- **HUD** : horloge + météo, points/amendes, bandeau GPS des deux prochaines sorties, jauge de carrosserie,
+  flash radar.
+- **Son** (`audio.js` réécrit) : 4 cylindres + boîte 6, roulement sec/mouillé, joints de viaduc, réverbération
+  en tunnel, klaxons spatialisés, sirène deux-tons avec Doppler, radio « Périph Info » (synthèse vocale de
+  l'appareil, désactivable).
+- Cache SW `periph-v16`.
+- À faire plus tard (demandé) : modes de jeu à missions (sortir à une porte précise, contre-la-montre d'un tour).
