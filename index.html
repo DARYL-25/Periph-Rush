@@ -13,7 +13,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-180.png">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="preload" href="assets/fonts/barlow-condensed-latin-900-italic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/style.css?v=16">
   <script type="importmap">
     { "imports": { "three": "./vendor/three.module.min.js" } }
   </script>
@@ -31,6 +32,11 @@
       <div class="chip big" id="hud-score">0</div>
       <div class="chip" id="hud-coins">🪙 0</div>
     </div>
+    <div id="hud-left">
+      <div class="chip small" id="hud-clock"><span id="hud-wx">☀</span> <b id="hud-time">12:00</b></div>
+      <div class="chip small" id="hud-permis">12 pts</div>
+    </div>
+    <div id="hud-gps"><div class="gps-row" id="gps-0"></div><div class="gps-row next" id="gps-1"></div></div>
     <div id="hud-porte"></div>
     <div id="hud-warning" class="hidden"></div>
     <div id="hud-popups"></div>
@@ -38,9 +44,12 @@
       <div id="speed-val">50</div>
       <div class="unit">km/h</div>
       <div id="hud-mult">×1,0</div>
+      <div id="hud-health"><div id="hud-health-fill"></div></div>
     </div>
     <div id="hud-limit"><span>50</span></div>
     <button id="btn-pause" aria-label="Pause">II</button>
+    <button id="btn-cam" aria-label="Changer de vue">◉</button>
+    <div id="radar-flash" class="hidden"></div>
     <div id="controls">
       <div id="steer">
         <button id="btn-left" aria-label="Gauche">◀</button>
@@ -54,22 +63,63 @@
   </div>
 
   <!-- ===================== Menu principal ===================== -->
-  <div id="menu" class="overlay">
-    <div class="menu-inner">
-      <div id="logo">
-        <div id="logo-cartouche">BD PÉRIPHÉRIQUE</div>
-        <h1>PÉRIPH’<span>RUSH</span></h1>
-        <div id="logo-sub">Porte Maillot → l’infini</div>
-      </div>
-      <div class="menu-buttons">
-        <button class="btn primary" id="m-play">JOUER</button>
-        <button class="btn" id="m-garage">GARAGE</button>
-        <button class="btn" id="m-defis">DÉFIS</button>
-        <button class="btn" id="m-reglages">RÉGLAGES</button>
-      </div>
-      <div id="menu-records"></div>
-      <div id="menu-hint">Ajoute ce jeu à ton écran d’accueil pour jouer plein écran 📲</div>
-      <div id="menu-credits">Tracé, voies, ouvrages et bâtiments : © contributeurs OpenStreetMap (ODbL)</div>
+  <div id="menu" class="overlay menu-screen">
+    <div class="menu-top">
+      <div class="wallet"><i class="coin"></i><b id="menu-coins">0</b></div>
+      <button class="icon-btn" id="m-reglages" aria-label="Réglages">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.4 2.6h4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+      </button>
+    </div>
+    <div class="menu-grid">
+      <section class="hero">
+        <div id="logo">
+          <div id="logo-cartouche">BD PÉRIPHÉRIQUE</div>
+          <h1>PÉRIPH’<span>RUSH</span></h1>
+          <div id="logo-sub">35 km · 4 voies · zéro répit</div>
+        </div>
+        <div id="menu-records" class="records"></div>
+      </section>
+      <section class="setup card">
+        <div class="setup-row">
+          <div class="setup-label"><span>DÉPART</span><small id="start-sub"></small></div>
+          <div class="start-wrap">
+            <canvas id="ring-map" width="300" height="200" aria-hidden="true"></canvas>
+            <div class="picker">
+              <button class="pick-arrow" id="start-prev" aria-label="Porte précédente">‹</button>
+              <button class="pick-value" id="start-open"><span id="start-name">Porte Maillot</span><small>CHANGER</small></button>
+              <button class="pick-arrow" id="start-next" aria-label="Porte suivante">›</button>
+            </div>
+          </div>
+        </div>
+        <div class="setup-row">
+          <div class="setup-label"><span>TRAFIC</span><small id="traffic-desc"></small></div>
+          <div class="seg" id="traffic-seg">
+            <button data-lv="0"><i class="lvl l1"><b></b><b></b><b></b></i>FLUIDE</button>
+            <button data-lv="1"><i class="lvl l2"><b></b><b></b><b></b></i>DENSE</button>
+            <button data-lv="2"><i class="lvl l3"><b></b><b></b><b></b></i>POINTE</button>
+          </div>
+        </div>
+        <div class="pills">
+          <button class="pill" id="pill-wx"><small>MÉTÉO</small><b id="pill-wx-v">Variable</b></button>
+          <button class="pill" id="pill-hour"><small>HEURE</small><b id="pill-hour-v">Selon trafic</b></button>
+          <button class="pill" id="pill-cam"><small>VUE</small><b id="pill-cam-v">Extérieure</b></button>
+        </div>
+        <button class="btn play" id="m-play"><span>ROULER</span><i>▶</i></button>
+        <div class="tiles">
+          <button class="tile" id="m-garage"><i class="ti-car"></i><span><b>GARAGE</b><small id="tile-car"></small></span></button>
+          <button class="tile" id="m-defis"><i class="ti-flag"></i><span><b>DÉFIS</b><small id="tile-defis"></small></span></button>
+        </div>
+      </section>
+    </div>
+    <div id="menu-hint">Ajoute le jeu à l’écran d’accueil pour jouer en plein écran</div>
+    <div id="menu-credits">Tracé, voies, ouvrages et bâtiments : © contributeurs OpenStreetMap (ODbL)</div>
+  </div>
+
+  <!-- ===================== Choix de la porte ===================== -->
+  <div id="porte-sheet" class="sheet hidden">
+    <div class="sheet-card">
+      <div class="sheet-head"><b>PORTE DE DÉPART</b><button class="icon-btn" id="sheet-close" aria-label="Fermer">✕</button></div>
+      <div id="porte-list"></div>
     </div>
   </div>
 
@@ -99,7 +149,7 @@
   <div id="defis" class="overlay hidden">
     <div class="topbar">
       <button class="btn small" id="d-back">← RETOUR</button>
-      <div class="chip">DÉFIS DU JOUR</div>
+      <div class="screen-title">DÉFIS DU JOUR</div>
     </div>
     <div class="panel" id="defis-list"></div>
     <div class="panel" id="stats-globales"></div>
@@ -109,7 +159,7 @@
   <div id="reglages" class="overlay hidden">
     <div class="topbar">
       <button class="btn small" id="r-back">← RETOUR</button>
-      <div class="chip">RÉGLAGES</div>
+      <div class="screen-title">RÉGLAGES</div>
     </div>
     <div class="panel settings">
       <label class="row"><span>Sons</span><input type="checkbox" id="set-audio"></label>
@@ -117,6 +167,32 @@
       <label class="row"><span>Accélération automatique</span><input type="checkbox" id="set-auto"></label>
       <label class="row"><span>Sensibilité direction</span>
         <input type="range" id="set-sens" min="0.6" max="1.5" step="0.05"></label>
+      <label class="row"><span>Niveau de trafic</span>
+        <select id="set-traffic">
+          <option value="0">Fluide</option>
+          <option value="1">Dense</option>
+          <option value="2">Heure de pointe</option>
+        </select></label>
+      <label class="row"><span>Météo</span>
+        <select id="set-weather">
+          <option value="auto">Variable</option>
+          <option value="soleil">Sec</option>
+          <option value="pluie">Pluie</option>
+        </select></label>
+      <label class="row"><span>Heure de départ</span>
+        <select id="set-hour">
+          <option value="auto">Selon le trafic</option>
+          <option value="matin">Matin (7 h 30)</option>
+          <option value="midi">Midi</option>
+          <option value="soir">Soir (19 h)</option>
+          <option value="nuit">Nuit (23 h)</option>
+        </select></label>
+      <label class="row"><span>Vue</span>
+        <select id="set-camera">
+          <option value="chase">Extérieure</option>
+          <option value="cockpit">Cockpit</option>
+        </select></label>
+      <label class="row"><span>Radio info-trafic</span><input type="checkbox" id="set-radio"></label>
       <label class="row"><span>Qualité graphique</span>
         <select id="set-quality">
           <option value="auto">Auto</option>
@@ -130,7 +206,7 @@
   <!-- ===================== Pause ===================== -->
   <div id="pause" class="overlay hidden">
     <div class="menu-inner">
-      <h2>PAUSE</h2>
+      <h2 class="screen-h">PAUSE</h2>
       <div class="menu-buttons">
         <button class="btn primary" id="p-resume">REPRENDRE</button>
         <button class="btn" id="p-restart">RECOMMENCER</button>
@@ -168,6 +244,6 @@
     <div id="loading-txt">Construction du périphérique…</div>
   </div>
 
-  <script type="module" src="js/main.js?v=14"></script>
+  <script type="module" src="js/main.js?v=16"></script>
 </body>
 </html>
