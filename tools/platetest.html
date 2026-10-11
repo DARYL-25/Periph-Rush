@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#556">
+<canvas id="c" width="1080" height="760"></canvas>
+<script type="module">
+import { drawPlateForTest } from '../js/plates.js';
+import { rng } from '../js/utils.js';
+const c = document.getElementById('c').getContext('2d');
+const r = rng(5);
+for (let i = 0; i < 12; i++) { const { canvas } = drawPlateForTest(r); c.drawImage(canvas, 10 + (i % 2) * 535, 10 + Math.floor(i / 2) * 125); }
+window.done = true;
+</script>
