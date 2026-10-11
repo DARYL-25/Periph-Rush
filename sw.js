@@ -4,7 +4,7 @@
 // Les requêtes matchent en ignoreSearch (les ?v=N de index.html).
 // ============================================================
 
-const CACHE = 'periph-v13';
+const CACHE = 'periph-v14';
 const ASSETS = [
   '.',
   'index.html',
@@ -18,7 +18,8 @@ const ASSETS = [
   'js/periph-data.js', 'js/geo.js', 'js/atlas.js', 'js/textures.js', 'js/scenery.js', 'js/signfont.js', 'js/survey.js',
   'fonts/barlow-semi-condensed-latin-500-normal.woff2', 'fonts/barlow-semi-condensed-latin-600-normal.woff2',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
-  'vendor/GLTFLoader.js', 'vendor/BufferGeometryUtils.js', 'assets/clio3.glb', 'assets/lutece.glb',
+  'vendor/GLTFLoader.js', 'vendor/BufferGeometryUtils.js', 'assets/clio3.glb',
+  'assets/fleet/lutece_hi.glb', 'assets/fleet/lutece.glb', 'assets/fleet/mistral.glb', 'assets/fleet/aurore.glb', 'assets/fleet/concorde.glb', 'assets/fleet/taxi.glb', 'assets/fleet/riviera.glb', 'assets/fleet/atlas.glb', 'assets/fleet/odyssee.glb', 'assets/fleet/cargo.glb', 'assets/fleet/furia.glb',
 ];
 
 self.addEventListener('install', (e) => {
