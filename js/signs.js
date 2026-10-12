@@ -247,13 +247,13 @@ function planePicto(ctx, x, y, s) { // pictogramme aéroport
 }
 function lineSegs(ln) {
   if (ln.kind === 'porte') return porteSegments(ln.name);
-  if (ln.kind === 'green') return [{ t: ln.text, k: 'big' }];
+  if (ln.kind === 'green' || ln.kind === 'blue') return [{ t: ln.text, k: 'big' }];
   return [];
 }
 function lineWidthPx(ctx, ln) {
   const c = BP_CAP;
   if (ln.kind === 'porte') return richWidth(lineSegs(ln), c, L1);
-  if (ln.kind === 'green') return richWidth(lineSegs(ln), c, L2) + (ln.plane ? c * 1.6 : 0);
+  if (ln.kind === 'green' || ln.kind === 'blue') return richWidth(lineSegs(ln), c, L2) + (ln.plane ? c * 1.6 : 0);
   if (ln.kind === 'vers') return signTextWidth('vers', c, L2, { raw: true }) + c * 1.75 + signTextWidth(ln.ref, c, L2) + c * 0.5;
   if (ln.kind === 'ref') return (ln.ref ? signTextWidth(ln.ref, c * 0.9, L1) + c * 0.9 : 0) + c * 2 + (ln.dist ? signTextWidth(ln.dist, c, L1, { raw: true }) : 0);
   return 0;
@@ -270,13 +270,13 @@ export function bpStack(THREE, lines, minW = 0) {
   const cv = makeCanvas(W, H), ctx = cv.getContext('2d');
   lines.forEach((ln, i) => {
     const y0 = i * BP_H + 2, ym = y0 + BP_H / 2;
-    const col = ln.kind === 'vers' ? 'blue' : ln.kind === 'green' ? 'green' : 'white';
+    const col = ln.kind === 'vers' || ln.kind === 'blue' ? 'blue' : ln.kind === 'green' ? 'green' : 'white';
     const [bg, fg] = PLATE[col];
     ctx.fillStyle = bg; rrect(ctx, 1, y0, W - 2, BP_H - 2, 5); ctx.fill();
     ctx.strokeStyle = fg; ctx.lineWidth = col === 'white' ? 3 : 2.5;
     rrect(ctx, col === 'white' ? 2.5 : 6, y0 + (col === 'white' ? 1.5 : 5), W - (col === 'white' ? 5 : 12), BP_H - (col === 'white' ? 5 : 12), 4); ctx.stroke();
     if (ln.kind === 'porte') drawRich(ctx, lineSegs(ln), W / 2, ym, c, fg, 'center', L1, W - padX * 1.2);
-    else if (ln.kind === 'green') {
+    else if (ln.kind === 'green' || ln.kind === 'blue') {
       const tw = richWidth(lineSegs(ln), c, L2), tot = tw + (ln.plane ? c * 1.6 : 0);
       let x = (W - tot) / 2;
       if (ln.plane) { planePicto(ctx, x, ym - c * 0.62, c * 1.24); x += c * 1.6; }
@@ -290,8 +290,9 @@ export function bpStack(THREE, lines, minW = 0) {
     } else if (ln.kind === 'ref') {
       if (ln.ref) { // cartouche départementale jaune à gauche
         const rw = signTextWidth(ln.ref, c * 0.9, L1) + c * 0.8, rh = c * 1.45;
-        ctx.fillStyle = '#f2b800'; ctx.fillRect(c * 0.35, ym - rh / 2, rw, rh);
-        drawSignText(ctx, ln.ref, c * 0.35 + rw / 2, ym, c * 0.9, '#111', 'center', L1);
+        const isN = /^N/.test(ln.ref);   // routes nationales : cartouche rouge, lettrage blanc
+        ctx.fillStyle = isN ? '#c8102e' : '#f2b800'; ctx.fillRect(c * 0.35, ym - rh / 2, rw, rh);
+        drawSignText(ctx, ln.ref, c * 0.35 + rw / 2, ym, c * 0.9, isN ? '#f6f7f4' : '#111', 'center', isN ? L2 : L1);
       }
       if (ln.dist) drawSignText(ctx, ln.dist, W - c * 0.7, ym, c, '#111', 'right', L1, 0, { raw: true, italic: true });
     }
@@ -305,10 +306,17 @@ const abbrev = (t) => t.replace(/Charles de Gaulle/i, 'Ch. de Gaulle').replace(/
 export function exitLines(dests, dist) {
   const lines = [];
   const white = dests.filter((d) => d[1] === 'white');
-  const ref = (white.find((d) => d[2] && /^[DN]/.test(d[2])) || [])[2] || null;
+  // cartouche D/N : porte d'abord, sinon itinéraire principal vert (ex. « D910 BOULOGNE »)
+  const ref = (white.find((d) => d[2] && /^[DN]/.test(d[2])) || dests.find((d) => d[1] === 'green' && d[2] && /^[DN]/.test(d[2])) || [])[2] || null;
   if (dist || ref) lines.push({ kind: 'ref', ref, dist: dist || null });
   const seen = new Set();
   for (const [, color, r] of dests) if (color === 'blue' && r && /^A/.test(r) && !seen.has(r)) { seen.add(r); lines.push({ kind: 'vers', ref: r }); }
+  // v17 : pôles autoroutiers en toutes lettres sur fond bleu (« ROUEN », « LYON-ÉVRY »…), 2 au plus
+  let nb = 0;
+  for (const [t, color] of dests) {
+    if (color !== 'blue' || nb >= 2 || /Orly|Charles de Gaulle|Roissy/i.test(t)) continue;
+    lines.push({ kind: 'blue', text: abbrev(t).toUpperCase().replace(' - ', '-') }); nb++;
+  }
   for (const [t, color] of dests) {
     if (/Orly|Charles de Gaulle|Roissy/i.test(t)) { const nm = /Orly/i.test(t) ? 'ORLY' : 'CH. DE GAULLE'; if (!lines.some((l) => l.text === nm)) lines.push({ kind: 'green', text: nm, plane: true }); }
     else if (color === 'green') lines.push({ kind: 'green', text: abbrev(t).toUpperCase().replace(' - ', '-') });
@@ -547,4 +555,137 @@ export function worksPanelTexture(THREE, label = 'TRAVAUX') {
   rrect(ctx, 8, 8, 496, 144, 8); ctx.stroke();
   text(ctx, label, 256, 84, 66, '#111', 'center', 600);
   return finish(THREE, cv, key).tex;
+}
+
+// ============================================================
+// v17 — signalisation complémentaire relevée sur le tour complet
+// ============================================================
+
+// --- B6d : arrêt et stationnement interdits (+ panonceau « RAPPEL ») ---
+export function noStoppingTexture(THREE, rappel = true) {
+  const key = 'b6d:' + rappel;
+  if (texCache.has(key)) return texCache.get(key);
+  const S = 256, H = rappel ? S + 88 : S, cv = makeCanvas(S, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#c8102e'; ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1d4f9c'; ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.38, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.38, 0, Math.PI * 2); ctx.clip();
+  ctx.strokeStyle = '#c8102e'; ctx.lineWidth = S * 0.1;
+  ctx.beginPath(); ctx.moveTo(S * 0.12, S * 0.12); ctx.lineTo(S * 0.88, S * 0.88); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(S * 0.88, S * 0.12); ctx.lineTo(S * 0.12, S * 0.88); ctx.stroke();
+  ctx.restore();
+  if (rappel) {
+    ctx.fillStyle = '#f6f7f4'; rrect(ctx, 18, S + 8, S - 36, 74, 8); ctx.fill();
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 4; rrect(ctx, 24, S + 14, S - 48, 62, 6); ctx.stroke();
+    text(ctx, 'RAPPEL', S / 2, S + 46, 46, '#111', 'center', 600);
+  }
+  weather(ctx, S, H, 0.4);
+  return finish(THREE, cv, key);
+}
+
+// pictogramme pompe à carburant (blanc)
+function pumpPicto(ctx, x, y, s, col = '#f6f7f4') {
+  const u = s / 10;
+  ctx.fillStyle = col;
+  ctx.fillRect(x + 2 * u, y + 1.2 * u, 4.2 * u, 7.6 * u);          // corps
+  ctx.fillRect(x + 1.4 * u, y + 8.4 * u, 5.4 * u, 0.9 * u);        // socle
+  ctx.fillStyle = '#1d4f9c'; ctx.fillRect(x + 2.7 * u, y + 2 * u, 2.8 * u, 2 * u); // cadran
+  ctx.strokeStyle = col; ctx.lineWidth = 0.6 * u; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x + 6.2 * u, y + 2.6 * u); ctx.lineTo(x + 7.8 * u, y + 3.6 * u); ctx.lineTo(x + 7.8 * u, y + 7.2 * u);
+  ctx.quadraticCurveTo(x + 7.8 * u, y + 8 * u, x + 7.1 * u, y + 7.6 * u); ctx.stroke();
+  ctx.fillStyle = col; ctx.fillRect(x + 7.4 * u, y + 2.4 * u, 0.9 * u, 1.6 * u);
+}
+
+// --- CE15 : poste de distribution de carburant (+ distance) ---
+export function fuelSignTexture(THREE, dist = '') {
+  const key = 'fuel:' + dist;
+  if (texCache.has(key)) return texCache.get(key);
+  const S = 256, H = dist ? S + 92 : S, cv = makeCanvas(S, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#1d4f9c'; rrect(ctx, 0, 0, S, S, 16); ctx.fill();
+  ctx.strokeStyle = '#f6f7f4'; ctx.lineWidth = 6; rrect(ctx, 9, 9, S - 18, S - 18, 10); ctx.stroke();
+  ctx.fillStyle = '#f6f7f4'; rrect(ctx, 34, 34, S - 68, S - 68, 8); ctx.fill();
+  pumpPicto(ctx, 50, 44, 160, '#111');
+  if (dist) {
+    ctx.fillStyle = '#f6f7f4'; rrect(ctx, 10, S + 10, S - 20, 76, 8); ctx.fill();
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 4; rrect(ctx, 16, S + 16, S - 32, 64, 6); ctx.stroke();
+    drawSignText(ctx, dist, S / 2, S + 48, 34, '#111', 'center', L1, 0, { raw: true });
+  }
+  weather(ctx, S, H, 0.4);
+  return finish(THREE, cv, key);
+}
+
+// --- panneau de pré-signalisation de l'aire de service (« Station-service ») ---
+export function fuelPanelTexture(THREE, dist) {
+  const key = 'fuelP:' + dist;
+  if (texCache.has(key)) return texCache.get(key);
+  const W = 520, H = 230, cv = makeCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#1d4f9c'; rrect(ctx, 0, 0, W, H, 14); ctx.fill();
+  ctx.strokeStyle = '#f6f7f4'; ctx.lineWidth = 5; rrect(ctx, 8, 8, W - 16, H - 16, 10); ctx.stroke();
+  ctx.fillStyle = '#f6f7f4'; rrect(ctx, 26, 30, 150, 150, 8); ctx.fill();
+  pumpPicto(ctx, 36, 36, 136, '#111');
+  drawSignText(ctx, 'STATION', 200, 70, 40, '#f6f7f4', 'left', L2);
+  drawSignText(ctx, 'SERVICE', 200, 122, 40, '#f6f7f4', 'left', L2);
+  drawSignText(ctx, dist, W - 28, 184, 34, '#f6f7f4', 'right', L2, 0, { raw: true, italic: true });
+  weather(ctx, W, H, 0.4);
+  return finish(THREE, cv, key);
+}
+
+// pictogrammes génériques des panneaux d'animation (pas de logo ni de personnage)
+function leisurePicto(ctx, x, y, w, h, kind) {
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = '#efe6d2'; rrect(ctx, 0, 0, w, h, 10); ctx.fill();
+  ctx.strokeStyle = '#5a3b22'; ctx.fillStyle = '#5a3b22'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  if (kind === 'coaster') { // montagnes russes stylisées
+    ctx.beginPath(); ctx.moveTo(10, h - 18);
+    ctx.bezierCurveTo(w * 0.2, h * 0.1, w * 0.35, h * 0.15, w * 0.45, h * 0.62);
+    ctx.bezierCurveTo(w * 0.55, h * 0.9, w * 0.62, h * 0.2, w * 0.75, h * 0.25);
+    ctx.bezierCurveTo(w * 0.88, h * 0.3, w * 0.9, h * 0.7, w - 10, h - 18); ctx.stroke();
+    for (let k = 1; k < 8; k++) { const xx = (w * k) / 8; ctx.beginPath(); ctx.moveTo(xx, h - 14); ctx.lineTo(xx, h * (0.35 + 0.4 * Math.abs(Math.sin(k)))); ctx.stroke(); }
+    ctx.fillRect(6, h - 16, w - 12, 6);
+  } else { // grande roue
+    const cx = w / 2, cy = h * 0.46, R = Math.min(w, h) * 0.34;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); ctx.stroke();
+      ctx.fillRect(cx + Math.cos(a) * R - 6, cy + Math.sin(a) * R - 3, 12, 10);
+    }
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - R * 0.6, h - 8); ctx.moveTo(cx, cy); ctx.lineTo(cx + R * 0.6, h - 8); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// --- panneau d'animation touristique (fond marron, H33) ---
+// lines : [texte principal, texte secondaire] ; bottom : { text, ref } cartouche de direction
+export function touristTexture(THREE, title, sub, picto, bottom = null) {
+  const key = 'tour:' + title + sub + picto + JSON.stringify(bottom);
+  if (texCache.has(key)) return texCache.get(key);
+  const W = 640, H = bottom ? 470 : 400, cv = makeCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#6b4426'; rrect(ctx, 0, 0, W, H, 16); ctx.fill();
+  ctx.strokeStyle = '#f6f7f4'; ctx.lineWidth = 6; rrect(ctx, 10, 10, W - 20, H - 20, 10); ctx.stroke();
+  leisurePicto(ctx, 34, 34, W - 68, 230, picto);
+  drawSignText(ctx, title, W / 2, 304, 50, '#f6f7f4', 'center', L2);
+  if (sub) drawSignText(ctx, sub, W / 2, 358, 34, '#f6f7f4', 'center', L2, 0, { raw: true });
+  if (bottom) {
+    ctx.fillStyle = '#1d4f9c'; rrect(ctx, 22, 392, W - 44, 60, 6); ctx.fill();
+    if (bottom.ref) { ctx.fillStyle = '#c8102e'; rrect(ctx, 34, 400, 92, 44, 5); ctx.fill(); drawSignText(ctx, bottom.ref, 80, 422, 30, '#f6f7f4', 'center', L2); }
+    drawSignText(ctx, bottom.text, W - 40, 422, 32, '#f6f7f4', 'right', L2, 0, { raw: true });
+  }
+  weather(ctx, W, H, 0.5);
+  return finish(THREE, cv, key);
+}
+
+// --- niche de sécurité en tunnel : extincteur + téléphone (fond bleu) ---
+export function nicheSignTexture(THREE) {
+  const key = 'niche';
+  if (texCache.has(key)) return texCache.get(key);
+  const W = 160, H = 300, cv = makeCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#1d4f9c'; rrect(ctx, 0, 0, W, H, 12); ctx.fill();
+  ctx.fillStyle = '#f6f7f4'; rrect(ctx, 14, 14, W - 28, 128, 8); ctx.fill(); rrect(ctx, 14, 156, W - 28, 128, 8); ctx.fill();
+  // extincteur
+  ctx.fillStyle = '#c8102e'; rrect(ctx, 60, 40, 40, 90, 12); ctx.fill(); ctx.fillRect(68, 28, 24, 14);
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(92, 34); ctx.lineTo(112, 52); ctx.stroke();
+  // combiné
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(80, 214, 42, 18, 0, Math.PI, 0); ctx.fill();
+  ctx.fillRect(38, 210, 24, 26); ctx.fillRect(98, 210, 24, 26);
+  return finish(THREE, cv, key);
 }

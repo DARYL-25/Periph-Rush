@@ -36,6 +36,12 @@ Jouable directement dans le navigateur, installable en PWA plein écran sur iPho
   écrans antibruit relevés (beige, blanc tagué, briques, tôle, lames inclinées, médaillons), TPC planté,
   candélabres à crosse en rive et en Y, couvertures au sodium, pont-rail de Clichy avec sa rame,
   passerelles, échangeur de Bagnolet, Zénith, station-service de la Villette, panneaux publicitaires fictifs.
+- **Tour complet relevé à nouveau (v17)** : `docs/SURVEY-v17.md` — placement fidèle de chaque équipement de rive
+  (candélabres, panneaux, radars, bornes SOS, caméras, portiques) derrière la DBA et devant les murs/écrans, musoirs
+  avec séparation et atténuateur réels, portiques à 3 colonnes (ex. « A13 ROUEN · Pte d'AUTEUIL · D910 100 m BOULOGNE »),
+  panneaux « arrêt et stationnement interdits — RAPPEL », panneaux touristiques, station-service de la Villette,
+  nouveaux écrans antibruit relevés, platanes du TPC, pont tricolore de la porte de Châtillon ; monuments modélisés :
+  Parc des Princes, tour TF1, pavillon Habib-Bourguiba.
 - **72 bretelles réelles** : voies de décélération/accélération, musoirs avec
   atténuateurs de choc, zébras, rampes qui remontent vers les portes.
 - **Signalisation française** : présignalisation et portiques d'affectation

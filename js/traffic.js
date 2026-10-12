@@ -539,7 +539,7 @@ export class Traffic {
         } else if (dj < 25 && n.lane < right - 1) { n.exitPlan = null; n.blinker = 0; } // sortie ratée
       } else if (n.laneT >= 1 && n.lane === right) {
         const o = this.ramps.one(n.exitPlan.r, n.s, 0);
-        if (o && o.w > n.wid + 0.4 && o.gap < 1.2 && this.rampFree(n, n.exitPlan.r)) {
+        if (o && o.w > n.wid + 0.4 && o.g < 1.2 && this.rampFree(n, n.exitPlan.r)) {
           n.mode = 'exit'; n.ramp = n.exitPlan.r; n.rampBlend = 0; n.blinker = 1;
         }
       }

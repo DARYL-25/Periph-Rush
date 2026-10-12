@@ -23,7 +23,7 @@ export const CFG = {
   SPEED_LIMIT_KMH: 50,
   STEER_SPEED: 9.0,         // vitesse latérale max (m/s) à pleine consigne
   STEER_RESPONSE: 7.5,      // réactivité de la consigne latérale
-  LATERAL_MIN: 1.95,        // butée latérale côté séparateur
+  LATERAL_MIN: 2.02,        // butée latérale côté séparateur (v17 : jamais dans la DBA du TPC élargi)
   // butée extérieure calculée depuis la géométrie de chaussée
 
   // --- Trafic -----------------------------------------------------

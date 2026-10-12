@@ -14,6 +14,7 @@ import { BUILDINGS_B64, BIG_BUILDINGS, LANDUSE } from './periph-data.js';
 import { rng, wrap } from './utils.js';
 import { Batch, rgb, shade } from './geo.js';
 import { FACADES } from './textures.js';
+import { LANDMARK_ZONES } from './landmarks.js';
 
 const FAC = Object.fromEntries(FACADES.map((f, i) => [f.id, i]));
 export const LAT0 = 48.8590, LON0 = 2.3400;
@@ -158,7 +159,11 @@ export class Scenery {
     this.byChunk = new Map();
     const nChunks = Math.ceil(track.length / chunkLen);
     this.dropped = 0;
+    // v17 : emprises des monuments modélisés en détail (js/landmarks.js) : pas de bâtiment OSM générique dedans
+    const zones = LANDMARK_ZONES.map((zn) => ({ ...geoToLocal(zn.lat, zn.lon), r: zn.r }));
+    const inZone = (b) => { const c = b.kind === 'box' ? [b.cx, b.cz] : b.pts.reduce((a, q) => [a[0] + q[0] / b.pts.length, a[1] + q[1] / b.pts.length], [0, 0]); return zones.some((zn) => Math.hypot(c[0] - zn.x, c[1] - zn.z) < zn.r); };
     const put = (s, b) => {
+      if (!b.custom && inZone(b)) return;
       // aucune emprise ne doit mordre sur la chaussée, les bretelles ou les ouvrages
       const near = b.custom || !(b.dist > 55);
       const res = near ? this.clearance(b.kind === 'box' ? rectPts(b) : b.pts) : { ok: true };
@@ -520,15 +525,8 @@ export function buildLandmarks(T, scene) {
     const a = at(48.8925, 2.2359);
     box(a.x, a.z - 45, 110, 10, 0, 110, 0xe4e7ea); box(a.x, a.z + 45, 110, 10, 0, 110, 0xe4e7ea); box(a.x, a.z, 110, 100, 100, 10, 0xe4e7ea);
   }
-  // Parc des Princes (anneau de béton nervuré) et Roland-Garros
+  // Roland-Garros (le Parc des Princes est modélisé en détail dans js/landmarks.js)
   {
-    const { x, z } = at(48.8414, 2.2530);
-    const c = rgb(0xc9c6bd);
-    for (let i = 0; i < 40; i++) { // bracons verticaux caractéristiques
-      const a = (i / 40) * Math.PI * 2;
-      box(x + Math.cos(a) * 118 * 0.9, z + Math.sin(a) * 80 * 0.9, 3, 9, 0, 34, 0xd6d3cb, -a);
-    }
-    frustum(x, z, 112, 104, 0, 28, 0xb2aea4, 24);
     const rg = at(48.8467, 2.2493); box(rg.x, rg.z, 110, 90, 0, 22, 0xb7553a);
   }
   // Arc de Triomphe : deux piles + linteau (axe vers la Défense ≈ 63° nord-ouest)

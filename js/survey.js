@@ -27,23 +27,28 @@ const R = [
   [1950, 2400, { wall: 'pierre', crown: 'balustrade', veg: 'arbres' }],
   [2400, 2800, { wall: 'meuliere', screen: 'grilleVerte', veg: 'arbres' }], // pont-rail de Clichy
   [2800, 4000, { screen: 'grilleVerte', veg: 'arbres' }],
-  [4000, 4400, { screen: 'beige' }],
-  [4400, 4700, { screen: 'medaillons' }],
-  [4700, 5100, { screen: 'grilleVerte', veg: 'arbres' }],
-  [5100, 5450, { screen: 'brique', veg: 'arbres' }],
-  [5450, 5800, { screen: 'vert' }],
+  [4000, 4150, { screen: 'beige' }],
+  [4150, 4700, { screen: 'medaillons' }],                        // v17 : médaillons dès 4 150 m
+  [4700, 4850, { screen: 'grilleVerte', veg: 'arbres' }],
+  [4850, 5400, { screen: 'brique', veg: 'arbres' }],             // v17 : écran brique entre poteaux béton
+  [5400, 5650, { screen: 'tole' }],                              // v17 : tôle grise taguée
+  [5650, 5800, { screen: 'vert' }],
   [5800, 6150, { screen: 'blanc', veg: 'arbres' }],
   [6150, 6900, { screen: 'grilleVerte' }],                       // viaduc de la Chapelle
   [6900, 7300, { screen: 'talus', wall: 'talus', veg: 'platanes' }],
-  [7300, 7500, { wall: 'pierre', crown: 'balustrade', screen: 'muret', veg: 'arbres' }],
-  [7500, 7900, { screen: 'talus', wall: 'talus', veg: 'arbres' }],
-  [7900, 8250, { wall: 'fresque', screen: 'blanc', veg: 'arbres' }],
-  [8250, 8600, { screen: 'glissiere', wall: 'talus' }],
+  [7300, 7550, { wall: 'pierre', crown: 'balustrade', screen: 'muret', veg: 'arbres' }],
+  [7550, 7650, { screen: 'talus', wall: 'talus', veg: 'arbres' }],
+  [7650, 7900, { screen: 'persiennes' }],                        // v17 : persiennes vert foncé
+  [7900, 8150, { screen: 'toleBrune', veg: 'arbres' }],          // v17 : tôle rouge-brun taguée
+  [8150, 8350, { wall: 'fresque', screen: 'blanc', veg: 'arbres' }], // fresque en relief
+  [8350, 8600, { screen: 'glissiere', wall: 'talus' }],
   [8600, 9600, { screen: 'grilleVerte', veg: 'pins' }],          // viaduc de Pantin, Zénith
   [9600, 10000, { screen: 'talus', veg: 'arbres' }],
-  [10000, 10650, { screen: 'grilleVerte' }],
-  [10650, 11000, { screen: 'lames' }],
-  [11000, 11400, { screen: 'talus', wall: 'talus', veg: 'lierre' }],
+  [10000, 10400, { screen: 'grilleVerte' }],
+  [10400, 10650, { screen: 'jambes' }],                          // v17 : poteaux inclinés bruns
+  [10650, 10900, { screen: 'ondule' }],                          // v17 : tôle ondulée en diagonale
+  [10900, 11150, { screen: 'onduleVert' }],
+  [11150, 11400, { screen: 'talus', wall: 'talus', veg: 'lierre' }],
   [11400, 11800, { screen: 'talus', wall: 'talus', veg: 'arbres' }],
   [11800, 12450, { wall: 'meuliere', veg: 'arbres' }],
   [12450, 13200, { wall: 'talus', screen: 'talus', veg: 'arbres' }],
@@ -51,16 +56,20 @@ const R = [
   [13800, 14700, { wall: 'talus', screen: 'talus', veg: 'arbres' }],
   [14700, 15600, { wall: 'talus', screen: 'talus', veg: 'marronniers' }],
   [15600, 15900, { wall: 'talus', screen: 'talus', veg: 'arbres' }],
-  [15900, 16700, { wall: 'talus', screen: 'grillage', veg: 'arbres' }],
+  [15900, 16400, { wall: 'talus', screen: 'grillage', veg: 'arbres' }],
+  [16400, 16700, { screen: 'tole' }],                            // v17 : tôle taguée
   [16700, 17050, { wall: 'meuliere', veg: 'lierre' }],
   [17050, 17700, { wall: 'beton' }],                               // échangeur de Bercy
-  [17700, 18300, { screen: 'grilleVerte' }],                       // pont amont
+  [17700, 17900, { wall: 'pierre', screen: 'grilleVerte' }],
+  [17900, 18150, { screen: 'redents' }],                         // v17 : écran béton à redents
+  [18150, 18300, { screen: 'grilleVerte' }],                       // pont amont
   [18300, 18700, { screen: 'talus', veg: 'peupliers' }],
   [18700, 19700, { screen: 'grilleVerte' }],
-  [19700, 20100, { screen: 'grilleGrise' }],
-  [20100, 21500, { wall: 'meuliere', crown: 'balustrade', screen: 'muret' }], // Italie
-  [21500, 22300, { screen: 'muret', veg: 'arbres' }],
-  [22300, 22600, { screen: 'glissiere', veg: 'arbres' }],
+  [19700, 19900, { screen: 'grilleGrise' }],
+  [19900, 20150, { wall: 'moellons', screen: 'glissiere' }],     // v17 : moellons + glissière (Ivry)
+  [20150, 21500, { wall: 'meuliere', crown: 'balustrade', screen: 'muret' }], // Italie
+  [21500, 22100, { screen: 'muret', veg: 'arbres' }],
+  [22100, 22600, { screen: 'grilleBlanche', veg: 'arbres' }],    // v17 : grillage blanc (Cité U)
   [22600, 23600, { screen: 'grilleNoire', veg: 'arbustes' }],
   [23600, 24000, { wall: 'pierre', screen: 'muret', veg: 'arbres' }],
   [24000, 24350, { wall: 'moellons', crown: 'balustrade' }],
@@ -70,16 +79,20 @@ const R = [
   [25800, 26100, { wall: 'beton' }],
   [26100, 26450, { wall: 'meuliere', veg: 'pins' }],
   [26450, 26800, { wall: 'pierre', crown: 'grille' }],
-  [26800, 28150, { screen: 'grilleVerte' }],                       // expositions, Balard
-  [28150, 29250, { screen: 'grilleVerte', veg: 'peupliers' }],     // pont aval
+  [26800, 27150, { screen: 'grilleVerte' }],                       // expositions
+  [27150, 27450, { screen: 'vitre' }],                           // v17 : écran vitré
+  [27450, 28150, { screen: 'grilleVerte' }],                       // Balard
+  [28150, 29150, { screen: 'grilleVerte', veg: 'peupliers' }],     // pont aval
+  [29150, 29250, { screen: 'grilleBlanche', veg: 'arbres' }],    // v17 : garde-corps blanc (Saint-Cloud)
   [29250, 30700, { wall: 'beton' }],                               // Parc des Princes, Auteuil
   [30700, 31400, { wall: 'talus', veg: 'bois' }],                  // bois de Boulogne
   [31400, 32400, { wall: 'beton' }],
-  [32400, 32800, { wall: 'pierre' }],
+  [32400, 32800, { wall: 'dalles' }],                            // v17 : dalles claires (Muette)
   [32800, 33100, { wall: 'beton' }],
   [33100, 33500, { wall: 'dalles', veg: 'bois' }],
   [33500, 34100, { wall: 'beige' }],
-  [34100, 34600, { wall: 'talus', veg: 'bois' }],
+  [34100, 34400, { wall: 'talus', veg: 'bois' }],
+  [34400, 34600, { wall: 'dalles', crown: 'grille' }],           // v17 : dalles + 50 + SOS avant Maillot
   [34600, 36000, { screen: 'grilleGrise', wall: 'beige' }],
 ];
 
@@ -90,7 +103,8 @@ const G = [
   [1950, 2400, { wall: 'talus', screen: 'talus', veg: 'bois' }],
   [2400, 2800, { wall: 'beton', screen: 'muret' }],
   [2800, 3600, { screen: 'grilleVerte' }],
-  [3600, 4700, { screen: 'beige' }],
+  [3600, 4000, { screen: 'cadreRouge' }],                        // v17 : panneaux beiges à cadres rouges
+  [4000, 4700, { screen: 'beige' }],
   [4700, 5100, { screen: 'tole' }],
   [5100, 5800, { screen: 'blanc' }],
   [5800, 6150, { screen: 'talus', wall: 'talus', veg: 'bois' }],
@@ -101,8 +115,10 @@ const G = [
   [8600, 9300, { screen: 'blanc' }],
   [9300, 9600, { screen: 'grilleVerte' }],
   [9600, 10000, { screen: 'beige', veg: 'arbres' }],
-  [10000, 10650, { screen: 'grilleVerte' }],
-  [10650, 11400, { screen: 'blanc' }],
+  [10000, 10400, { screen: 'grilleVerte' }],
+  [10400, 10650, { screen: 'jambes' }],
+  [10650, 10900, { screen: 'blanc' }],
+  [10900, 11400, { screen: 'hublots' }],                          // v17 : écran blanc à hublots
   [11400, 11800, { screen: 'brique', wall: 'beton' }],
   [11800, 13200, { wall: 'talus', screen: 'talus', veg: 'arbres' }],
   [13200, 14000, { wall: 'beton', screen: 'muret', veg: 'arbres' }],

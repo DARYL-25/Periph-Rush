@@ -658,3 +658,22 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
   l'appareil, désactivable).
 - Cache SW `periph-v16`.
 - À faire plus tard (demandé) : modes de jeu à missions (sortir à une porte précise, contre-la-montre d'un tour).
+
+## v17 — tour complet Street View, placement fidèle, signalisation, monuments
+- Relevé : `docs/SURVEY-v17.md` (≈ 110 vues du sens intérieur). Outils : `tools/clearscan.py` (contrôle géométrique du
+  tour entier : rien dans le gabarit roulable 0,15–1,7 m, panneaux visibles de face ; ~20 s), `tools/viewshot.py`
+  (caméra libre visant un point lat/lon ou piste).
+- **Bretelles** (`Ramps`) : champs `g` (écart brut), `pw` (voie parallèle), `ref`/`mid`/`room` (séparation à mi-chemin
+  entre ce qui est plus près de la chaussée et la bretelle) ; `sepOff`, `talusSep`, `mainMax`, `rampMin`, `outerEdge`.
+  Le joueur (`player.latLimits`) et le décor utilisent les mêmes fonctions : plus de DBA « papier » ni de mur traversable.
+- **Rive** : `World.rive(s, side)` décrit le profil réel (DBA, mur, parapet, écran, grillage, haie, talus) et le bord
+  extérieur avec bretelles ; `rivePanel` / `riveSign` posent mât + console + panneau sans jamais toucher un mur ni une voie.
+  Candélabres, radars, SOS, caméras, portiques, publicités, passerelles et station utilisent ce bord.
+- **Signalisation** : portiques et têtes de couverture à 3 colonnes (`layoutCols`), plaques bleues nommées
+  (`kind: 'blue'`), cartouche D/N des itinéraires verts, N en rouge ; nouveaux panneaux dans `signs.js`
+  (`noStoppingTexture`, `fuelSignTexture`, `fuelPanelTexture`, `touristTexture`, `nicheSignTexture`).
+- **Monuments** : `js/landmarks.js` (Parc des Princes, tour TF1, pavillon Habib-Bourguiba) + `LANDMARK_ZONES` qui
+  retire les bâtiments OSM génériques à ces emplacements.
+- Écrans : 9 nouvelles tuiles d'atlas (`textures.js`, fin de fichier) ; relevé `survey.js` mis à jour.
+- `CFG.LATERAL_MIN` = 2,02 (le TPC élargi n'est plus mordu). Cache SW `periph-v17`, `?v=17`.
+- Toujours à faire (demandé) : modes de jeu à missions (sortir à une porte précise, contre-la-montre d'un tour).

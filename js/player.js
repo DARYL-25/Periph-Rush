@@ -174,7 +174,7 @@ export class Player {
         return;
       }
       this.rampO = o;
-      if (o.gap < 0.35 || (o.gap < 1.3 && this.lat < Em + o.gap * 0.5)) { // revenu sur le périph avant le musoir
+      if (o.g < 0.35 || (o.g < 1.3 && this.lat < Em + o.mid)) { // revenu sur le périph avant le musoir
         this.ramp = null; this.rampO = null;
       }
       if (this.ramp && this.ramp.kind === 'X') {
@@ -186,7 +186,7 @@ export class Player {
     // sur le périph : bascule vers une bretelle qui s'écarte encore peu
     for (const o of list) {
       if (o.parallel) continue;
-      if (o.gap < 1.3 && this.lat > Em + o.gap * 0.5 + 0.2) { this.ramp = o.r; this.rampO = o; return; }
+      if (o.g < 1.3 && this.lat > Em + o.mid + 0.2) { this.ramp = o.r; this.rampO = o; return; }
     }
   }
   latLimits() {
@@ -196,15 +196,11 @@ export class Player {
       const o = this.rampO;
       const max = Em + o.gap + o.w - half;
       // tant que le musoir (séparation) n'a pas commencé, on peut revenir sur le périph
-      const min = o.gap < 1.3 ? CFG.LATERAL_MIN : Em + o.gap * 0.5 + 0.12 + half;
+      const min = o.g < 1.3 ? CFG.LATERAL_MIN : t.ramps.rampMin(o, this.s, this.track.elevationAt(this.s), half);
       return { min, max };
     }
-    let max = Em + (t.ramps ? t.ramps.parallelWidth(this.s) : 0) - 0.72;
-    for (const o of this.rampsHere()) {
-      if (o.parallel) continue;
-      if (o.gap < 1.3) max = Math.max(max, Em + o.gap + o.w - half);
-      else max = Math.max(max, Math.min(Em + o.gap * 0.5 - 0.12 - half, Em + 2.2)); // jusqu'à la séparation
-    }
+    // v17 : butée partagée avec le décor (séparation réelle : DBA en pied de talus ou mur à mi-interstice)
+    const max = t.ramps ? t.ramps.mainMax(this.s, half) : Em - 0.72;
     return { min: CFG.LATERAL_MIN, max };
   }
   // hauteur de chaussée sous le joueur (bretelle en rampe)

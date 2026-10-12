@@ -668,30 +668,43 @@ function grime(c, S, rand, n = 18, top = 0.55) {
 
 // mur de meulière (moellons irréguliers ocre/brun, joints clairs épais) — Italie, Bagnolet, Dorée
 export function meuliereTexture(THREE) {
+  // v17 : moellons de meulière en cellules de Voronoï périodiques (≈ 25-35 cm, joints clairs beurrés),
+  // pierre caverneuse ocre/brun/gris avec alvéoles et arêtes éclairées — relevé Italie, Bagnolet, Plaine
   const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1201);
-  c.fillStyle = '#9b927f'; c.fillRect(0, 0, S, S); // mortier
-  const cols = ['#8a6f52', '#7a6249', '#9a7d5c', '#6e5a47', '#a58b6a', '#857565', '#6b625a', '#94826b'];
-  for (let y = -10; y < S + 20; y += 22 + rand() * 10) {
-    let x = -rand() * 30;
-    while (x < S + 20) {
-      const w = 26 + rand() * 40, h = 18 + rand() * 14;
-      c.fillStyle = cols[(rand() * cols.length) | 0];
-      c.beginPath();
-      const n = 7, cx = x + w / 2, cy = y + h / 2;
-      for (let k = 0; k < n; k++) {
-        const a = (k / n) * Math.PI * 2, r = 0.82 + rand() * 0.22;
-        const px = cx + Math.cos(a) * w / 2 * r, py = cy + Math.sin(a) * h / 2 * r;
-        k ? c.lineTo(px, py) : c.moveTo(px, py);
+  const G = 20, cell = S / G, seeds = [];
+  const pal = [[150, 118, 82], [128, 101, 72], [165, 133, 96], [112, 94, 78], [139, 120, 98], [121, 107, 92], [171, 146, 112], [98, 84, 70]];
+  for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
+    const col = pal[(rand() * pal.length) | 0], k = 0.85 + rand() * 0.3;
+    seeds.push({ x: (i + 0.15 + rand() * 0.7) * cell, y: (j + 0.15 + rand() * 0.7) * cell, c: col.map((v) => Math.min(255, v * k)), hx: rand(), hy: rand() });
+  }
+  const img = c.createImageData(S, S), D = img.data;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const ci = Math.floor(x / cell), cj = Math.floor(y / cell);
+      let d1 = 1e9, d2 = 1e9, best = null;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const ii = (ci + di + G) % G, jj = (cj + dj + G) % G, sd = seeds[jj * G + ii];
+        const sx = sd.x + (ci + di < 0 ? -S : ci + di >= G ? S : 0), sy = sd.y + (cj + dj < 0 ? -S : cj + dj >= G ? S : 0);
+        const dx = (x - sx) * 1.0, dy = (y - sy) * 1.25, d = dx * dx + dy * dy;
+        if (d < d1) { d2 = d1; d1 = d; best = sd; } else if (d < d2) d2 = d;
       }
-      c.closePath(); c.fill();
-      // trous de la meulière (pierre caverneuse)
-      for (let k = 0; k < 4; k++) { c.fillStyle = 'rgba(40,30,22,0.35)'; c.fillRect(cx + (rand() - 0.5) * w * 0.6, cy + (rand() - 0.5) * h * 0.5, 2 + rand() * 3, 2 + rand() * 2); }
-      c.fillStyle = 'rgba(255,240,220,0.10)'; c.fillRect(cx - w * 0.3, cy - h * 0.35, w * 0.5, 2);
-      x += w + 3 + rand() * 4;
+      const edge = Math.sqrt(d2) - Math.sqrt(d1);
+      const o = (y * S + x) * 4;
+      const n = (Math.sin(x * 0.9 + best.hx * 50) * Math.cos(y * 1.1 + best.hy * 50)) * 10 + (rand() - 0.5) * 22;
+      if (edge < 2.6) { // joint de mortier clair, légèrement en creux
+        const m = 168 + (rand() - 0.5) * 18 - (2.6 - edge) * 6;
+        D[o] = m; D[o + 1] = m - 6; D[o + 2] = m - 18;
+      } else {
+        const lit = edge < 5 ? -14 : 0;              // arête ombrée côté joint
+        D[o] = best.c[0] + n + lit; D[o + 1] = best.c[1] + n + lit; D[o + 2] = best.c[2] + n * 0.9 + lit;
+      }
+      D[o + 3] = 255;
     }
   }
-  speckle(c, S, S, 9000, ['rgba(40,32,24,0.25)', 'rgba(230,220,200,0.18)'], 0.6, 1.6, rand);
-  grime(c, S, rand, 16, 0.5);
+  c.putImageData(img, 0, 0);
+  // alvéoles de la meulière (pierre caverneuse)
+  for (let i = 0; i < 900; i++) { c.fillStyle = `rgba(45,34,24,${0.25 + rand() * 0.3})`; c.beginPath(); c.ellipse(rand() * S, rand() * S, 1 + rand() * 2.4, 0.8 + rand() * 1.6, rand() * 3, 0, Math.PI * 2); c.fill(); }
+  grime(c, S, rand, 14, 0.5);
   return tex(THREE, cv);
 }
 
@@ -948,4 +961,114 @@ export function billboardAtlas(THREE) {
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
+}
+
+// ============================================================
+// v17 — écrans antibruit relevés sur le tour complet (Street View)
+// ============================================================
+function tagLayer(c, S, rand, n) { graffiti(c, S, rand, n, 0.45, 0.85); }
+
+// panneaux beiges à cadres ROUGES entre poteaux sombres — Saint-Ouen (rive ext.)
+export function redFrameTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1701);
+  c.fillStyle = '#cdbb98'; c.fillRect(0, 0, S, S);
+  blotches(c, S, S, 24, 'rgba(120,100,70,0.14)', 20, 80, rand);
+  for (const x of [0, 256]) {
+    c.fillStyle = '#9b2a22'; c.fillRect(x + 10, 26, 236, 10); c.fillRect(x + 10, S - 60, 236, 10); c.fillRect(x + 10, 26, 10, S - 76); c.fillRect(x + 236, 26, 10, S - 76);
+    c.fillStyle = '#d8c7a4'; c.fillRect(x + 20, S - 50, 216, 50);
+    c.fillStyle = '#3a3c3e'; c.fillRect(x, 0, 10, S);
+  }
+  tagLayer(c, S, rand, 2);
+  grime(c, S, rand, 10, 0.4);
+  return tex(THREE, cv);
+}
+// persiennes métalliques horizontales VERT FONCÉ — Aubervilliers
+export function louvresTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1702);
+  c.fillStyle = '#2f4a3e'; c.fillRect(0, 0, S, S);
+  for (let y = 0; y < S; y += 32) {
+    const g = c.createLinearGradient(0, y, 0, y + 32);
+    g.addColorStop(0, '#5b7a69'); g.addColorStop(0.45, '#3c5a4b'); g.addColorStop(1, '#1d2e26');
+    c.fillStyle = g; c.fillRect(0, y, S, 30);
+  }
+  c.fillStyle = '#26332d'; for (const x of [0, 256]) c.fillRect(x, 0, 8, S);
+  tagLayer(c, S, rand, 4);
+  grime(c, S, rand, 8, 0.3);
+  return tex(THREE, cv);
+}
+// tôle nervurée ROUGE-BRUN taguée entre poteaux béton — Villette
+export function rustSheetTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1703);
+  c.fillStyle = '#7a3d2e'; c.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 16) { c.fillStyle = 'rgba(255,220,200,0.10)'; c.fillRect(x, 0, 5, S); c.fillStyle = 'rgba(0,0,0,0.18)'; c.fillRect(x + 11, 0, 4, S); }
+  blotches(c, S, S, 30, 'rgba(160,110,70,0.25)', 10, 60, rand);
+  c.fillStyle = '#a7a39a'; for (const x of [0, 256]) c.fillRect(x, 0, 22, S);
+  tagLayer(c, S, rand, 5);
+  grime(c, S, rand, 10, 0.4);
+  return tex(THREE, cv);
+}
+// panneaux clairs entre POTEAUX INCLINÉS bruns — Pré-Saint-Gervais
+export function strutScreenTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1704);
+  c.fillStyle = '#d6d0c2'; c.fillRect(0, 0, S, S);
+  blotches(c, S, S, 20, 'rgba(140,130,110,0.15)', 20, 80, rand);
+  for (const x of [0, 256]) {
+    c.fillStyle = '#6e4b33';
+    c.beginPath(); c.moveTo(x + 8, S); c.lineTo(x + 28, S); c.lineTo(x + 66, 0); c.lineTo(x + 46, 0); c.closePath(); c.fill();
+    c.fillRect(x, 0, 14, S);
+    c.fillStyle = '#5a3c29'; c.fillRect(x, S - 40, 256, 8);
+  }
+  tagLayer(c, S, rand, 4);
+  grime(c, S, rand, 8, 0.4);
+  return tex(THREE, cv);
+}
+// tôle ondulée posée en DIAGONALE (argent ou vert) — Pantin, Pré-Saint-Gervais
+export function diagCorrugatedTexture(THREE, green = false) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(green ? 1706 : 1705);
+  c.fillStyle = green ? '#7c9a63' : '#b9bec2'; c.fillRect(0, 0, S, S);
+  // ondes à 45° périodiques (pas de 16 px, divise la tuile : raccord parfait)
+  const band = (o, w, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(o, 0); c.lineTo(o + w, 0); c.lineTo(o + w - S, S); c.lineTo(o - S, S); c.closePath(); c.fill(); };
+  for (let o = 0; o < S * 2; o += 16) { band(o, 5, green ? 'rgba(220,240,190,0.24)' : 'rgba(255,255,255,0.3)'); band(o + 9, 5, 'rgba(0,0,0,0.2)'); }
+  c.fillStyle = green ? '#4e6a3e' : '#7f868b'; for (const x of [0, 256]) c.fillRect(x, 0, 12, S);
+  tagLayer(c, S, rand, green ? 6 : 4);
+  grime(c, S, rand, 8, 0.35);
+  return tex(THREE, cv);
+}
+// écran blanc à HUBLOTS ronds, tagué — rive ext., Pré-Saint-Gervais
+export function portholeTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1707);
+  c.fillStyle = '#dcd9d1'; c.fillRect(0, 0, S, S);
+  for (const x of [0, 256]) {
+    c.fillStyle = '#b9b5ab'; c.fillRect(x, 0, 14, S);
+    for (const cx of [x + 80, x + 180]) { c.fillStyle = '#8e9aa2'; c.beginPath(); c.arc(cx, 190, 34, 0, Math.PI * 2); c.fill(); c.fillStyle = '#c9cfd2'; c.beginPath(); c.arc(cx - 6, 184, 22, 0, Math.PI * 2); c.fill(); }
+  }
+  tagLayer(c, S, rand, 6);
+  grime(c, S, rand, 10, 0.4);
+  return tex(THREE, cv);
+}
+// écran en béton à REDENTS verticaux (ailettes beiges) — Bercy
+export function finsTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1708);
+  c.fillStyle = '#c9bea8'; c.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 64) {
+    const g = c.createLinearGradient(x, 0, x + 64, 0);
+    g.addColorStop(0, '#e2d8c4'); g.addColorStop(0.35, '#cfc4ae'); g.addColorStop(0.8, '#9c937f'); g.addColorStop(1, '#7c7464');
+    c.fillStyle = g; c.fillRect(x, 0, 64, S);
+  }
+  c.fillStyle = '#d9cfba'; c.fillRect(0, S - 90, S, 90);
+  c.fillStyle = 'rgba(0,0,0,0.15)'; c.fillRect(0, S - 92, S, 4);
+  grime(c, S, rand, 14, 0.45);
+  return tex(THREE, cv);
+}
+// écran VITRÉ à poteaux sombres et lisse verte — porte de Versailles
+export function glassScreenTexture(THREE) {
+  const S = 512, cv = cnv(S, S), c = cv.getContext('2d'), rand = rng(1709);
+  const g = c.createLinearGradient(0, 0, 0, S);
+  g.addColorStop(0, '#a9bcc6'); g.addColorStop(0.6, '#7f949f'); g.addColorStop(1, '#5d6e77');
+  c.fillStyle = g; c.fillRect(0, 0, S, S);
+  for (let i = 0; i < 10; i++) { c.fillStyle = `rgba(255,255,255,${0.05 + rand() * 0.08})`; c.save(); c.translate(rand() * S, 0); c.rotate(0.3); c.fillRect(0, -40, 8 + rand() * 30, S + 80); c.restore(); }
+  c.fillStyle = '#2d3236'; for (const x of [0, 256]) c.fillRect(x, 0, 12, S);
+  c.fillStyle = '#4f7a58'; c.fillRect(0, S - 120, S, 10);
+  c.fillStyle = '#3d4246'; c.fillRect(0, 0, S, 10);
+  return tex(THREE, cv);
 }
