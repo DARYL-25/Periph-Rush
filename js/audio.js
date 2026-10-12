@@ -327,6 +327,8 @@ export class GameAudio {
 
   stopEngine() {
     if (!this.ctx) return;
+    this.playerHorn(false);
+    this.setStation('off');
     const t = this.ctx.currentTime;
     this.engGain.gain.setTargetAtTime(0, t, 0.2);
     this.intakeG?.gain.setTargetAtTime(0, t, 0.2);
@@ -415,6 +417,29 @@ export class GameAudio {
     }
   }
   horn(far = false) { this.hornAt('horn', 0, far ? 40 : 8); }
+  // klaxon du joueur : tenu tant que le bouton est appuyé (deux tons, timbre selon le véhicule)
+  playerHorn(on, moto = false) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    if (on && this.enabled && !this._ph) {
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.11, t + 0.025);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2600;
+      f.connect(g).connect(this.dry);
+      const oscs = (moto ? [610, 735] : [415, 520]).map((fq) => {
+        const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = fq; o.connect(f); o.start(t); return o;
+      });
+      this._ph = { g, oscs };
+    } else if (!on && this._ph) {
+      const { g, oscs } = this._ph;
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + 0.07);
+      for (const o of oscs) o.stop(t + 0.1);
+      this._ph = null;
+    }
+  }
 
   // sirène deux-tons (435 / 488 Hz) ; level 0 = coupée ; doppler = rapport de fréquence
   siren(level, doppler = 1, pan = 0, dt = 0.016) {
@@ -470,5 +495,100 @@ export class GameAudio {
       return true;
     } catch (e) { return false; }
   }
-  stopRadio() { if (window.speechSynthesis) speechSynthesis.cancel(); }
+  stopRadio() { if (window.speechSynthesis) speechSynthesis.cancel(); this.setStation('off'); }
+
+  // ---------- stations musicales (v20) : musique générée à la volée -------------
+  // Rien n'est enregistré (aucun morceau existant) : accords, basse et batterie
+  // synthétisés, programmés ~0,5 s à l'avance (coût CPU négligeable).
+  setStation(key) {
+    if (key === this.station) return;
+    this.station = key;
+    clearInterval(this._musT);
+    this._musT = null;
+    if (this.musBus) {
+      const t = this.ctx.currentTime;
+      this.musBus.gain.setTargetAtTime(0, t, 0.15);
+      const old = this.musBus;
+      setTimeout(() => { try { old.disconnect(); } catch (e) { /* déjà déconnecté */ } }, 600);
+      this.musBus = null;
+    }
+    if (!this.ctx || !this.enabled || (key !== 'lounge' && key !== 'electro')) return;
+    const ctx = this.ctx;
+    this.musBus = ctx.createGain();
+    this.musBus.gain.value = 0;
+    this.musBus.gain.setTargetAtTime(key === 'lounge' ? 0.22 : 0.18, ctx.currentTime, 0.4);
+    // petit filtre « autoradio » (bande passante réduite) + compression douce
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 70;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
+    this.musBus.connect(hp).connect(lp).connect(comp).connect(this.dry);
+    const bpm = key === 'lounge' ? 84 : 122;
+    const spb = 60 / bpm;
+    let seed = (Math.random() * 1e9) | 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    // progressions (degrés en demi-tons depuis la tonique), tonalité tirée au hasard
+    const root = 45 + ((rnd() * 7) | 0); // La..Mi♭ grave
+    const progs = key === 'lounge'
+      ? [[[0, 3, 7, 10], [5, 8, 12, 15], [-2, 2, 5, 9], [3, 7, 10, 14]], [[0, 3, 7, 10], [-4, 0, 3, 7], [-2, 2, 5, 9], [-5, -2, 2, 5]]]
+      : [[[0, 3, 7], [-4, 0, 3], [3, 7, 10], [-2, 2, 5]], [[0, 3, 7], [5, 8, 12], [3, 7, 10], [-2, 2, 5]]];
+    let prog = progs[(rnd() * progs.length) | 0];
+    const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+    const bus = this.musBus;
+    const note = (t, f, dur, { type = 'sine', vol = 0.1, attack = 0.01, release = 0.2, detune = 0, cutoff = 0 } = {}) => {
+      const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = detune;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + attack);
+      g.gain.setValueAtTime(vol, t + Math.max(attack, dur - release));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      let out = o;
+      if (cutoff) { const f2 = ctx.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = cutoff; f2.Q.value = 3; o.connect(f2); out = f2; }
+      out.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.05);
+    };
+    const noiseBuf = this._musNoise || (this._musNoise = (() => {
+      const b = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      return b;
+    })());
+    const hat = (t, vol, len = 0.05) => {
+      const sN = ctx.createBufferSource(); sN.buffer = noiseBuf;
+      const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000;
+      const g = ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      sN.connect(f).connect(g).connect(bus); sN.start(t); sN.stop(t + len + 0.02);
+    };
+    const kick = (t, vol) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      o.connect(g).connect(bus); o.start(t); o.stop(t + 0.32);
+    };
+    let beat = 0;
+    let next = ctx.currentTime + 0.25;
+    const schedule = () => {
+      if (this.musBus !== bus) return;
+      while (next < ctx.currentTime + 0.6) {
+        const bar = Math.floor(beat / 4), b4 = beat % 4;
+        if (bar % 8 === 0 && b4 === 0 && rnd() < 0.5) prog = progs[(rnd() * progs.length) | 0];
+        const ch = prog[bar % prog.length];
+        if (key === 'lounge') {
+          if (b4 === 0) for (const iv of ch) note(next, mtof(root + 12 + iv), spb * 3.8, { type: 'triangle', vol: 0.035, attack: 0.03, release: 1.2, detune: (rnd() - 0.5) * 8 });
+          if (b4 === 0 || (b4 === 2 && rnd() < 0.6)) note(next, mtof(root + ch[0] - (b4 === 2 ? 0 : 12) + 12), spb * 1.6, { type: 'sine', vol: 0.11, release: 0.4 });
+          if (b4 === 0) kick(next, 0.32);
+          if (b4 === 2) { hat(next, 0.05, 0.12); }
+          hat(next + spb * 0.5, 0.025);
+          if (rnd() < 0.35) note(next + spb * (rnd() < 0.5 ? 0 : 0.5), mtof(root + 24 + ch[(rnd() * ch.length) | 0]), spb * 0.9, { type: 'sine', vol: 0.03, release: 0.5 });
+        } else {
+          kick(next, 0.36);
+          hat(next + spb * 0.5, 0.06);
+          if (b4 % 2 === 1) hat(next, 0.035, 0.1);
+          for (let k = 0; k < 2; k++) note(next + k * spb * 0.5, mtof(root + ch[0] + (k ? 12 : 0)), spb * 0.42, { type: 'sawtooth', vol: 0.05, release: 0.08, cutoff: 500 + 400 * Math.sin(beat * 0.2) + 400 });
+          for (let k = 0; k < 4; k++) if (rnd() < 0.7) note(next + k * spb * 0.25, mtof(root + 24 + ch[(beat + k) % ch.length]), spb * 0.2, { type: 'square', vol: 0.016, release: 0.05, cutoff: 2600 });
+          if (b4 === 0 && bar % 2 === 0) for (const iv of ch) note(next, mtof(root + 12 + iv), spb * 7.5, { type: 'sawtooth', vol: 0.012, attack: 0.6, release: 2, cutoff: 1400, detune: (rnd() - 0.5) * 14 });
+        }
+        beat++;
+        next += spb;
+      }
+    };
+    schedule();
+    this._musT = setInterval(schedule, 150);
+  }
 }

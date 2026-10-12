@@ -9,6 +9,7 @@ import { CFG } from './config.js';
 import { rng } from './utils.js';
 import { Track } from './track.js';
 import { PlatePool } from './plates.js';
+import { Mirror } from './mirror.js';
 import { Fleet } from './fleet.js';
 import { VehicleFactory, CATALOG, PLAYER_IDS } from './vehicles.js';
 import { World } from './world.js';
@@ -91,13 +92,17 @@ async function boot() {
   {
     const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
     const FLEET = [['lutece', 'lutece_hi'], ['lutece_t', 'lutece'], ['mistral'], ['aurore'], ['concorde'], ['taxi'], ['riviera'], ['atlas'], ['odyssee'], ['cargo'], ['furia'],
-      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur'], ['police_pn'], ['crs_van'], ['w_heavy']];
+      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur'], ['police_pn'], ['crs_van'], ['w_heavy'], ['m_police']];
     await Promise.all(FLEET.map(async ([id, file]) => {
       try { await factory.loadGLB(id, `assets/fleet/${file || id}.glb`, GLTFLoader); }
       catch (e) { console.warn('GLB ' + id + ' indisponible — repli procédural', e); }
     }));
     // LOD lointains (≈ 1/3 des triangles) pour le trafic dense
-    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia', 'm_maxi', 'm_scoot', 'm_road', 'm_trail', 'm_livreur', 'police_pn', 'crs_van'];
+    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia', 'm_maxi', 'm_scoot', 'm_road', 'm_trail', 'm_livreur', 'police_pn', 'crs_van', 'm_police'];
+    // la variante « lutece_t » du trafic partage les LOD de la Lutèce
+    for (const [id, file] of [['lutece_t_far', 'lutece_far'], ['lutece_t_ufar', 'lutece_ufar']]) {
+      try { await factory.loadGLB(id, `assets/fleet/${file}.glb`, GLTFLoader); } catch (e) { console.warn('LOD ' + id, e); }
+    }
     await Promise.all(FAR.map(async (id) => {
       try { await factory.loadGLB(id + '_far', `assets/fleet/${id}_far.glb`, GLTFLoader); }
       catch (e) { console.warn('LOD lointain ' + id + ' indisponible', e); }
@@ -223,8 +228,12 @@ async function boot() {
     game.preview(prog.data.settings.startPorte, prog.data.settings.traffic ?? 1);
   });
   ui.on('camera', () => game.applyCamera());
+  ui.on('horn', (on) => game.playerHorn(on));
+  ui.on('flash', () => game.playerFlash());
+  ui.on('radio', () => game.radioChanged?.());
   ui.on('settings', () => {
     player.autoThrottle = prog.data.settings.autoThrottle;
+    player.sens = prog.data.settings.sensitivity ?? 1;
     applyQuality(prog.data.settings.quality);
   });
 
@@ -243,30 +252,40 @@ async function boot() {
 
   // ---------- qualité adaptative ----------
   let fpsEMA = 60, qualityTier = 'high', autoQuality = prog.data.settings.quality === 'auto';
+  // v20 : résolution dynamique — on ajuste la densité de pixels par petits pas pour
+  // rester fluide (≈ 60 i/s) avec la meilleure netteté possible ; on ne change de
+  // palier (ombres, LOD, densité de trafic) que si la résolution minimale ne suffit pas.
+  let dynDpr = null;
+  function tierCap(tier) { return Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'med' ? 1.6 : 1.2); }
   function applyQuality(q) {
     autoQuality = q === 'auto';
     const tier = autoQuality ? qualityTier : q;
     qualityTier = tier;
-    const dpr = Math.min(devicePixelRatio, tier === 'high' ? 2 : tier === 'med' ? 1.6 : 1.15);
-    renderer.setPixelRatio(dpr);
+    dynDpr = tierCap(tier);
+    renderer.setPixelRatio(dynDpr);
     traffic.quality = tier === 'high' ? 1 : tier === 'med' ? 0.8 : 0.6;
     ambience.setShadowQuality(tier);
     fleet.lodScale = tier === 'high' ? 1 : tier === 'med' ? 0.8 : 0.6;
+    fleet.wheelShadows = tier === 'high';
+    fleet.nearCap = tier === 'high' ? 14 : tier === 'med' ? 10 : 7;
   }
   applyQuality(prog.data.settings.quality);
-  let qualityTimer = 0;
+  let qualityTimer = 0, lowT = 0, highT = 0;
   function autoTuneQuality(dt) {
     if (!autoQuality) return;
     qualityTimer += dt;
-    if (qualityTimer < 3) return;
+    if (qualityTimer < 1.2) return;
     qualityTimer = 0;
-    if (fpsEMA < 47 && qualityTier !== 'low') {
-      qualityTier = qualityTier === 'high' ? 'med' : 'low';
-      applyQuality('auto');
-    } else if (fpsEMA > 57.5 && qualityTier !== 'high') {
-      qualityTier = qualityTier === 'low' ? 'med' : 'high';
-      applyQuality('auto');
-    }
+    const cap = tierCap(qualityTier), floor = Math.min(cap, 0.9);
+    if (fpsEMA < 52) {
+      lowT++; highT = 0;
+      if (dynDpr > floor + 0.01) { dynDpr = Math.max(floor, dynDpr - 0.12); renderer.setPixelRatio(dynDpr); }
+      else if (lowT > 2 && qualityTier !== 'low') { qualityTier = qualityTier === 'high' ? 'med' : 'low'; applyQuality('auto'); dynDpr = Math.max(floor, tierCap(qualityTier) * 0.85); renderer.setPixelRatio(dynDpr); lowT = 0; }
+    } else if (fpsEMA > 58.5) {
+      highT++; lowT = 0;
+      if (dynDpr < cap - 0.01) { dynDpr = Math.min(cap, dynDpr + 0.08); renderer.setPixelRatio(dynDpr); }
+      else if (highT > 6 && qualityTier !== 'high') { qualityTier = qualityTier === 'low' ? 'med' : 'high'; applyQuality('auto'); dynDpr = tierCap(qualityTier) * 0.8; renderer.setPixelRatio(dynDpr); highT = 0; }
+    } else { lowT = 0; highT = 0; }
   }
 
   // ---------- redimensionnement ----------
@@ -292,6 +311,8 @@ async function boot() {
   await step(96, 'Dernier coup de clé à molette…');
   await step(100, 'Bonne route !');
 
+  const mirror = new Mirror(THREE, renderer);
+
   // ---------- boucle principale ----------
   let last = performance.now();
   let attractT = 0;
@@ -308,6 +329,8 @@ async function boot() {
       fleet.update(rawDt, camera);
       game.beforeRender(rawDt, camera, renderer);
       renderer.render(scene, camera);
+      if (state === 'running') mirror.render(!!prog.data.settings.mirror && game.state === 'running', scene, player, track);
+      else mirror.el.classList.add('hidden');
     };
 
     if (state === 'running') {

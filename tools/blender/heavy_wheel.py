@@ -15,7 +15,7 @@ import os
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, 'assets', 'fleet', 'w_heavy.glb')
 R, WT = 0.5, 0.30
-SEG = 28
+SEG = 20
 
 
 def mat(name, color, metallic=0.0, rough=0.5):

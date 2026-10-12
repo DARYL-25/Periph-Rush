@@ -736,3 +736,34 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
   (→ `crs_van`), champ `beacon` pour placer les gyrophares. Les CRS passent en convoi (2 à 4 véhicules).
 - Cache SW `periph-v19`, `?v=19`.
 - Toujours à faire (demandé) : modes de jeu à missions (sortir à une porte précise, contre-la-montre d'un tour).
+
+## v20 — direction d'origine, inclinaison, klaxon/phares, police aux jumelles, accidents réalistes, radio, optimisation
+- **Direction** (`player.update`) : retour au modèle d'origine (v15/v16) — la consigne pilote la vitesse latérale,
+  au relâché la voiture s'arrête exactement où elle est (aucun aimant de voie). Effets visuels conservés (cap, roues
+  braquées, roulis, inclinaison moto). Réglage « Sensibilité direction » enfin branché (`player.sens`).
+- **Inclinaison du téléphone** (`hud.enableTilt`) : réglage « Direction », permission iOS demandée au geste (Jouer /
+  Reprendre / Rejouer), recalage du neutre à chaque départ, zone morte 1,2°, pleine course à 24°, courbe plus fine au centre.
+- **Klaxon / appels de phares** : boutons 📯 💡 (clavier H / F). `traffic.playerSignal` : le conducteur devant s'écarte,
+  s'en moque, pile d'un coup (`brakeFlash`) ou se vexe (`blockT` : reste devant et ralentit, klaxonne).
+- **Motos** : majorité en interfile (68–90 % selon le niveau), les autres dans leur voie, calées à gauche (`laneOff`).
+- **Entrées / sorties** : insertions prioritaires et franches (acceptation 0,55 → 0,2 en bout de voie, `mergeReq` fait
+  céder la voie de droite), entrées plus fréquentes ; sorties chargées : file sur la bretelle qui déborde sur la voie de
+  droite (`spawnExitQueue`, créée hors de vue).
+- **Police** (`js/police.js`) : contrôle aux jumelles dans le musoir d'une sortie (voiture + motos garées, policier aux
+  jumelles). Mesure entre 220 et 40 m ; au-delà de limite + 12 km/h, un motard (`m_police`, `police_moto`) démarre et
+  remonte l'interfile ; à votre hauteur 2,2 s (ou vous arrêté) → « INTERPELLÉ ». Abandonne si semé (> 320 m pendant 7 s)
+  ou après 95 s. Radars automatiques inchangés (rules.js).
+- **Accidents / travaux** (`events.js`, d'après les pratiques réelles : zone tampon 100 m, fourgon jaune à flèche,
+  police en protection en amont, bouchon de curiosité) : accident « frais » (warnings, débris, carrosseries enfoncées,
+  automobilistes en gilet le long de la glissière), « police » (voiture de biais, gyrophares, biseau, policier qui fait
+  ralentir), « dépannage » (fourgon à flèche + atténuateur, plateau chargé, parfois pompiers). Accrochages entre usagers
+  hors de vue (`npcCrash`). Travaux surtout la nuit : FLR, long biseau, camion de protection, barrières à lampes,
+  raboteuse, agents. Silhouettes : `js/people.js`.
+- **Radio** : stations Périph Info (parlée), Nuit Lounge, Électro Paris (musique générée en direct, `audio.setStation`),
+  bouton en jeu (clavier R).
+- **Rétroviseur** (`js/mirror.js`, option) : rendu 320×90 une image sur 3, sans mise à jour des ombres.
+- **Optimisation** : résolution dynamique par petits pas (`autoTuneQuality`), ombres 2048/1536/1024 resserrées,
+  14/10/7 véhicules max en haute définition (`fleet.nearCap`), LOD lointains en 4 appels de dessin (`collapseGroups`),
+  LOD manquants (lutece_t, poids lourds), recherche du meneur limitée aux véhicules devant. Pointe : 1,03 M → 0,65 M
+  triangles, 511 → 445 appels.
+- Cache SW `periph-v20`, `?v=20`. Toujours à faire (demandé) : missions, garage complet, fantôme / classement.

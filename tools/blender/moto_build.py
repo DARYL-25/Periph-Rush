@@ -445,7 +445,23 @@ DESIGNS = {
                       grip=(0.40, 1.0, 0.33), paint=(0.05, 0.05, 0.06), topbox=True, boxCol=0x1fb5a8,
                       R=dict(seat=(-0.2, 0.72), lean=0.1, grip=(0.40, 1.0, 0.33), foot=(0.2, 0.46, 0.15), knee=(1.0, 0.3, 0.7)),
                       pal=dict(jacket=0x1fa89c, pants=0x22252b, helmet=0x15161a)),
+    # v20 : motard de la Police nationale (moto routière blanche, valises, feux bleus) — design générique
+    'm_police': dict(kind='trail', WB=1.53, RF=0.33, RR=0.33, tireF=0.12, tireR=0.17, rake=26, forkL=0.78,
+                     grip=(0.40, 1.16, 0.4), paint=(0.92, 0.93, 0.94), police=True,
+                     R=dict(seat=(-0.32, 0.86), lean=0.12, grip=(0.40, 1.16, 0.4), foot=(-0.04, 0.44, 0.2), knee=(1.0, 0.35, 0.4)),
+                     pal=dict(jacket=0x1b2547, pants=0x1b2547, helmet=0xf2f3f5)),
 }
+
+
+def police_kit():
+    # valises latérales, top-case, feux bleus avant / arrière, bande bleue
+    for sd in (1, -1):
+        box(f'Pannier{sd}', (-0.58, sd * 0.31, 0.62), (0.52, 0.17, 0.36), 'det', 0xeef0f2, bevel=0.03)
+        box(f'PannierBand{sd}', (-0.58, sd * 0.397, 0.62), (0.5, 0.01, 0.07), 'det', 0x1e3a8a)
+        box(f'BlueF{sd}', (0.70, sd * 0.13, 1.02), (0.05, 0.07, 0.05), 'det', 0x2a5cff)
+    box('TopCase', (-0.78, 0, 0.98), (0.36, 0.38, 0.26), 'det', 0xeef0f2, bevel=0.03)
+    box('BlueR', (-0.80, 0, 1.16), (0.12, 0.2, 0.06), 'det', 0x2a5cff)
+    box('Screen', (0.56, 0, 1.24), (0.04, 0.42, 0.34), 'det', 0x9aa6b2, rot=(0, -0.35, 0))
 
 
 def build(vid):
@@ -460,6 +476,8 @@ def build(vid):
     else:
         build_trail(D)
     rider(D['R'], D['pal'])
+    if D.get('police'):
+        police_kit()
     # objet de référence « Body » attendu par l'export
     b = [o for o in bpy.data.objects if o.type == 'MESH' and not o.name.startswith('Wheel')]
     b[0].name = 'Body'

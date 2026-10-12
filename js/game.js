@@ -9,6 +9,7 @@ import { CFG, MS, KMH } from './config.js';
 import { clamp, lerp, loopDelta, wrap, damp } from './utils.js';
 import { TRAFFIC_LEVELS } from './traffic.js';
 import { Rules } from './rules.js';
+import { Police } from './police.js';
 import { Cockpit } from './cockpit.js';
 
 export class Game {
@@ -21,6 +22,7 @@ export class Game {
     this.smoke = this.makeSmoke();
     this.result = null;
     this.rules = new Rules(track, world, ui, audio, score);
+    this.police = new Police(THREE, scene, track, world.factory || traffic.factory, traffic);
     player.onLap = (lap) => this.onLap(lap);
   }
 
@@ -86,6 +88,7 @@ export class Game {
     this.slowmoT = 0;
     this.score.reset();
     this.events.reset();
+    this.police.reset();
     const set = this.ui.prog.data.settings;
     this.traffic.level = set.traffic ?? 1;
     this.world.trafficLevel = this.traffic.level;
@@ -99,6 +102,7 @@ export class Game {
     this.player.v = MS(LV.startV);
     this.player.bundle.group.visible = true;
     this.player.autoThrottle = this.ui.prog.data.settings.autoThrottle;
+    this.player.sens = this.ui.prog.data.settings.sensitivity ?? 1;
     this.player.input = this.ui.input;
     this.traffic.reset(this.player.s);
     this.ambIndex = 0;
@@ -178,7 +182,10 @@ export class Game {
       if (this.player.input.brake > 0.6 && this.player.v > MS(40)) this.score.dirty();
     }
     this.traffic.update(dt, this.player, this.events);
+    this.events.hour = this.ambience.hour;
     this.events.update(dt, this.player, this.traffic);
+    if (this.state === 'running') this.police.update(dt, this.player, this);
+    if (this.state !== 'running' && this.state !== 'crashing') return;
     this.world.update(this.player.s);
     const tunnel = this.track.inTunnel(this.player.s);
     this.ambience.update(rawDt, this.player.bundle.group.position, !!tunnel);
@@ -206,6 +213,23 @@ export class Game {
     }
   }
 
+  // ---------- klaxon / appel de phares du joueur ----------------------------
+  playerHorn(on) {
+    if (this.state !== 'running') { this.audio.playerHorn(false); return; }
+    this.audio.playerHorn(on, this.player.isMoto);
+    if (on) this.signalReact('horn');
+  }
+  playerFlash() {
+    if (this.state !== 'running') return;
+    this.player.flashLights();
+    this.signalReact('flash');
+  }
+  signalReact(kind) {
+    const r = this.traffic.playerSignal(kind, this.player);
+    if (r === 'brake') this.ui.popup('⚠ IL PILE !', 'fine');
+    else if (r === 'block') this.ui.popup('😠 IL VOUS BLOQUE', 'fine');
+  }
+
   // ---------- HUD -------------------------------------------------------------------
   updateHUD() {
     const p = this.player;
@@ -215,6 +239,8 @@ export class Game {
     if (p.ramp && p.ramp.kind === 'X') {
       const dest = p.ramp.j?.dests?.find((d) => /^Porte/.test(d[0]))?.[0] || p.ramp.j?.dests?.[0]?.[0];
       warning = `⛔ SORTIE${dest ? ' ' + dest.toUpperCase() : ''} — REVENEZ À GAUCHE !`;
+    } else if (this.police.chase) {
+      warning = this.police.chaseText(p);
     } else if (this.rules.warning) {
       warning = this.rules.warning;
     } else if (ev) {
@@ -270,7 +296,7 @@ export class Game {
     // sirène la plus proche (Doppler : approche = plus aigu)
     let best = null, bd = 1e9;
     for (const n of this.traffic.npcs) {
-      if (n.mode !== 'emerg') continue;
+      if (n.mode !== 'emerg' && n.mode !== 'chase') continue;
       const ds = loopDelta(n.s, p.s, L);
       const d = Math.hypot(ds, n.lat - p.lat);
       if (d < bd) { bd = d; best = { n, ds }; }
@@ -286,11 +312,24 @@ export class Game {
       if (this._joint !== undefined && k !== this._joint && p.v > 3) a.thump();
       this._joint = k;
     } else this._joint = undefined;
-    // radio info-trafic
-    if (this.ui.prog.data.settings.radio !== false) {
+    // radio : station choisie (info-trafic parlée ou musique générée)
+    const st = this.radioKey();
+    if (a.station !== st) a.setStation(st);
+    if (st === 'info') {
       this.radioT = (this.radioT ?? 22) - dt;
       if (this.radioT <= 0) { this.radioT = 140 + Math.random() * 60; a.radio(this.radioText()); }
     }
+  }
+
+  radioKey() {
+    const v = this.ui.prog.data.settings.radio;
+    return v === false ? 'off' : v === true || v == null ? 'info' : v;
+  }
+  radioChanged() {
+    if (this.state !== 'running') return;
+    this.audio.stopRadio();
+    this.audio.setStation(this.radioKey());
+    if (this.radioKey() === 'info') this.radioT = 2;
   }
 
   radioText() {
@@ -422,7 +461,8 @@ export class Game {
     }
     p.v *= kind === 'front' ? 0.55 : kind === 'cone' ? 0.85 : 0.8;
     // v19 : le choc casse la trajectoire en cours (cap redressé, cible latérale recalculée)
-    p.h *= kind === 'front' ? 0.5 : 0.25; p.r = 0; p._latHold = null;
+    p.h *= kind === 'front' ? 0.5 : 0.25; p.r = 0;
+    p.vl = npc ? (Math.sign(p.lat - this.traffic.latOf(npc)) || 1) * 2.6 : kind.startsWith('barrier') ? (kind === 'barrier-right' ? -1.5 : 1.5) : (p.vl || 0) * 0.3;
     this.ui.popup(`${kind === 'cone' ? 'CÔNE PERCUTÉ' : 'ACCROCHAGE'} · CARROSSERIE −${dmg} %`, 'fine');
   }
 

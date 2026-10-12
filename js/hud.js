@@ -18,6 +18,7 @@ export class UI {
     this.cb = {}; // callbacks du jeu
     this.bindButtons();
     this.bindKeyboard();
+    this.refreshRadio();
   }
 
   on(name, fn) { this.cb[name] = fn; return this; }
@@ -54,11 +55,16 @@ export class UI {
     hold('btn-left', () => { this.touchL = true; this.applySteer(); }, () => { this.touchL = false; this.applySteer(); });
     hold('btn-right', () => { this.touchR = true; this.applySteer(); }, () => { this.touchR = false; this.applySteer(); });
     hold('btn-gas', () => { this.input.throttle = 1; }, () => { this.input.throttle = 0; });
+    // klaxon (maintenu) et appel de phares (impulsion)
+    hold('btn-horn', () => { this.input.horn = true; this.emit('horn', true); }, () => { this.input.horn = false; this.emit('horn', false); });
+    hold('btn-flash', () => { this.emit('flash'); }, () => {});
+    $('btn-radio').addEventListener('click', () => this.cycleRadio());
     hold('btn-brake', () => { this.input.brake = 1; }, () => { this.input.brake = 0; });
     $('btn-pause').addEventListener('click', () => this.emit('pause'));
 
     // menus
-    $('m-play').onclick = () => { this.audio.click(); this.emit('play'); };
+    const tiltGesture = () => { if (this.prog.data.settings.steerMode === 'inclinaison') { (this.tiltOn ? Promise.resolve() : this.enableTilt()).then(() => setTimeout(() => this.calibrateTilt(), 60)); } };
+    $('m-play').onclick = () => { this.audio.click(); tiltGesture(); this.emit('play'); };
     $('m-garage').onclick = () => { this.audio.click(); this.emit('garage'); };
     $('m-defis').onclick = () => { this.audio.click(); this.show('defis'); };
     $('m-reglages').onclick = () => { this.audio.click(); this.show('reglages'); };
@@ -68,10 +74,10 @@ export class UI {
     $('g-prev').onclick = () => { this.audio.click(); this.garageMove(-1); };
     $('g-next').onclick = () => { this.audio.click(); this.garageMove(1); };
     $('g-action').onclick = () => this.garageAction();
-    $('p-resume').onclick = () => { this.audio.click(); this.emit('resume'); };
-    $('p-restart').onclick = () => { this.audio.click(); this.emit('restart'); };
+    $('p-resume').onclick = () => { this.audio.click(); tiltGesture(); this.emit('resume'); };
+    $('p-restart').onclick = () => { this.audio.click(); tiltGesture(); this.emit('restart'); };
     $('p-menu').onclick = () => { this.audio.click(); this.emit('quitToMenu'); };
-    $('go-retry').onclick = () => { this.audio.click(); this.emit('restart'); };
+    $('go-retry').onclick = () => { this.audio.click(); tiltGesture(); this.emit('restart'); };
     $('go-garage').onclick = () => { this.audio.click(); this.emit('garage'); };
     $('go-menu').onclick = () => { this.audio.click(); this.emit('quitToMenu'); };
 
@@ -85,7 +91,12 @@ export class UI {
     $('set-weather').onchange = (e) => { this.prog.data.settings.weather = e.target.value; this.prog.save(); this.queuePreview(); };
     $('set-hour').onchange = (e) => { this.prog.data.settings.startHour = e.target.value; this.prog.save(); this.queuePreview(); };
     $('set-camera').onchange = (e) => { this.prog.data.settings.camera = e.target.value; this.prog.save(); this.emit('camera'); };
-    $('set-radio').onchange = (e) => { this.prog.data.settings.radio = e.target.checked; this.prog.save(); this.emit('settings'); };
+    $('set-radio').onchange = (e) => { this.prog.data.settings.radio = e.target.value; this.prog.save(); this.refreshRadio(); this.emit('radio'); };
+    $('set-mirror').onchange = (e) => { this.prog.data.settings.mirror = e.target.checked; this.prog.save(); this.emit('settings'); };
+    $('set-steer').onchange = (e) => {
+      this.prog.data.settings.steerMode = e.target.value; this.prog.save();
+      if (e.target.value === 'inclinaison') this.enableTilt(); else this.disableTilt();
+    };
     $('btn-cam').addEventListener('click', () => {
       const st = this.prog.data.settings;
       st.camera = st.camera === 'cockpit' ? 'chase' : 'cockpit';
@@ -116,7 +127,69 @@ export class UI {
   }
 
   applySteer() {
+    if (this.tiltOn) return;
     this.input.steer = (this.touchR ? 1 : 0) - (this.touchL ? 1 : 0);
+  }
+
+  // ---------- radio : stations ----------------------------------------------
+  static radioKey(v) { return v === false ? 'off' : v === true || v == null ? 'info' : v; }
+  cycleRadio() {
+    const order = ['info', 'lounge', 'electro', 'off'];
+    const st = this.prog.data.settings;
+    st.radio = order[(order.indexOf(UI.radioKey(st.radio)) + 1) % order.length];
+    this.prog.save();
+    this.refreshRadio();
+    this.emit('radio');
+  }
+  refreshRadio() {
+    const k = UI.radioKey(this.prog.data.settings.radio);
+    $('radio-name').textContent = { info: 'PÉRIPH INFO', lounge: 'NUIT LOUNGE', electro: 'ÉLECTRO PARIS', off: 'RADIO OFF' }[k];
+    $('btn-radio').classList.toggle('off', k === 'off');
+  }
+
+  // ---------- direction par inclinaison du téléphone ---------------------------
+  async enableTilt() {
+    try {
+      const DOE = window.DeviceOrientationEvent;
+      if (DOE && typeof DOE.requestPermission === 'function') {
+        const r = await DOE.requestPermission(); // iOS : doit venir d'un geste utilisateur
+        if (r !== 'granted') { this.popup?.('Inclinaison refusée : direction par boutons', 'fine'); this.prog.data.settings.steerMode = 'boutons'; this.prog.save(); this.refreshReglages?.(); return; }
+      }
+    } catch (e) { /* ancien navigateur : pas de permission à demander */ }
+    if (!this._onTilt) {
+      this._onTilt = (ev) => {
+        if (ev.gamma == null) return;
+        const ang = (screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0;
+        let t = ev.gamma;
+        if (ang === 90) t = ev.beta; else if (ang === -90 || ang === 270) t = -ev.beta; else if (ang === 180) t = -ev.gamma;
+        this.tiltRaw = t;
+        if (this.tiltZero == null) this.tiltZero = t;
+        if (!this.tiltOn) return;
+        let x = t - this.tiltZero;
+        const dead = 1.2, full = 24;
+        x = Math.sign(x) * Math.max(0, Math.abs(x) - dead) / (full - dead);
+        x = Math.sign(x) * Math.pow(Math.min(1, Math.abs(x)), 1.35); // plus fin au centre : placement au millimètre
+        this.input.steer = clamp(x, -1, 1);
+      };
+      window.addEventListener('deviceorientation', this._onTilt);
+    }
+    this.tiltOn = true;
+    this.tiltZero = this.tiltRaw ?? null;
+    document.body.classList.add('tilt-steer');
+  }
+  disableTilt() {
+    this.tiltOn = false;
+    this.input.steer = 0;
+    document.body.classList.remove('tilt-steer');
+  }
+  // position « neutre » = façon dont on tient le téléphone au départ
+  calibrateTilt() {
+    if (!this.tiltOn) return;
+    this.tiltZero = this.tiltRaw ?? null;
+    const h = $('tilt-hint');
+    h.classList.remove('hidden');
+    clearTimeout(this._tiltHintT);
+    this._tiltHintT = setTimeout(() => h.classList.add('hidden'), 2500);
   }
 
   bindKeyboard() {
@@ -132,9 +205,12 @@ export class UI {
       if (e.repeat) return;
       this.keys.add(e.code);
       if (e.code === 'Escape' || e.code === 'KeyP') this.emit('pause');
+      if (e.code === 'KeyH') this.emit('horn', true);
+      if (e.code === 'KeyF') this.emit('flash');
+      if (e.code === 'KeyR') this.cycleRadio();
       upd();
     });
-    window.addEventListener('keyup', (e) => { this.keys.delete(e.code); upd(); });
+    window.addEventListener('keyup', (e) => { this.keys.delete(e.code); if (e.code === 'KeyH') this.emit('horn', false); upd(); });
     window.addEventListener('blur', () => { this.keys.clear(); upd(); });
   }
 
@@ -356,7 +432,9 @@ export class UI {
     $('set-weather').value = s.weather || 'auto';
     $('set-hour').value = s.startHour || 'auto';
     $('set-camera').value = s.camera || 'chase';
-    $('set-radio').checked = s.radio !== false;
+    $('set-radio').value = UI.radioKey(s.radio);
+    $('set-mirror').checked = !!s.mirror;
+    $('set-steer').value = s.steerMode || 'boutons';
   }
 
   // ---------- garage -------------------------------------------------------------

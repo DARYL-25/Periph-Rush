@@ -43,6 +43,32 @@ function softTexture(T) {
   return new T.CanvasTexture(cv);
 }
 
+// v20 : LOD lointains en 4 appels de dessin au lieu de 6 — tout ce qui n'est pas
+// la carrosserie (vitres, détails, chromes, optiques) passe dans le matériau mat
+// à couleurs de sommets, teinte de chaque matériau « cuite » dans les sommets.
+function collapseGroups(T, src) {
+  const g = src.clone();
+  const col = g.getAttribute('color');
+  if (!col || !g.index || !g.groups.length) return src;
+  const tint = { 1: new T.Color(0x0d1218), 3: new T.Color(0xb9bec4) }; // optiques (4, 5) gardées : elles s'allument la nuit
+  const idx = g.index;
+  for (const gr of g.groups) {
+    const c = tint[gr.materialIndex];
+    if (!c) continue; // 0 carrosserie, 2 détails (déjà en couleurs de sommets)
+    for (let i = gr.start; i < gr.start + gr.count; i++) { const v = idx.getX(i); col.setXYZ(v, c.r, c.g, c.b); }
+  }
+  col.needsUpdate = true;
+  const old = g.groups.map((q) => ({ ...q }));
+  const mid = old.filter((q) => q.materialIndex >= 1 && q.materialIndex <= 3);
+  g.clearGroups();
+  const span = (list, mi) => { if (!list.length) return; const a = Math.min(...list.map((q) => q.start)); const b = Math.max(...list.map((q) => q.start + q.count)); g.addGroup(a, b - a, mi); };
+  // ordre d'assemblage : carrosserie, vitres, détails, chromes, feux AV, feux AR → 4 plages
+  for (const q of old) if (q.materialIndex === 0) g.addGroup(q.start, q.count, 0);
+  span(mid, 2);
+  for (const q of old) if (q.materialIndex >= 4) g.addGroup(q.start, q.count, q.materialIndex);
+  return g;
+}
+
 class Layer {
   constructor(T, scene, geom, mat, cap, { shadow = false, color = false, uv = false, order = 0 } = {}) {
     this.mesh = new T.InstancedMesh(geom, mat, cap);
@@ -145,7 +171,7 @@ export class Fleet {
       return layer;
     };
     // la géométrie est en repère « modèle » (x = avant) : rotation -90° intégrée par instance
-    const near = mk(gb || g, true), far = gf ? mk(gf, false) : gb ? mk(g, false) : null, ufar = gu ? mk(gu, false) : null;
+    const near = mk(gb || g, true), far = gf ? mk(collapseGroups(T, gf), false) : gb ? mk(collapseGroups(T, g), false) : null, ufar = gu ? mk(collapseGroups(T, gu), false) : null;
     // roues instanciées : un gabarit par côté (géométrie centrée sur le moyeu, groupes pneu / jante)
     let wheels = null;
     if (gb && g.userData.wheels?.length) {
@@ -156,6 +182,7 @@ export class Fleet {
       const mkW = (tpl) => {
         if (!layers.has(tpl)) {
           const l = new Layer(T, this.scene, tpl.geom, [this.tireMat, this.mats[3]], 640, { shadow: true });
+          l.isWheel = true;
           layers.set(tpl, l);
         }
         return layers.get(tpl);
@@ -219,7 +246,17 @@ export class Fleet {
     this.time += dt;
     const camPos = camera.getWorldPosition(this.camPos);
     const k = (this.lodScale ?? 1) * (this.handles.size > 90 ? 0.75 : 1);
-    const D1 = (LOD_DIST * k) ** 2, D2 = (LOD_DIST2 * k) ** 2;
+    let D1 = (LOD_DIST * k) ** 2;
+    const D2 = (LOD_DIST2 * k) ** 2;
+    // v20 : au plus nearCap véhicules en haute définition (bouchons : des dizaines de
+    // voitures à moins de 34 m) — on garde les plus proches, les autres passent en LOD
+    const cap = this.nearCap ?? 14;
+    if (this.handles.size > cap) {
+      const ds = this._ds || (this._ds = []);
+      ds.length = 0;
+      for (const h of this.handles) if (h.visible) { const q = h.group.position.distanceToSquared(camPos); if (q < D1) ds.push(q); }
+      if (ds.length > cap) { ds.sort((a, b) => a - b); D1 = ds[cap - 1] + 0.01; }
+    }
     for (const b of this.buckets.values()) { b.near.begin(); b.far?.begin(); b.ufar?.begin(); if (b.wheels) for (const l of b.wheels.layers) l.begin(); }
     for (const k in this.L) this.L[k].begin();
     const blinkOn = (h) => ((this.time + h.blinkPhase) % 0.8) < 0.42;
@@ -282,7 +319,7 @@ export class Fleet {
         }
       }
     }
-    for (const b of this.buckets.values()) { b.near.end(); b.far?.end(); b.ufar?.end(); if (b.wheels) for (const l of b.wheels.layers) l.end(); }
+    for (const b of this.buckets.values()) { b.near.end(); b.far?.end(); b.ufar?.end(); if (b.wheels) for (const l of b.wheels.layers) { l.end(); l.mesh.castShadow = this.wheelShadows !== false; } }
     for (const k in this.L) this.L[k].end();
   }
 

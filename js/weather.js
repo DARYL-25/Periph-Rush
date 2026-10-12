@@ -164,8 +164,10 @@ export class Ambience {
 
   // qualité des ombres selon la puissance de l'appareil
   setShadowQuality(tier) {
-    const size = tier === 'high' ? 4096 : tier === 'med' ? 2048 : 1024;
-    const span = tier === 'high' ? 70 : 55;
+    // v20 : carte d'ombres resserrée autour du joueur (4096 → 2048 en haute qualité :
+    // même netteté utile, 4× moins de pixels à remplir sur iPhone)
+    const size = tier === 'high' ? 2048 : tier === 'med' ? 1536 : 1024;
+    const span = tier === 'high' ? 52 : tier === 'med' ? 46 : 40;
     const sh = this.sun.shadow;
     if (sh.mapSize.x === size && this._span === span) return;
     sh.mapSize.set(size, size);

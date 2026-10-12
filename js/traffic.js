@@ -24,12 +24,12 @@ const EMERG_IDS = ['police', 'police', 'samu', 'pompiers', 'crs'];
 // niveaux de trafic : 0 fluide · 1 chargé · 3 dense (accordéon) · 2 heure de pointe (très bouché)
 // (l'indice 3 a été ajouté en v19 : l'ordre d'affichage est 0, 1, 3, 2)
 export const TRAFFIC_LEVELS = [
-  { key: 'fluide', label: 'Fluide', countMul: 0.75, cap: 44, winA: 420, winB: 160, onc: 1, moto: 0.10, inter: 0.55, gap0: 0.6, jamEvery: [3600, 6000], jamLen: [160, 300], jamSev: [0.4, 0.7], jamMin: 6, vms: 52, startV: 48, pExit: 0.10, entryEvery: 9, emergEvery: [110, 200] },
-  { key: 'charge', label: 'Chargé', countMul: 1.6, cap: 80, winA: 400, winB: 140, onc: 1.4, moto: 0.15, inter: 0.78, gap0: 0.72, jamEvery: [1500, 3200], jamLen: [280, 560], jamSev: [0.65, 0.95], jamMin: 3, vms: 29, startV: 40, pExit: 0.16, entryEvery: 4.5, emergEvery: [80, 150] },
-  { key: 'bouche', label: 'Heure de pointe', countMul: 5.2, cap: 150, winA: 280, winB: 90, onc: 2.6, moto: 0.24, inter: 0.93, gap0: 0.86, jamEvery: [700, 1500], jamLen: [380, 780], jamSev: [0.88, 1.0], jamMin: 0, vms: 12, startV: 24, pExit: 0.2, entryEvery: 2.6, emergEvery: [60, 120] },
+  { key: 'fluide', label: 'Fluide', countMul: 0.75, cap: 44, winA: 420, winB: 160, onc: 1, moto: 0.10, inter: 0.68, gap0: 0.6, jamEvery: [3600, 6000], jamLen: [160, 300], jamSev: [0.4, 0.7], jamMin: 6, vms: 52, startV: 48, pExit: 0.10, entryEvery: 6, emergEvery: [110, 200] },
+  { key: 'charge', label: 'Chargé', countMul: 1.6, cap: 80, winA: 400, winB: 140, onc: 1.4, moto: 0.15, inter: 0.8, gap0: 0.72, jamEvery: [1500, 3200], jamLen: [280, 560], jamSev: [0.65, 0.95], jamMin: 3, vms: 29, startV: 40, pExit: 0.16, entryEvery: 3.4, emergEvery: [80, 150] },
+  { key: 'bouche', label: 'Heure de pointe', countMul: 5.2, cap: 150, winA: 280, winB: 90, onc: 2.6, moto: 0.24, inter: 0.9, gap0: 0.86, jamEvery: [700, 1500], jamLen: [380, 780], jamSev: [0.88, 1.0], jamMin: 0, vms: 12, startV: 24, pExit: 0.2, entryEvery: 2.1, emergEvery: [60, 120] },
   // v19 : très chargé mais ça roule — coups de frein soudains (ondes de freinage qui remontent la file)
   // puis ça repart vite, sans arrêt prolongé
-  { key: 'accordeon', label: 'Dense', countMul: 3.1, cap: 120, winA: 330, winB: 115, onc: 2.0, moto: 0.2, inter: 0.85, gap0: 0.8, jamEvery: [1400, 2600], jamLen: [160, 320], jamSev: [0.55, 0.8], jamMin: 10, vms: 24, startV: 36, pExit: 0.18, entryEvery: 3.2, emergEvery: [70, 140] },
+  { key: 'accordeon', label: 'Dense', countMul: 3.1, cap: 120, winA: 330, winB: 115, onc: 2.0, moto: 0.2, inter: 0.85, gap0: 0.8, jamEvery: [1400, 2600], jamLen: [160, 320], jamSev: [0.55, 0.8], jamMin: 10, vms: 24, startV: 36, pExit: 0.18, entryEvery: 2.5, emergEvery: [70, 140] },
 ];
 export const TRAFFIC_ORDER = [0, 1, 3, 2];
 
@@ -207,6 +207,8 @@ export class Traffic {
     if (this.reserved && lane === 0 && !npc.eligible && nl > 2) lane = 1;
     if (this.reserved && npc.eligible && !interfile && this.rand() < 0.55) lane = 0;
     npc.lane = npc.laneFrom = npc.laneTo = lane;
+    // motos dans leur voie : calées sur le tiers gauche, plutôt vives
+    if (isMoto && !interfile) { npc.laneOff = -0.45 - this.rand() * 0.25; npc.lc = 1.6; }
     if (interfile) {
       npc.mode = 'interfile';
       const g = this.rand() < LV.gap0 ? 0 : this.gapMaxAt(s);
@@ -243,6 +245,43 @@ export class Traffic {
     this.npcs.push(npc);
   }
 
+  // file d'attente à une sortie chargée : la bretelle est pleine et la file
+  // déborde sur la voie de droite du périph (créée hors de vue, devant)
+  spawnExitQueue(playerS) {
+    if (!this.ramps || this.level === 0) return;
+    const L = this.track.length;
+    const nx = this.track.nextExit(wrap(playerS + 120, L));
+    if (!nx.exit || nx.dist > this.LV.winA - 40) return;
+    const j = nx.exit, r = this.rampOf(j, 'X');
+    if (!r || !this.isBusyExit(j)) return;
+    if (this._queued === j) return;          // une seule fois par passage
+    this._queued = j;
+    const want = this.level === 2 ? 14 : this.level === 3 ? 10 : 6;
+    const spill = this.level === 2 ? 5 : this.level === 3 ? 3 : 0; // véhicules qui attendent sur la voie de droite
+    let sq = wrap(j.s + r.div * 0.8, L);
+    let onR = 0, onL = 0;
+    for (let k = 0; k < 40; k++) {
+      const dp = loopDelta(sq, playerS, L);
+      if (dp < 110) break;                   // jamais sous les yeux du joueur
+      if (dp > this.LV.winA + 40) { sq = wrap(sq - 7, L); continue; } // hors fenêtre de simulation
+      const onRamp = loopDelta(sq, j.s, L) > -r.par + 6;
+      if (onRamp ? onR >= want : onL >= spill) { if (!onRamp) break; sq = wrap(sq - 7, L); continue; }
+      const id = this.pickId(this.rand() < 0.06);
+      const npc = this.makeNPC(id, sq, onRamp ? { mode: 'exit', ramp: r, rampBlend: 1 } : {});
+      const right = this.rightLane(sq);
+      npc.lane = npc.laneFrom = npc.laneTo = right;
+      npc.exitPlan = { j, r, busy: true };
+      npc.decided = j;
+      npc.blinker = 1;
+      npc.v = 0;
+      npc.lat = npc.latT = this.computeLat(npc);
+      // pas de test de collision entre véhicules de la file (espacement maîtrisé) : seulement le reste du trafic
+      const clash = this.npcs.some((o) => !o.exitPlan && Math.abs(loopDelta(o.s, npc.s, L)) < (o.len + npc.len) / 2 + 1.5 && Math.abs(o.lat - npc.lat) < 2.2);
+      if (!clash) { npc.bundle = this.acquire(id); this.npcs.push(npc); if (onRamp) onR++; else onL++; }
+      sq = wrap(sq - npc.len - 2.2 - this.rand() * 1.8, L);
+    }
+  }
+
   // véhicule de secours qui remonte par le corridor (entre voie 1 et voie 2)
   spawnEmergency(playerS) {
     const id = pick(this.rand, EMERG_IDS);
@@ -276,7 +315,7 @@ export class Traffic {
       return base + n.yieldOff;
     }
     if (n.mode === 'emerg') return interfileCenter(0);
-    const laneLat = lerp(laneCenter(n.laneFrom), laneCenter(n.laneTo), n.laneT) + n.yieldOff;
+    const laneLat = lerp(laneCenter(n.laneFrom), laneCenter(n.laneTo), n.laneT) + n.yieldOff + (n.laneOff || 0);
     if ((n.mode === 'exit' || n.mode === 'enter') && n.ramp) {
       const o = this.rampGeom(n);
       if (!o) return laneLat;
@@ -339,6 +378,7 @@ export class Traffic {
     const LV = this.LV;
     this.closures = (events ? events.closures : []).concat(this.track.laneDrops || []);
     this.slowZones = events ? events.slowZones : [];
+    this.oppZones = events && events.oppZones ? events.oppZones : [];
 
     // bouchons fantômes
     this.nextJamAt -= Math.max(player.v, MS(8)) * dt;
@@ -363,7 +403,9 @@ export class Traffic {
     }
     if (this.ramps) {
       this.entryT = (this.entryT ?? 2) - dt;
-      if (this.entryT <= 0) { this.entryT = LV.entryEvery * (0.5 + this.rand()); if (this.npcs.length < target * 1.15) this.spawnEntry(playerS); }
+      if (this.entryT <= 0) { this.entryT = LV.entryEvery * (0.5 + this.rand()); if (this.npcs.length < target * 1.2) this.spawnEntry(playerS); }
+      this.queueT = (this.queueT ?? 0) - dt;
+      if (this.queueT <= 0) { this.queueT = 1.5; this.spawnExitQueue(playerS); }
     }
     this.emergT = (this.emergT ?? lerp(LV.emergEvery[0], LV.emergEvery[1], this.rand()) * 0.5) - dt;
     if (this.emergT <= 0 && !this.npcs.some((n) => n.mode === 'emerg')) {
@@ -375,8 +417,11 @@ export class Traffic {
     for (const n of this.npcs) n.latT = this.computeLat(n); // trajectoire visée ; n.lat = position réelle
     const rel = (npc) => loopDelta(npc.s, playerS, L);
     this.npcs.sort((a, b) => rel(a) - rel(b));
+    // positions relatives figées pour cette image : la recherche du meneur ne parcourt
+    // que les véhicules situés devant (tableau trié), au lieu de tout le trafic
+    const relArr = this.npcs.map(rel);
     const playerObs = { s: playerS, lat: player.lat, v: player.v, len: player.len, wid: player.wid, isPlayer: true };
-    const emergs = this.npcs.filter((n) => n.mode === 'emerg');
+    const emergs = this.npcs.filter((n) => n.mode === 'emerg' || n.mode === 'chase');
     this.motoBehindPlayer = false;
     this.emergBehindPlayer = null;
     for (const e of emergs) {
@@ -387,18 +432,20 @@ export class Traffic {
 
     for (let i = 0; i < this.npcs.length; i++) {
       const n = this.npcs[i];
+      if (n.mode === 'chase') continue; // motard en poursuite : piloté par police.js
       const myLat = n.lat;
       const myMoving = Math.abs(n.latT - n.lat) > 0.4;
       const special = n.mode === 'interfile' || n.mode === 'emerg';
 
       // — leader (même couloir) —
       let leader = null, gap = 1e9;
-      for (let j = 0; j < this.npcs.length; j++) {
+      for (let j = Math.max(0, i - 4); j < this.npcs.length; j++) {
         if (j === i) continue;
+        if (relArr[j] - relArr[i] > 140) break;
         const o = this.npcs[j];
         const d = loopDelta(o.s, n.s, L);
         if (d <= 0.1 || d > 130) continue;
-        const sp = special || o.mode === 'interfile' || o.mode === 'emerg';
+        const sp = special || o.mode === 'interfile' || o.mode === 'emerg' || o.mode === 'chase';
         const thr = sp ? (o.wid + n.wid) / 2 + 0.15 : (o.wid + n.wid) / 2 + 0.55;
         // couloir occupé maintenant, couloir visé pendant un déport, et
         // véhicule devant qui se rabat dans notre couloir (on lui laisse la place)
@@ -442,6 +489,13 @@ export class Traffic {
       if (n.mode === 'emerg') v0 = n.v0;
       if (n.mode === 'exit' || n.mode === 'enter') v0 = Math.min(v0, this.rampSpeed(n));
       if (n.exitPlan && n.mode === 'lane') v0 = Math.min(v0, this.exitApproachSpeed(n));
+      if (n.reactCd > 0) n.reactCd -= dt;
+      if (n.blockT > 0) { // conducteur vexé : il cale sa vitesse sous la vôtre et ne cède pas
+        n.blockT -= dt;
+        const dp = loopDelta(n.s, playerS, L);
+        if (dp > 0 && dp < 40) v0 = Math.min(v0, Math.max(MS(15), player.v - 2.5));
+        else n.blockT = 0;
+      }
       n.panicAt -= n.v * dt;
       if (n.panicAt < 0) { n.panicAt = 500 + this.rand() * 1400; n.brakeFlash = 0.9 + this.rand() * 0.8; }
       if (n.brakeFlash > 0) { n.brakeFlash -= dt; v0 = Math.min(v0, n.v * 0.55); }
@@ -515,6 +569,7 @@ export class Traffic {
     for (let i = this.npcs.length - 1; i >= 0; i--) {
       const n = this.npcs[i];
       const d = loopDelta(n.s, playerS, L);
+      if (n.mode === 'chase' && !n.gone) continue;
       if (n.gone || d > LV.winA + 60 || d < -LV.winB - 60) {
         this.release(n.bundle);
         this.npcs.splice(i, 1);
@@ -544,7 +599,8 @@ export class Traffic {
         const d = loopDelta(o.s, q.s, L) - (o.len + q.len) / 2; // q devant o si o.s > q.s
         if (d > -0.5 && d < gap) { gap = d; lead = q; }
       }
-      const want = lead ? Math.min(o.v0, lead.v + (gap - 6) * 0.5) : o.v0;
+      let want = lead ? Math.min(o.v0, lead.v + (gap - 6) * 0.5) : o.v0;
+      for (const z of this.oppZones) if (wrap(o.s - z.s0, L) < wrap(z.s1 - z.s0, L)) want = Math.min(want, MS(16)); // curiosité
       o.v = Math.max(0, o.v + clamp(want - o.v, -6 * dt, 2 * dt));
       if (lead && gap < 1.5) o.v = Math.min(o.v, lead.v);
     }
@@ -585,7 +641,7 @@ export class Traffic {
         if (this.gapOK(n, 1, playerObs, 0.8)) this.startLaneChange(n, 1);
       } else if (n.lane > right) {
         if (this.gapOK(n, n.lane - 1, playerObs, 0.6)) this.startLaneChange(n, n.lane - 1);
-      } else if (n.v > 3 && this.rand() < dt * (0.1 + n.aggro * 0.26) * n.persona.lc * (this.busy ? 0.5 : 1)) {
+      } else if (!(n.blockT > 0) && n.v > 3 && this.rand() < dt * (0.1 + n.aggro * 0.26) * n.persona.lc * (this.busy ? 0.5 : 1)) {
         // changements de confort seulement en roulant (jamais dans une file arrêtée)
         this.considerLaneChange(n, leader, gap, playerObs);
       }
@@ -686,11 +742,14 @@ export class Traffic {
     if (o.parallel && o.vv < 0) {
       n.blinker = -1;
       const remain = n.ramp.par + n.ramp.taper * 0.6 + o.vv;
-      const accept = (remain < 30 ? 0.42 : 0.9) * n.persona.accept; // force un peu pour s'insérer
+      // priorité aux véhicules qui entrent : on force le passage, de plus en plus au bout de la voie
+      const accept = (remain < 40 ? 0.2 : remain < 80 ? 0.35 : 0.55) * n.persona.accept;
+      n.mergeReq = this.rightLane(n.s);
       const right = this.rightLane(n.s);
       if (this.gapOK(n, right, playerObs, accept, true)) {
         n.lane = n.laneFrom = n.laneTo = right; n.laneT = 1;
         n.merging = true; n.rampBlend = 0.999;
+        n.laneDur = 1.4 + this.rand() * 0.9; // insertion franche
       }
     }
   }
@@ -744,6 +803,47 @@ export class Traffic {
         return;
       }
     }
+  }
+
+  // ---------- klaxon / appel de phares du joueur ---------------------------
+  // Le conducteur devant réagit selon son tempérament : il s'écarte, s'en
+  // moque, pile d'un coup (« coup de frein ») ou devient agressif (bouche le
+  // passage, klaxonne en retour). Jamais systématique : sinon trop facile.
+  playerSignal(kind, player) {
+    const L = this.track.length;
+    let target = null, best = 1e9;
+    const range = kind === 'flash' ? 55 : 35;
+    for (const n of this.npcs) {
+      if (n.mode !== 'lane' && n.mode !== 'interfile') continue;
+      const d = loopDelta(n.s, player.s, L);
+      if (d <= 0 || d > range || Math.abs(n.lat - player.lat) > 1.7) continue;
+      if (d < best) { best = d; target = n; }
+    }
+    if (!target) return null;
+    const n = target;
+    if (n.reactCd > 0) return null;          // déjà sollicité il y a peu : il ne change pas d'avis
+    n.reactCd = 5 + this.rand() * 4;
+    const r = this.rand();
+    const P = n.personaKey === 'dimanche' ? [0.42, 0.75, 0.97] : n.personaKey === 'presse' ? [0.1, 0.38, 0.7] : [0.28, 0.72, 0.88];
+    let type = r < P[0] ? 'move' : r < P[1] ? 'ignore' : r < P[2] ? 'brake' : 'block';
+    if (n.mode === 'interfile') type = r < 0.4 ? 'ignore' : 'move';
+    if (type === 'move') {
+      if (n.mode === 'interfile') { n.yieldOff = (n.yieldOff || 0) + 0.6; type = 'ignore'; }
+      else {
+        const right = this.rightLane(n.s);
+        const playerObs = { s: player.s, lat: player.lat, v: player.v, len: player.len, wid: player.wid, isPlayer: true };
+        const opts = n.laneTo < right ? [n.laneTo + 1, n.laneTo - 1] : [n.laneTo - 1];
+        const ok = opts.find((t) => t >= 0 && t <= right && n.laneT >= 1 && !this.laneClosedAt(n.s, t, 80) && this.gapOK(n, t, playerObs, 0.7));
+        if (ok != null) { this.startLaneChange(n, ok); n.signalT = 0.3; }
+        else type = 'ignore';
+      }
+    }
+    if (type === 'brake') { n.brakeFlash = 0.6 + this.rand() * 0.6; n.hazardT = 0; }
+    if (type === 'block') {
+      n.blockT = 5 + this.rand() * 5;      // reste devant, ralentit pour vous embêter
+      this.sfx.push({ type: n.moto ? 'mhorn' : 'horn', s: n.s, lat: n.lat });
+    } else if (type === 'ignore' && this.rand() < 0.25) this.sfx.push({ type: n.moto ? 'mhorn' : 'horn', s: n.s, lat: n.lat });
+    return type;
   }
 
   // meneur dans une voie donnée (devant n)
@@ -815,7 +915,7 @@ export class Traffic {
     const hd = Math.atan2(err * 1.15, look);
     const wb = n.wb;
     let dDes = Math.atan((2 * wb * Math.sin(hd - n.h)) / look);
-    const aMax = n.mode === 'emerg' ? 4 : n.aLat * (1 - 0.3 * this.wet);
+    const aMax = n.mode === 'emerg' ? 4 : n.mode === 'chase' ? 6.5 : n.aLat * (1 - 0.3 * this.wet);
     const dMax = Math.min(0.5, Math.atan((aMax * wb) / (v * v)));
     dDes = clamp(dDes, -dMax, dMax);
     const rate = n.moto ? 1.5 : n.heavy ? 0.6 : 0.85;   // vitesse de braquage (rad/s aux roues)

@@ -9,6 +9,7 @@
 import { CFG, MS, laneCenter, ROAD_OUTER } from './config.js';
 import { rng, clamp, wrap, mergeGeoms, colorize, xform, pick } from './utils.js';
 import { worksPanelTexture } from './signs.js';
+import { personGeometry, OUTFITS } from './people.js';
 
 export class Events {
   constructor(THREE, scene, track, factory, world) {
@@ -33,9 +34,14 @@ export class Events {
     return this.active.filter((e) => e.opened).map((e) => ({ s0: e.s0, s1: e.s1, lanes: e.lanes }));
   }
   get slowZones() {
+    // ralentissement : approche du balisage + curiosité au droit d'un accident
     return this.active.filter((e) => e.opened).map((e) => ({
-      s0: wrap(e.s0 - 220, this.track.length), s1: e.s1, v: MS(26),
+      s0: wrap(e.s0 - 220, this.track.length), s1: e.s1, v: e.type === 'accident' ? MS(e.phase === 'frais' ? 17 : 22) : MS(28),
     }));
+  }
+  // sens extérieur : on ralentit aussi pour regarder (bouchon de curiosité)
+  get oppZones() {
+    return this.active.filter((e) => e.type === 'accident').map((e) => ({ s0: wrap(e.s0 - 40, this.track.length), s1: wrap(e.s1 + 80, this.track.length) }));
   }
 
   obstacles() {
@@ -47,6 +53,12 @@ export class Events {
   update(dt, player, traffic) {
     this.time += dt;
     const L = this.track.length;
+    // accrochage entre usagers, hors de vue devant : deux véhicules trop proches se percutent
+    this.crashT = (this.crashT ?? 40 + this.rand() * 60) - dt * (traffic && traffic.level ? (traffic.busy ? 1.6 : 1) : 0.4);
+    if (this.crashT <= 0 && traffic && this.active.length < 3) {
+      this.crashT = 70 + this.rand() * 110;
+      this.npcCrash(player, traffic);
+    }
     this.nextAt -= player.v * dt;
     if (this.nextAt <= 0) {
       this.spawn(player.s);
@@ -69,6 +81,25 @@ export class Events {
     }
   }
 
+  npcCrash(player, traffic) {
+    const L = this.track.length, T0 = this.track;
+    for (const a of traffic.npcs) {
+      if (a.mode !== 'lane' || a.heavy || a.moto) continue;
+      const d = loopDeltaE(a.s, player.s, L);
+      if (d < 250 || d > traffic.LV.winA - 15) continue;
+      if (T0.coverAt(a.s) || T0.onBridge(a.s) || T0.lanesAt(a.s) < 4 || (T0.ramps && T0.ramps.at(a.s, 0).some((o) => !o.parallel && o.g < 3))) continue;
+      const b = traffic.npcs.find((o) => o !== a && o.mode === 'lane' && !o.heavy && !o.moto && Math.abs(o.lat - a.lat) < 2.5 && loopDeltaE(o.s, a.s, L) > 0 && loopDeltaE(o.s, a.s, L) < 24);
+      if (!b) continue;
+      const lane = a.laneTo;
+      const ids = [a.id, b.id].map((id) => (traffic.factory.glb?.has(id) ? id : 'concorde'));
+      const cols = [a.bundle?.color?.getHex?.(), b.bundle?.color?.getHex?.()];
+      for (const n of [a, b]) n.gone = true;
+      this.spawnAccident(wrap(a.s - 18, L), { phase: 'frais', lane, ids, cols });
+      return true;
+    }
+    return false;
+  }
+
   // annonce pour le HUD : événement le plus proche devant
   warningAhead(playerS) {
     let best = null, bestD = Infinity;
@@ -84,135 +115,334 @@ export class Events {
 
   spawn(playerS) {
     const L = this.track.length;
-    const s0 = wrap(playerS + 1200 + this.rand() * 700, L);
-    // pas d'événement en tunnel ni sur pont
+    // pas d'événement en tunnel, sur pont ni dans une divergence de bretelle : plusieurs essais
     const T0 = this.track;
-    for (const d of [0, 120, 250]) {
-      const q = wrap(s0 + d, L);
-      if (T0.coverAt(q) || T0.onBridge(q) || T0.lanesAt(q) < 4 || (T0.ramps && T0.ramps.at(q, 0).length)) return;
+    let s0 = null;
+    for (let tries = 0; tries < 10 && s0 == null; tries++) {
+      const c = wrap(playerS + 1150 + this.rand() * 900, L);
+      let ok = true;
+      for (const d of [0, 120, 250]) {
+        const q = wrap(c + d, L);
+        if (T0.coverAt(q) || T0.onBridge(q) || T0.lanesAt(q) < 4 || (T0.ramps && T0.ramps.at(q, 0).some((o) => !o.parallel && o.g < 3))) { ok = false; break; }
+      }
+      if (ok) s0 = c;
     }
-    const type = this.rand() < 0.62 ? 'travaux' : 'accident';
+    if (s0 == null) return;
+    // travaux surtout la nuit (fermetures 22 h 30 – 5 h) ; accidents à toute heure, plus fréquents en trafic dense
+    const h = this.hour ?? 14, night = h >= 21.5 || h < 5.5;
+    const pW = night ? 0.7 : 0.18;
+    const type = this.rand() < pW ? 'travaux' : 'accident';
     if (type === 'travaux') this.spawnRoadworks(s0);
     else this.spawnAccident(s0);
   }
 
-  // ---------- chantier ---------------------------------------------------
+  // ---------- chantier (v20) ----------------------------------------------
+  // Le plus souvent la nuit (22 h 30 – 5 h) comme sur le vrai périph : remorque
+  // à flèche lumineuse loin en amont, long biseau de cônes, camion de
+  // protection avec atténuateur de choc et flèche, barrières à lampes
+  // clignotantes, engin (raboteuse), agents en orange.
   spawnRoadworks(s0) {
-    const T = this.T, track = this.track;
-    const len = 150 + this.rand() * 90;
-    const right = this.rand() < 0.7; // le plus souvent côté droit
+    const T = this.T, track = this.track, L = track.length;
+    const len = 170 + this.rand() * 110;
+    const right = this.rand() < 0.7;
     const two = this.rand() < 0.3;
     const lanes = right ? (two ? [2, 3] : [3]) : (two ? [0, 1] : [0]);
-    const s1 = wrap(s0 + len, track.length);
+    const s1 = wrap(s0 + len, L);
     const e = this.newEvent('travaux', s0, s1, lanes);
-    const group = e.group;
-    const cones = [];
-    const statics = [];
-    const p = this._p;
-
-    // biseau de cônes sur 45 m puis ligne le long de la voie fermée
-    const closedEdge = right ? laneCenter(Math.min(...lanes)) - CFG.LANE_WIDTH / 2
-      : laneCenter(Math.max(...lanes)) + CFG.LANE_WIDTH / 2;
-    const openEdge = right ? laneCenter(Math.max(...lanes)) + CFG.LANE_WIDTH / 2
-      : laneCenter(Math.min(...lanes)) - CFG.LANE_WIDTH / 2;
-    for (let d = 0; d < len; d += 6) {
-      const t = clamp(d / 45, 0, 1);
-      const lat = openEdge + (closedEdge - openEdge) * t;
-      this.addCone(cones, e, s0 + d, lat);
+    const cones = [], statics = [];
+    const closedEdge = right ? laneCenter(Math.min(...lanes)) - CFG.LANE_WIDTH / 2 : laneCenter(Math.max(...lanes)) + CFG.LANE_WIDTH / 2;
+    const openEdge = right ? laneCenter(Math.max(...lanes)) + CFG.LANE_WIDTH / 2 : laneCenter(Math.min(...lanes)) - CFG.LANE_WIDTH / 2;
+    const midClosed = (closedEdge + openEdge) / 2;
+    const taper = 70;
+    // remorque FLR au début du biseau, côté fermé
+    this.arrowTrailer(e, statics, s0 + 4, midClosed, right);
+    for (let d = 10; d < len; d += d < taper ? 5 : 8) {
+      const t = clamp(d / taper, 0, 1);
+      this.addCone(cones, e, s0 + d, openEdge + (closedEdge - openEdge) * t);
     }
-    // barrières rayées à l'intérieur de la zone
-    for (let d = 50; d < len - 10; d += 22) {
-      track.pointAt(wrap(s0 + d, track.length), p);
-      const lat = (closedEdge + openEdge) / 2 + (right ? 1.2 : -1.2);
-      const bar = xform(new T.BoxGeometry(0.25, 0.9, 2.4), {
-        x: p.x + p.rx * lat, y: p.y + 0.45, z: p.z + p.rz * lat, ry: Math.atan2(p.tx, p.tz),
-      });
-      statics.push(colorize(T, bar, this.rand() < 0.5 ? 0xd94f30 : 0xe8eaed));
+    // camion de protection (atténuateur + flèche) en tête de zone
+    const tma = this.factory.build('fourgon', { color: 0xf2c200 });
+    this.placeVehicle(e, tma, wrap(s0 + taper + 18, L), midClosed, 0);
+    this.attenuator(e, statics, tma, right);
+    if (tma.beacon) e.strobes.push(tma.beacon);
+    // barrières lumineuses le long de la zone
+    for (let d = taper + 40; d < len - 10; d += 20) {
+      const lat = closedEdge + (right ? 0.6 : -0.6);
+      this.barrierWithLamp(e, statics, s0 + d, lat);
     }
-    // remorque flèche lumineuse au début du biseau
-    track.pointAt(wrap(s0 + 18, track.length), p);
-    const latT = openEdge + (closedEdge - openEdge) * 0.4;
-    statics.push(colorize(T, xform(new T.BoxGeometry(1.6, 1.9, 0.4), {
-      x: p.x + p.rx * latT, y: p.y + 1.45, z: p.z + p.rz * latT, ry: Math.atan2(p.tx, p.tz),
-    }), 0x3a3f45));
-    // chevrons lumineux clignotants
-    for (let k = 0; k < 5; k++) {
-      const q = new T.Mesh(new T.PlaneGeometry(0.9 - k * 0.12, 0.12), this.arrowOn);
-      q.position.set(p.x + p.rx * latT - p.tx * 0.25, p.y + 1.1 + k * 0.28, p.z + p.rz * latT - p.tz * 0.25);
-      q.rotation.y = Math.atan2(p.tx, p.tz) + Math.PI + (right ? 0.5 : -0.5);
-      group.add(q);
-      e.blinkers.push(q);
-    }
-    e.obstacles.push({ s: wrap(s0 + 18, track.length), lat: latT, len: 1.4, wid: 1.7, v: 0 });
-    // camion municipal + engin dans la zone
+    // engin + camion du chantier, agents
     const truck = this.factory.build('municipal', { color: 0x3d5f43 });
-    this.placeVehicle(e, truck, wrap(s0 + len * 0.55, track.length), (closedEdge + openEdge) / 2, 0.12);
+    this.placeVehicle(e, truck, wrap(s0 + len * 0.72, L), midClosed, 0.06);
     if (truck.beacon) e.strobes.push(truck.beacon);
-    // panneaux TRAVAUX en amont (150 et 320 m)
-    for (const dz of [150, 320]) {
-      const sSign = wrap(s0 - dz, track.length);
-      track.pointAt(sSign, p);
-      const lat2 = right ? track.mainEdgeAt(sSign) + 1.6 : -0.9;
-      const sign = new T.Mesh(new T.PlaneGeometry(2.2, 0.75),
-        new T.MeshBasicMaterial({ map: worksPanelTexture(T, dz === 150 ? 'TRAVAUX' : `TRAVAUX ${dz} m`) }));
-      sign.position.set(p.x + p.rx * lat2, p.y + 1.4, p.z + p.rz * lat2);
-      sign.rotation.y = Math.atan2(p.tx, p.tz) + Math.PI;
-      group.add(sign);
+    this.planer(e, statics, s0 + len * 0.5, midClosed);
+    const nW = 2 + ((this.rand() * 3) | 0);
+    for (let k = 0; k < nW; k++) {
+      const pose = pick(this.rand, ['stand', 'arms', 'point', 'stand']);
+      this.addPerson(e, { ...OUTFITS.worker, pose }, s0 + len * (0.42 + this.rand() * 0.4), midClosed + (this.rand() - 0.5) * 2.2, this.rand() * Math.PI * 2);
     }
+    for (const dz of [160, 330]) this.roadSign(e, s0 - dz, right, dz === 160 ? 'TRAVAUX' : `TRAVAUX ${dz} m`);
     this.finalize(e, cones, statics);
-    this.world.setVMSAhead(wrap(s0 - 500, track.length), ['TRAVAUX', right ? 'VOIE DE DROITE NEUTRALISEE' : 'VOIE DE GAUCHE NEUTRALISEE']);
+    this.world.setVMSAhead(wrap(s0 - 500, L), ['TRAVAUX', right ? 'VOIE DE DROITE NEUTRALISEE' : 'VOIE DE GAUCHE NEUTRALISEE']);
   }
 
-  // ---------- accident -----------------------------------------------------
-  spawnAccident(s0) {
-    const T = this.T, track = this.track;
-    const len = 70 + this.rand() * 40;
-    const laneA = (this.rand() * CFG.LANES) | 0;
-    const laneB = clamp(laneA + (this.rand() < 0.5 ? 1 : -1), 0, CFG.LANES - 1);
-    const lanes = [...new Set([laneA, laneB])];
-    const s1 = wrap(s0 + len, track.length);
+  // ---------- accident (v20) ------------------------------------------------
+  // Scène selon l'ancienneté de l'accident :
+  //  • « frais » : véhicules immobilisés de travers, feux de détresse, débris,
+  //    conducteurs en gilet jaune réfugiés le long de la glissière (l'un téléphone) ;
+  //  • « police » : voiture de police garée en protection en amont, gyrophares,
+  //    biseau de cônes, policier qui fait ralentir et serrer ;
+  //  • « dépannage » : + dépanneuse à plateau (un véhicule déjà chargé),
+  //    fourgon jaune à flèche lumineuse 100 m en amont, parfois les pompiers.
+  // Ralentissement « de curiosité » des deux côtés.
+  spawnAccident(s0, opts = {}) {
+    const T = this.T, track = this.track, L = track.length;
+    const r = this.rand();
+    const phase = opts.phase || (r < 0.32 ? 'frais' : r < 0.72 ? 'police' : 'depannage');
+    const laneA = opts.lane ?? (this.rand() < 0.6 ? 2 + ((this.rand() * 2) | 0) : (this.rand() * 2) | 0);
+    const side = this.rand() < 0.5 ? 1 : -1;
+    const laneB = this.rand() < 0.55 ? laneA : clamp(laneA + side, 0, CFG.LANES - 1);
+    const lanes = [...new Set([laneA, laneB])].sort();
+    const ids = ['lutece', 'mistral', 'aurore', 'concorde', 'riviera', 'atlas', 'odyssee', 'taxi', 'cargo'];
+    const lead = phase === 'frais' ? 0 : phase === 'police' ? 45 : 140; // protection en amont
+    const len = lead + 40 + this.rand() * 20;
+    const sAcc = wrap(s0 + lead + 18, L);
+    const s1 = wrap(s0 + len, L);
     const e = this.newEvent('accident', s0, s1, lanes);
+    e.phase = phase;
     const cones = [], statics = [];
-    const p = this._p;
-
-    // véhicules accidentés en travers
-    const ids = ['clio4', 'p208', 'berline_g', 'yaris', 'c3', 'megane'];
-    const carA = this.factory.build(pick(this.rand, ids), {});
-    const carB = this.factory.build(pick(this.rand, ids), {});
-    const sA = wrap(s0 + len * 0.55, track.length);
-    this.placeVehicle(e, carA, sA, laneCenter(laneA) + 0.5, 0.5);
-    this.placeVehicle(e, carB, wrap(sA + 7, track.length), laneCenter(laneB) - 0.4, -0.35);
-    carA.brake.visible = true;
-    // dépanneuse en protection derrière, gyrophare
-    const tow = this.factory.build('depanneuse', {});
-    this.placeVehicle(e, tow, wrap(s0 + len * 0.3, track.length), laneCenter(laneA), 0.06);
-    if (tow.beacon) e.strobes.push(tow.beacon);
-    // gyro bleu (véhicule d'intervention) sur le toit de carB
-    const strobe = new T.Mesh(new T.BoxGeometry(0.3, 0.1, 0.15), this.blueMat);
-    strobe.position.y = carB.ud.H + 0.1;
-    carB.group.add(strobe);
-    e.strobes.push(strobe);
-
-    // cônes autour
-    const lo = Math.min(...lanes), hi = Math.max(...lanes);
-    const edgeL = laneCenter(lo) - CFG.LANE_WIDTH / 2, edgeR = laneCenter(hi) + CFG.LANE_WIDTH / 2;
-    for (let d = 0; d < len * 0.5; d += 5.5) {
-      const t = d / (len * 0.5);
-      this.addCone(cones, e, s0 + d, edgeR + (1 - t) * 0.001 + t * 0); // ligne droite côté droit
-      this.addCone(cones, e, s0 + d, edgeL);
+    const towed = phase === 'depannage' && this.rand() < 0.6;
+    // véhicules accidentés (carrosseries enfoncées), feux de détresse
+    const carB = this.factory.build(opts.ids?.[1] || pick(this.rand, ids), { forPlayer: true, color: opts.cols?.[1] ?? this.randColor() });
+    carB._own = true;
+    this.placeVehicle(e, carB, wrap(sAcc + 7.5, L), laneCenter(laneB) + side * 0.3, -side * (0.25 + this.rand() * 0.35));
+    this.dent(carB, -1, 0.8);
+    this.hazards(e, carB);
+    let carA = null;
+    if (!towed) {
+      carA = this.factory.build(opts.ids?.[0] || pick(this.rand, ids), { forPlayer: true, color: opts.cols?.[0] ?? this.randColor() });
+      carA._own = true;
+      this.placeVehicle(e, carA, sAcc, laneCenter(laneA) - side * 0.2, side * (0.15 + this.rand() * 0.45));
+      this.dent(carA, 1, 0.9);
+      this.hazards(e, carA);
     }
-    for (const dz of [140, 300]) {
-      const sSign = wrap(s0 - dz, track.length);
-      track.pointAt(sSign, p);
-      const sign = new T.Mesh(new T.PlaneGeometry(2.2, 0.75),
-        new T.MeshBasicMaterial({ map: worksPanelTexture(T, 'ACCIDENT') }));
-      const eo = track.mainEdgeAt(sSign) + 1.6;
-      sign.position.set(p.x + p.rx * eo, p.y + 1.4, p.z + p.rz * eo);
-      sign.rotation.y = Math.atan2(p.tx, p.tz) + Math.PI;
-      e.group.add(sign);
+    this.debris(e, statics, sAcc + 3, laneCenter(laneA), 5 + this.rand() * 4);
+    // automobilistes en gilet, à l'abri le long de la glissière la plus proche
+    const nearRight = laneA >= 2;
+    const latSafe = nearRight ? this.track.ramps?.mainMax ? this.track.ramps.mainMax(sAcc, 0.3) - 0.1 : ROAD_OUTER - 0.4 : CFG.LATERAL_MIN - 0.55;
+    const nP = 2 + ((this.rand() * 2) | 0);
+    for (let k = 0; k < nP; k++) {
+      this.addPerson(e, { ...OUTFITS.driver, pose: k === 0 ? 'phone' : pick(this.rand, ['stand', 'arms', 'stand']) }, sAcc + 4 + k * 2.2, latSafe + (this.rand() - 0.5) * 0.25, Math.PI * (0.4 + this.rand() * 1.2));
     }
+    if (phase !== 'frais') {
+      // voiture de police en protection, de biais, gyrophares
+      const pol = this.factory.build('police', {});
+      const sPol = wrap(sAcc - 28, L);
+      this.placeVehicle(e, pol, sPol, laneCenter(laneA) - side * 0.4, side * 0.35);
+      this.blueLights(e, pol);
+      this.hazards(e, pol);
+      this.addPerson(e, { ...OUTFITS.policeVest, pose: 'wave' }, sAcc - 40, laneCenter(laneA) + (laneA >= 2 ? -1.4 : 1.4), Math.PI);
+      // biseau de cônes depuis la voiture de police
+      const lo = Math.min(...lanes), hi = Math.max(...lanes);
+      const openSide = lo > 0 ? -1 : 1;
+      const edge = openSide < 0 ? laneCenter(lo) - CFG.LANE_WIDTH / 2 + 0.2 : laneCenter(hi) + CFG.LANE_WIDTH / 2 - 0.2;
+      const far = openSide < 0 ? laneCenter(hi) + 1.0 : laneCenter(lo) - 1.0;
+      for (let d = 0; d < 26; d += 4) this.addCone(cones, e, sPol - 30 + d, far + (edge - far) * (d / 26));
+      for (let d = 0; d < 60; d += 6) this.addCone(cones, e, sPol - 4 + d, edge);
+    } else {
+      // tout frais : quelques conducteurs ont mis leurs warnings plus haut, pas de balisage
+      e.slowExtra = 1;
+    }
+    if (phase === 'depannage') {
+      // fourgon jaune à flèche lumineuse 100 m en amont, dans la voie neutralisée
+      const fg = this.factory.build('fourgon', { color: 0xf2c200 });
+      this.placeVehicle(e, fg, wrap(s0 + 8, L), laneCenter(laneA), 0);
+      this.attenuator(e, statics, fg, laneA >= 2);
+      if (fg.beacon) e.strobes.push(fg.beacon);
+      for (let d = -40; d < 6; d += 5) this.addCone(cones, e, s0 + d, laneCenter(laneA) + (laneA >= 2 ? -1 : 1) * (CFG.LANE_WIDTH / 2) * (1 - (d + 40) / 46) + (laneA >= 2 ? -1 : 1) * 0.2);
+      // dépanneuse à plateau devant, véhicule chargé ou en attente
+      const tow = this.factory.build('depanneuse', {});
+      this.placeVehicle(e, tow, wrap(sAcc + 20, L), laneCenter(laneA), 0.04);
+      if (tow.beacon) e.strobes.push(tow.beacon);
+      if (towed) {
+        const loaded = this.factory.build(pick(this.rand, ids), { forPlayer: true, color: this.randColor() });
+        loaded._own = true;
+        this.dent(loaded, 1, 0.9);
+        e.group.add(loaded.group);
+        loaded.group.position.copy(tow.group.position);
+        loaded.group.position.y += 1.05;
+        loaded.group.rotation.y = tow.group.rotation.y;
+        loaded.group.translateZ(-1.2);
+        e.vehicles.push(loaded);
+      }
+      this.addPerson(e, { ...OUTFITS.depanneur, pose: 'stand' }, sAcc + 13, laneCenter(laneA) + 1.3, Math.PI * 0.5);
+      if (this.rand() < 0.35) {
+        const vs = this.factory.build('pompiers', {});
+        this.placeVehicle(e, vs, wrap(sAcc - 12, L), laneCenter(laneB === laneA ? clamp(laneA + (laneA >= 2 ? -1 : 1), 0, 3) : laneB), 0.05);
+        this.blueLights(e, vs);
+        for (let k = 0; k < 2; k++) this.addPerson(e, { ...OUTFITS.pompier, pose: 'stand' }, sAcc - 2 + k * 3, laneCenter(laneA) + 1.2 * (k ? -1 : 1), this.rand() * 6);
+      }
+    }
+    for (const dz of [150, 320]) this.roadSign(e, s0 - dz, true, 'ACCIDENT');
     this.finalize(e, cones, statics);
-    this.world.setVMSAhead(wrap(s0 - 500, track.length), ['ACCIDENT', 'PRUDENCE · RALENTIR']);
+    this.world.setVMSAhead(wrap(s0 - 500, L), ['ACCIDENT', laneA >= 2 ? 'VOIE DE DROITE NEUTRALISEE' : 'VOIE DE GAUCHE NEUTRALISEE']);
+  }
+
+  // ---------- éléments de scène ----------------------------------------------
+  randColor() { return pick(this.rand, [0xf2f3f5, 0x1d1f23, 0x9aa1a8, 0x5d6670, 0x8e1b1b, 0x1d3f73, 0xd7d1c4, 0x2d4a3a]); }
+
+  // carrosserie enfoncée à l'avant (front = 1) ou à l'arrière (-1)
+  dent(bundle, front, sev) {
+    const geom = bundle.mesh.geometry;
+    const pos = geom.getAttribute('position');
+    if (!pos) return;
+    geom.computeBoundingBox();
+    const bb = geom.boundingBox;
+    const L = bb.max.x - bb.min.x;
+    const xi = front > 0 ? bb.max.x : bb.min.x;
+    const arr = pos.array, zc = (this.rand() - 0.5) * 0.8;
+    for (let i = 0; i < pos.count; i++) {
+      const dx = Math.abs(arr[i * 3] - xi);
+      if (dx > L * 0.22) continue;
+      const k = (1 - dx / (L * 0.22)) * sev * 0.28 * (1 - Math.min(1, Math.abs(arr[i * 3 + 2] - zc) / 1.4) * 0.5);
+      arr[i * 3] -= front * k;
+      arr[i * 3 + 1] -= k * 0.25 * Math.max(0, arr[i * 3 + 1] - 0.5);
+    }
+    pos.needsUpdate = true;
+    geom.computeVertexNormals();
+  }
+
+  hazards(e, bundle) {
+    const T = this.T, ud = bundle.ud;
+    for (const [x, z] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      const q = new T.Mesh(new T.BoxGeometry(0.16, 0.08, 0.06), this.arrowOn);
+      q.position.set(x * (ud.W / 2 - 0.12), (ud.yBot || 0.4) + 0.42, z * (ud.L / 2 + 0.02));
+      bundle.group.add(q);
+      e.blinkers.push(q);
+    }
+  }
+
+  blueLights(e, bundle) {
+    const T = this.T, m = bundle.spec || {}, ud = bundle.ud;
+    const b = m.beacon || { x: ud.L * 0.12, y: ud.H + 0.07, z: 0.32 };
+    for (const sd of [-1, 1]) {
+      const q = new T.Mesh(new T.BoxGeometry(0.3, 0.12, 0.22), this.blueMat);
+      q.position.set(sd * b.z, b.y, b.x);
+      bundle.group.add(q);
+      (sd < 0 ? e.strobes : e.blinkers).push(q);
+    }
+  }
+
+  debris(e, statics, s, lat, spread) {
+    const T = this.T, track = this.track, p = this._p;
+    for (let k = 0; k < 26; k++) {
+      track.pointAt(wrap(s + (this.rand() - 0.3) * spread * 1.6, track.length), p);
+      const l = lat + (this.rand() - 0.5) * spread;
+      const big = this.rand() < 0.3;
+      const g = new T.BoxGeometry(big ? 0.35 : 0.08 + this.rand() * 0.1, 0.03, big ? 0.22 : 0.08 + this.rand() * 0.1);
+      const col = big ? pick(this.rand, [0x1b1c1f, 0x2a2c30, 0x8e1b1b, 0x9aa1a8]) : (this.rand() < 0.6 ? 0xcfd8de : 0x3a3d42);
+      statics.push(colorize(T, xform(g, { x: p.x + p.rx * l, y: p.y + 0.02, z: p.z + p.rz * l, ry: this.rand() * 6 }), col));
+    }
+  }
+
+  // remorque à flèche lumineuse (FLR) : panneau noir, chevrons orange clignotants
+  arrowTrailer(e, statics, s, lat, toLeft) {
+    const T = this.T, track = this.track, p = this._p;
+    track.pointAt(wrap(s, track.length), p);
+    const ry = Math.atan2(p.tx, p.tz);
+    statics.push(colorize(T, xform(new T.BoxGeometry(1.7, 0.6, 2.2), { x: p.x + p.rx * lat, y: p.y + 0.5, z: p.z + p.rz * lat, ry }), 0xf2c200));
+    statics.push(colorize(T, xform(new T.BoxGeometry(2.0, 1.6, 0.12), { x: p.x + p.rx * lat, y: p.y + 1.85, z: p.z + p.rz * lat, ry }), 0x15171a));
+    this.chevrons(e, p, lat, p.y + 1.85, toLeft, -0.08);
+    e.obstacles.push({ s: wrap(s, track.length), lat, len: 2.4, wid: 2.0, v: 0 });
+  }
+  chevrons(e, p, lat, y, toLeft, back) {
+    const T = this.T;
+    const dir = toLeft ? 1 : -1; // pointe vers la voie restée ouverte
+    for (let k = 0; k < 3; k++) {
+      for (const sgn of [1, -1]) {
+        const q = new T.Mesh(new T.PlaneGeometry(0.5, 0.11), this.arrowOn);
+        const off = (k - 1) * 0.42 * dir;
+        q.position.set(p.x + p.rx * (lat + off) + p.tx * back, y + sgn * 0.14, p.z + p.rz * (lat + off) + p.tz * back);
+        q.rotation.set(0, Math.atan2(p.tx, p.tz) + Math.PI, sgn * dir * 0.75);
+        e.group.add(q);
+        e.blinkers.push(q);
+      }
+    }
+  }
+  // atténuateur de choc + flèche à l'arrière d'un fourgon de protection
+  attenuator(e, statics, bundle, toLeft) {
+    const T = this.T, ud = bundle.ud;
+    const g = bundle.group;
+    const box = new T.Mesh(new T.BoxGeometry(ud.W * 0.95, 0.75, 1.1), new T.MeshLambertMaterial({ color: 0xf2c200 }));
+    box.position.set(0, 0.75, -ud.L / 2 - 0.6);
+    g.add(box);
+    for (let k = 0; k < 4; k++) {
+      const st = new T.Mesh(new T.PlaneGeometry(0.18, 0.75), new T.MeshBasicMaterial({ color: 0x15171a }));
+      st.position.set(-ud.W * 0.36 + k * ud.W * 0.24, 0.75, -ud.L / 2 - 1.16);
+      st.rotation.set(0, Math.PI, 0.6);
+      g.add(st);
+    }
+    const panel = new T.Mesh(new T.BoxGeometry(1.5, 1.1, 0.08), new T.MeshLambertMaterial({ color: 0x15171a }));
+    panel.position.set(0, ud.H + 0.55, -ud.L / 2 + 0.2);
+    g.add(panel);
+    const dir = toLeft ? -1 : 1; // repère du fourgon : la droite du véhicule = -X local
+    for (let k = 0; k < 3; k++) for (const sgn of [1, -1]) {
+      const q = new T.Mesh(new T.PlaneGeometry(0.38, 0.09), this.arrowOn);
+      q.position.set(-(k - 1) * 0.36 * dir, ud.H + 0.55 + sgn * 0.11, -ud.L / 2 + 0.15);
+      q.rotation.set(0, Math.PI, -sgn * dir * 0.75);
+      g.add(q);
+      e.blinkers.push(q);
+    }
+  }
+  barrierWithLamp(e, statics, s, lat) {
+    const T = this.T, track = this.track, p = this._p;
+    track.pointAt(wrap(s, track.length), p);
+    const ry = Math.atan2(p.tx, p.tz);
+    statics.push(colorize(T, xform(new T.BoxGeometry(0.12, 0.25, 2.4), { x: p.x + p.rx * lat, y: p.y + 0.85, z: p.z + p.rz * lat, ry }), this.rand() < 0.5 ? 0xd94f30 : 0xe8eaed));
+    for (const dz of [-1.1, 1.1]) statics.push(colorize(T, xform(new T.BoxGeometry(0.08, 0.85, 0.08), { x: p.x + p.rx * lat + p.tx * dz, y: p.y + 0.42, z: p.z + p.rz * lat + p.tz * dz, ry }), 0x9aa1a8));
+    const lamp = new T.Mesh(new T.SphereGeometry(0.08, 6, 4), this.arrowOn);
+    lamp.position.set(p.x + p.rx * lat, p.y + 1.08, p.z + p.rz * lat);
+    e.group.add(lamp);
+    (this.rand() < 0.5 ? e.blinkers : e.strobes).push(lamp);
+    e.obstacles.push({ s: wrap(s, track.length), lat, len: 2.4, wid: 0.3, v: 0 });
+  }
+  // raboteuse : châssis, cabine, tapis d'évacuation incliné
+  planer(e, statics, s, lat) {
+    const T = this.T, track = this.track, p = this._p;
+    track.pointAt(wrap(s, track.length), p);
+    const ry = Math.atan2(p.tx, p.tz);
+    const at = (dx, dy, dz) => ({ x: p.x + p.rx * (lat + dx) + p.tx * dz, y: p.y + dy, z: p.z + p.rz * (lat + dx) + p.tz * dz, ry });
+    statics.push(colorize(T, xform(new T.BoxGeometry(2.3, 1.0, 5.2), at(0, 0.75, 0)), 0xd9a400));
+    statics.push(colorize(T, xform(new T.BoxGeometry(2.4, 0.5, 5.0), at(0, 0.25, 0)), 0x1d1f22));
+    statics.push(colorize(T, xform(new T.BoxGeometry(1.5, 1.1, 1.4), at(0, 1.8, -0.8)), 0x2a2d31));
+    const belt = xform(new T.BoxGeometry(0.8, 0.25, 4.5).rotateX(-0.42), at(0, 2.2, 4.2));
+    statics.push(colorize(T, belt, 0x2a2d31));
+    const b = new T.Mesh(new T.BoxGeometry(0.2, 0.12, 0.2), this.arrowOn);
+    b.position.set(at(0, 2.45, -0.8).x, p.y + 2.45, at(0, 2.45, -0.8).z);
+    e.group.add(b); e.blinkers.push(b);
+    e.obstacles.push({ s: wrap(s, track.length), lat, len: 6, wid: 2.5, v: 0 });
+  }
+  addPerson(e, outfit, s, lat, face) {
+    const T = this.T, track = this.track, p = this._p;
+    const sw = wrap(s, track.length);
+    track.pointAt(sw, p);
+    const g = personGeometry(T, { ...outfit, rnd: this.rand });
+    g.rotateY(Math.atan2(p.tx, p.tz) + face);
+    g.translate(p.x + p.rx * lat, p.y, p.z + p.rz * lat);
+    const m = new T.Mesh(g, this.coneMat);
+    m.castShadow = true;
+    e.group.add(m);
+    e.geoms.push(g);
+    e.obstacles.push({ s: sw, lat, len: 0.5, wid: 0.6, v: 0 });
+  }
+  roadSign(e, s, rightSide, label) {
+    const T = this.T, track = this.track, p = this._p;
+    const sSign = wrap(s, track.length);
+    track.pointAt(sSign, p);
+    const lat2 = rightSide ? track.mainEdgeAt(sSign) + 1.6 : -0.9;
+    const sign = new T.Mesh(new T.PlaneGeometry(2.2, 0.75), new T.MeshBasicMaterial({ map: worksPanelTexture(T, label) }));
+    sign.position.set(p.x + p.rx * lat2, p.y + 1.4, p.z + p.rz * lat2);
+    sign.rotation.y = Math.atan2(p.tx, p.tz) + Math.PI;
+    e.group.add(sign);
   }
 
   // ---------- aides ---------------------------------------------------------
@@ -279,6 +509,7 @@ export class Events {
   dispose(e) {
     this.scene.remove(e.group);
     for (const g of e.geoms) g.dispose();
+    for (const v of e.vehicles) if (v._own) v.mesh.geometry.dispose();
   }
 
   reset() {
@@ -288,6 +519,8 @@ export class Events {
     this.lapBoost = 1;
   }
 }
+
+function loopDeltaE(a, b, L) { let d = (a - b) % L; if (d > L / 2) d -= L; if (d < -L / 2) d += L; return d; }
 
 function loopBehind(playerS, s, L) {
   return wrap(playerS - s, L);
