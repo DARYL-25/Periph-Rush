@@ -91,13 +91,13 @@ async function boot() {
   {
     const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
     const FLEET = [['lutece', 'lutece_hi'], ['lutece_t', 'lutece'], ['mistral'], ['aurore'], ['concorde'], ['taxi'], ['riviera'], ['atlas'], ['odyssee'], ['cargo'], ['furia'],
-      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur']];
+      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur'], ['police_pn'], ['crs_van'], ['w_heavy']];
     await Promise.all(FLEET.map(async ([id, file]) => {
       try { await factory.loadGLB(id, `assets/fleet/${file || id}.glb`, GLTFLoader); }
       catch (e) { console.warn('GLB ' + id + ' indisponible — repli procédural', e); }
     }));
     // LOD lointains (≈ 1/3 des triangles) pour le trafic dense
-    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia', 'm_maxi', 'm_scoot', 'm_road', 'm_trail', 'm_livreur'];
+    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia', 'm_maxi', 'm_scoot', 'm_road', 'm_trail', 'm_livreur', 'police_pn', 'crs_van'];
     await Promise.all(FAR.map(async (id) => {
       try { await factory.loadGLB(id + '_far', `assets/fleet/${id}_far.glb`, GLTFLoader); }
       catch (e) { console.warn('LOD lointain ' + id + ' indisponible', e); }
@@ -280,6 +280,13 @@ async function boot() {
     garageCam.updateProjectionMatrix();
   }
   addEventListener('resize', resize);
+  if (window.visualViewport) visualViewport.addEventListener('resize', resize);
+  // iOS : la taille réelle peut changer sans événement (barres Safari, rotation, retour d'arrière-plan)
+  setInterval(() => {
+    const c = renderer.domElement;
+    if (innerWidth && innerHeight && (Math.abs(c.clientWidth - innerWidth) > 1 || Math.abs(c.clientHeight - innerHeight) > 1 || Math.abs(camera.aspect - innerWidth / innerHeight) > 0.01)) resize();
+  }, 700);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(resize, 120); });
   addEventListener('orientationchange', () => setTimeout(resize, 250));
 
   await step(96, 'Dernier coup de clé à molette…');

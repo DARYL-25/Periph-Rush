@@ -706,3 +706,33 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - Le Parc des Princes v18 (`stadium.js`) remplace celui de `landmarks.js` (option `{ parc: false }`) ; la tour TF1
   et le pavillon Habib-Bourguiba de la v17 sont conservés.
 - Cache SW `periph-v18`.
+
+## v19 — conduite plus facile, trafic discipliné, roues de poids lourds, Police nationale / CRS, mode Dense
+- **Conduite du joueur** (`player.update`) : modèle « arcade assistée ». La direction vise un cap (donc une
+  vitesse latérale, `phys.vLat`) ; le lacet est borné par l'adhérence (a_lat ≤ μg) et par le braquage maxi à basse
+  vitesse ; consigne progressive (`steerIn`) car les boutons tactiles sont tout-ou-rien. Au relâché, plus de retour
+  brutal : `_latHold` = assistance de changement de voie (on termine le mouvement engagé jusqu'au centre de la voie
+  suivante, sinon on se recale dans la voie la plus proche ; motos : on garde la position). Sur bretelle : on suit le
+  milieu de la bretelle. `slip`, `ay`, `delta` restent alimentés (sons, roulis, roues).
+- **Caméra 3e personne** : toujours dans l'axe de la route, regard droit devant ; seul le décalage latéral suit la
+  voiture (lissé) → la voiture reste centrée. `main.js` : redimensionnement robuste sur iPhone (visualViewport,
+  contrôle périodique de la taille du canvas, retour d'arrière-plan).
+- **Trafic** (`traffic.js`) : clignotant AVANT le déport (`signalT`), le déport ne progresse que si l'on avance,
+  « on s'engage ou on renonce » (`abortLaneChange`, une seule fois), intérêt réel exigé (MOBIL simplifié via
+  `laneLeader`), pas de changement de confort dans une file arrêtée, recalage au pas d'un véhicule arrêté à cheval
+  (`creepT`/`stopMidT`), lacet/déplacement latéral avec la vraie vitesse, fermetures de voie en fermeture éclair
+  (`mergeReq`, les suiveurs laissent passer), pédale lissée (temps de réaction). Test : aucun véhicule à cheval plus
+  de 4 s, 0 chevauchement (fluide, chargé, dense, pointe).
+- **Niveaux** : `TRAFFIC_LEVELS[3]` = « Dense » (accordéon : ondes de freinage courtes qui remontent la file,
+  10-20 km/h puis relance vers 45-50 km/h), l'ancien « Dense » devient « Chargé ». Ordre d'affichage 0, 1, 3, 2
+  (`TRAFFIC_ORDER`). `traffic.busy` = pointe ou dense.
+- **Covoiturage** : plus d'amende ni de rappel insistant (simple information 2,5 s).
+- **Roues de poids lourds** : `tools/blender/heavy_wheel.py` → `assets/fleet/w_heavy.glb` (pneu à rainures et pavés
+  d'épaule, jante acier à voile, trous d'aération, 10 écrous). `factory.heavyWheels` l'utilise pour les fourgons,
+  dépanneuses, pompiers, bus et semi-remorques (miroir pour le côté +Z) ; roues instanciées et animées de près
+  (`bodyGeometry` sans roues), roues intégrées au maillage au-delà.
+- **Police nationale / CRS** : `tools/blender/police_build.py` (caisses Concorde et Cargo du parc, sérigraphie en
+  décalques projetés + couleurs de sommets, rampe de toit). Catalogue `police` (→ `police_pn`) et `crs`
+  (→ `crs_van`), champ `beacon` pour placer les gyrophares. Les CRS passent en convoi (2 à 4 véhicules).
+- Cache SW `periph-v19`, `?v=19`.
+- Toujours à faire (demandé) : modes de jeu à missions (sortir à une porte précise, contre-la-montre d'un tour).

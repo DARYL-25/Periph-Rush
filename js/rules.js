@@ -64,16 +64,14 @@ export class Rules {
             this.audio.flash?.();
             this.ticket(`📸 FLASHÉ À ${Math.round(kmh)} km/h`, eur, pts);
           }
-        } else if (r.kind === 'hov' && traffic.reserved && inLeft) {
-          this.ui.flashRadar?.();
-          this.ticket('📸 VOIE RÉSERVÉE', 135, 0);
         }
+        // v19 : la voie réservée au covoiturage n'est plus sanctionnée (simple rappel au passage du panneau)
       }
     }
     this.lastS = s;
 
     // voie réservée (heure de pointe) : rappel à l'ordre
-    if (traffic.reserved && inLeft) this.hovT += dt; else this.hovT = 0;
+    if (traffic.reserved && inLeft) this.hovT += dt; else this.hovT = 0; // simple information, sans pénalité
 
     // secours derrière : laisser le corridor libre (entre voie 1 et voie 2)
     const eb = traffic.emergBehindPlayer;
@@ -94,7 +92,7 @@ export class Rules {
 
   get warning() {
     if (this.emergWarn) return this.emergWarn.blocking ? '🚨 SECOURS — SERREZ-VOUS, LIBÉREZ LE CORRIDOR !' : '🚨 VÉHICULE DE SECOURS DERRIÈRE VOUS';
-    if (this.hovT > 2.5) return '◇ VOIE RÉSERVÉE AU COVOITURAGE — RABATTEZ-VOUS';
+    if (this.hovT > 0 && this.hovT < 2.5) return '◇ VOIE RÉSERVÉE AU COVOITURAGE';
     return null;
   }
 }

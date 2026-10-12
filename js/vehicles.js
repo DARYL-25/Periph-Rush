@@ -235,8 +235,11 @@ export const CATALOG = {
     cols: [P.blanc, P.bleuF, P.rouge, P.grisF, P.vertF, P.blancVan], w: 1.6 },
   scooter_liv: { glbId: 'm_livreur', name: 'Scooter livraison', kind: 'moto', dims: [1.95, 0.72, 1.32], wb: 1.35, wr: 0.22, moto: 'scooter', topbox: true,
     cols: [P.noir, P.blanc, P.grisF, P.rouge], w: 2.6 },
-  police: { name: 'Police', kind: 'sedan', glbId: 'concorde', dims: [4.68, 1.82, 1.46], wb: 2.76, wr: 0.32, plateR: 0.61, plateF: 0.40, brakeY: 0.93,
-    cols: [0x1c2a4a], w: 0, emergency: 'police' },
+  // v19 : Police nationale (berline sérigraphiée) et CRS (fourgon) — tools/blender/police_build.py
+  police: { name: 'Police nationale', kind: 'sedan', glbId: 'police_pn', dims: [4.68, 1.82, 1.46], wb: 2.76, wr: 0.32, plateR: 0.61, plateF: 0.40, brakeY: 0.93,
+    cols: [0xf3f4f6], w: 0, emergency: 'police', beacon: { x: -0.15, y: 1.50, z: 0.3 } },
+  crs: { name: 'CRS', kind: 'van', glbId: 'crs_van', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
+    cols: [0x1c2954], w: 0, emergency: 'police', beacon: { x: 0.95, y: 1.935, z: 0.33 } },
   samu: { name: 'SAMU', kind: 'van', glbId: 'cargo', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
     cols: [0xeef0f2], w: 0, emergency: 'samu' },
   pompiers: { name: 'Pompiers', kind: 'box', dims: [6.6, 2.3, 2.95], wb: 3.7, wr: 0.42,
@@ -782,8 +785,57 @@ export class VehicleFactory {
     return geom;
   }
 
+  // ---------- roues de poids lourd (modèle Blender w_heavy.glb) ----------
+  // Gabarit centré sur le moyeu, face extérieure côté -Z ; mis à l'échelle
+  // (rayon, largeur) et miroité pour le côté +Z. Groupes : 0 pneu, 1 jante.
+  heavyWheelGeom(side, wr, tw) {
+    const T = this.T;
+    const tpl = this.glb?.get('w_heavy')?.wheels?.[0];
+    if (!tpl) return null;
+    const key = `hw:${side}:${wr}:${tw}`;
+    this.hwCache = this.hwCache || new Map();
+    if (this.hwCache.has(key)) return this.hwCache.get(key);
+    const g = tpl.geom.clone();
+    const k = wr / (tpl.radius || 0.5);
+    g.applyMatrix4(new T.Matrix4().makeScale(k, k, (tw / 0.3) * (side > 0 ? -1 : 1)));
+    if (side > 0 && g.index) { // miroir : inverser l'ordre des sommets
+      const ia = g.index.array;
+      for (let i = 0; i < ia.length; i += 3) { const t = ia[i + 1]; ia[i + 1] = ia[i + 2]; ia[i + 2] = t; }
+      g.index.needsUpdate = true;
+    }
+    this.hwCache.set(key, g);
+    return g;
+  }
+  heavyWheels(parts, list, wr, tw, noWheels) {
+    const T = this.T;
+    const out = [];
+    for (const w of list) {
+      const side = w.z > 0 ? 1 : -1;
+      const g = this.heavyWheelGeom(side, wr, tw);
+      if (!g) { // repli : cylindre simple
+        parts.det.push(colorize(T, xform(tireGeometry(T, wr, tw), { x: w.x, y: w.y, z: w.z }), 0x141619));
+        continue;
+      }
+      out.push({ center: new T.Vector3(w.x, w.y, w.z), geom: g, radius: wr });
+      if (noWheels) continue;
+      const pos = g.getAttribute('position');
+      for (const gr of g.groups) {
+        const sub = new T.BufferGeometry();
+        sub.setAttribute('position', pos);
+        if (g.getAttribute('normal')) sub.setAttribute('normal', g.getAttribute('normal'));
+        const idx = [];
+        for (let i = gr.start; i < gr.start + gr.count; i++) idx.push(g.index.getX(i));
+        sub.setIndex(idx);
+        const flat = sub.toNonIndexed();
+        flat.translate(w.x, w.y, w.z);
+        if (gr.materialIndex === 1) parts.bright.push(flat); else parts.det.push(colorize(T, flat, 0x141619));
+      }
+    }
+    return out.length ? out : null;
+  }
+
   // ---------- fourgon à caisse / dépanneuse --------------------------
-  boxTruckGeometry(m) {
+  boxTruckGeometry(m, noWheels = false) {
     const T = this.T;
     const [L, W, H] = m.dims;
     const wr = m.wr;
@@ -826,13 +878,9 @@ export class VehicleFactory {
       box(det, 0.08, 0.5, W * 0.85, { x: -L / 2 + boxL + 0.15, y: H * 0.55 }, 0x8f969e);
       box(det, 0.5, 0.12, 0.3, { x: L / 2 - cabL * 0.5, y: cabH + 0.1 }, 0xffa020);
     }
-    const rimG = this.rim(wr, false);
-    for (const ax of [L / 2 - cabL * 0.55, -L / 2 + L * 0.22]) {
-      for (const side of [-1, 1]) {
-        det.push(colorize(T, xform(tireGeometry(T, wr, 0.3), { x: ax, y: wr, z: side * (W / 2 - 0.14) }), 0x141619));
-        bright.push(xform(rimG.clone(), { x: ax, y: wr, z: side * (W / 2 - 0.14) + side * 0.06 }));
-      }
-    }
+    const wl = [];
+    for (const ax of [L / 2 - cabL * 0.55, -L / 2 + L * 0.22]) for (const side of [-1, 1]) wl.push({ x: ax, y: wr, z: side * (W / 2 - 0.14) });
+    const wheels = this.heavyWheels({ det, bright }, wl, wr, 0.3, noWheels);
     for (const side of [-1, 1]) {
       lensF.push(xform(new T.BoxGeometry(0.05, 0.14, 0.3), { x: L / 2 - 0.005, y: yBot + 0.35, z: side * (W / 2 - 0.25) }));
       lensR.push(xform(new T.BoxGeometry(0.05, 0.22, 0.12), { x: -L / 2 + 0.005, y: yBot + 0.5, z: side * (W / 2 - 0.15) }));
@@ -841,12 +889,12 @@ export class VehicleFactory {
     if (m.stripe) for (const sd of [-1, 1]) box(det, L * 0.6, 0.3, 0.02, { x: -L * 0.15, y: H * 0.6, z: sd * (W / 2 + 0.005) }, m.stripeCol ?? 0xd9b430);
 
     const geom = this.assemble({ paint, glass, det, bright, lensF, lensR });
-    geom.userData = { fx: L / 2 - cabL * 0.55, rx: -L / 2 + L * 0.22, wr, W, L, H, yBot };
+    geom.userData = { fx: L / 2 - cabL * 0.55, rx: -L / 2 + L * 0.22, wr, W, L, H, yBot, wheels };
     return geom;
   }
 
   // ---------- poids lourd : tracteur + semi-remorque (design générique) ----
-  semiGeometry(m) {
+  semiGeometry(m, noWheels = false) {
     const T = this.T;
     const [L, W, H] = m.dims;
     const wr = m.wr;
@@ -871,25 +919,21 @@ export class VehicleFactory {
     box(det, trL, trH, W, { x: -L / 2 + trL / 2, y: 1.25 + trH / 2 }, 0xd9dcdf);
     box(det, trL, 0.1, W + 0.02, { x: -L / 2 + trL / 2, y: 1.28 }, 0x6a7076);
     // roues : 2 essieux tracteur, 3 essieux remorque
-    const rimG = this.rim(wr, false);
     const axles = [fx - 0.9, fx - cabL - 1.2, -L / 2 + 1.0, -L / 2 + 2.35, -L / 2 + 3.7];
-    for (const ax of axles) {
-      for (const side of [-1, 1]) {
-        det.push(colorize(T, xform(tireGeometry(T, wr, 0.38), { x: ax, y: wr, z: side * (W / 2 - 0.2) }), 0x141619));
-        bright.push(xform(rimG.clone(), { x: ax, y: wr, z: side * (W / 2 - 0.2) + side * 0.07 }));
-      }
-    }
+    const wl = [];
+    for (const ax of axles) for (const side of [-1, 1]) wl.push({ x: ax, y: wr, z: side * (W / 2 - 0.2) });
+    const wheels = this.heavyWheels({ det, bright }, wl, wr, 0.38, noWheels);
     for (const side of [-1, 1]) {
       lensF.push(xform(new T.BoxGeometry(0.05, 0.16, 0.36), { x: fx + 0.03, y: 0.85, z: side * (W / 2 - 0.3) }));
       lensR.push(xform(new T.BoxGeometry(0.05, 0.22, 0.3), { x: -L / 2 - 0.01, y: 0.95, z: side * (W / 2 - 0.25) }));
     }
     const geom = this.assemble({ paint, glass, det, bright, lensF, lensR });
-    geom.userData = { fx: fx - 0.9, rx: -L / 2 + 2.35, wr, W, L, H, yBot: 0.6 };
+    geom.userData = { fx: fx - 0.9, rx: -L / 2 + 2.35, wr, W, L, H, yBot: 0.6, wheels };
     return geom;
   }
 
   // ---------- bus urbain ------------------------------------------------
-  busGeometry(m) {
+  busGeometry(m, noWheels = false) {
     const T = this.T;
     const [L, W, H] = m.dims;
     const yBot = 0.3;
@@ -909,17 +953,15 @@ export class VehicleFactory {
     for (const dx of [L * 0.18, -L * 0.1, -L * 0.35]) {
       box(det, 1.15, H * 0.52, 0.015, { x: dx, y: yBot + H * 0.3, z: W / 2 + 0.006 }, 0x3d4348);
     }
-    for (const ax of [L / 2 - 1.4, -L / 2 + 1.6]) {
-      for (const side of [-1, 1]) {
-        det.push(colorize(T, xform(tireGeometry(T, m.wr, 0.32), { x: ax, y: m.wr, z: side * (W / 2 - 0.18) }), 0x141619));
-      }
-    }
+    const wl = [];
+    for (const ax of [L / 2 - 1.4, -L / 2 + 1.6]) for (const side of [-1, 1]) wl.push({ x: ax, y: m.wr, z: side * (W / 2 - 0.18) });
+    const wheels = this.heavyWheels({ det, bright }, wl, m.wr, 0.32, noWheels);
     for (const side of [-1, 1]) {
       lensF.push(xform(new T.BoxGeometry(0.05, 0.14, 0.3), { x: L / 2 + 0.005, y: 0.6, z: side * (W / 2 - 0.3) }));
       lensR.push(xform(new T.BoxGeometry(0.05, 0.25, 0.14), { x: -L / 2 - 0.005, y: 0.7, z: side * (W / 2 - 0.2) }));
     }
     const geom = this.assemble({ paint, glass, det, bright, lensF, lensR });
-    geom.userData = { fx: L / 2 - 1.4, rx: -L / 2 + 1.6, wr: m.wr, W, L, H, yBot };
+    geom.userData = { fx: L / 2 - 1.4, rx: -L / 2 + 1.6, wr: m.wr, W, L, H, yBot, wheels };
     return geom;
   }
 
@@ -1033,7 +1075,12 @@ export class VehicleFactory {
     if (this.geomCache.has(key)) return this.geomCache.get(key);
     const m = CATALOG[id];
     const gid = m.glbId || id;
-    const g = this.glb?.has(gid) && this.glb.get(gid).wheels.length >= 2 ? this.glbGeometry(gid, m, { noWheels: true }) : null;
+    let g = this.glb?.has(gid) && this.glb.get(gid).wheels.length >= 2 ? this.glbGeometry(gid, m, { noWheels: true }) : null;
+    if (!g && !m.glbId && this.glb?.has('w_heavy')) {
+      if (m.kind === 'box' || m.kind === 'tow') g = this.boxTruckGeometry(m, true);
+      else if (m.kind === 'bus') g = this.busGeometry(m, true);
+      else if (m.kind === 'semi') g = this.semiGeometry(m, true);
+    }
     this.geomCache.set(key, g);
     return g;
   }

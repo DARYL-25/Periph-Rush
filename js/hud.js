@@ -254,7 +254,7 @@ export class UI {
     const km = ((o.s - this.track.startS + this.track.length) % this.track.length) / 1000;
     $('start-sub').textContent = `${i + 1}/${this.starts.length} · ${i === 0 ? 'départ historique' : `${km.toFixed(1).replace('.', ',')} km après Maillot`}`;
     for (const b of document.querySelectorAll('#traffic-seg button')) b.classList.toggle('sel', +b.dataset.lv === set.traffic);
-    $('traffic-desc').textContent = ['Ça roule, place aux chronos', 'Ralentissements et accordéons', 'Saturé, arrêts, motos en interfile'][set.traffic] || '';
+    $('traffic-desc').textContent = ['Ça roule, place aux chronos', 'Quelques ralentissements', 'Saturé, arrêts, motos en interfile', 'Très chargé, coups de frein, ça repart'][set.traffic] || '';
     $('set-traffic').value = String(set.traffic);
     $('pill-wx-v').textContent = { auto: 'Variable', soleil: 'Sec', pluie: 'Pluie' }[set.weather || 'auto'];
     $('pill-hour-v').textContent = { auto: 'Selon trafic', matin: 'Matin', midi: 'Midi', soir: 'Soir', nuit: 'Nuit' }[set.startHour || 'auto'];
@@ -282,7 +282,7 @@ export class UI {
     path(); ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.lineWidth = 9 * dpr; ctx.stroke();
     path(); ctx.strokeStyle = 'rgba(255,209,43,0.75)'; ctx.lineWidth = 2.2 * dpr; ctx.stroke();
     // trafic : teinte de l'anneau
-    const col = ['#3ddc84', '#ffb020', '#ff4b3e'][this.prog.data.settings.traffic] || '#ffb020';
+    const col = ['#3ddc84', '#ffb020', '#ff4b3e', '#ff8a3d'][this.prog.data.settings.traffic] || '#ffb020';
     path(); ctx.strokeStyle = col; ctx.globalAlpha = 0.28; ctx.lineWidth = 5 * dpr; ctx.stroke(); ctx.globalAlpha = 1;
     // portes
     const p = {};

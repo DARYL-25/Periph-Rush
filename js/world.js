@@ -1993,7 +1993,7 @@ export class World {
       const abbr = (n) => n.replace(/^Porte (de la |de l'|de |d'|du |des )?/i, (m) => 'PTE ' + (m.match(/(de la |de l'|du |des )/i)?.[0] || '')).toUpperCase().replace('SAINT-', 'ST-');
       // vitesse moyenne affichée selon le niveau de trafic choisi
       const lvl = this.trafficLevel ?? 1;
-      const kmh = [52, 29, 12][lvl];
+      const kmh = [52, 29, 12, 24][lvl] ?? 29;
       const slow = (lvl === 0 ? 0.92 : 0.8) + (lvl === 0 ? 0.12 : 0.4) * (0.5 + 0.5 * Math.sin(v.s * 0.0013 + now * 0.00002));
       let lines = ahead.map((o) => `${abbr(o.p.name)}\t${Math.max(1, Math.round((o.d / 1000) / (kmh * slow) * 60))} MN`);
       const k = this.vms.indexOf(v);

@@ -34,6 +34,7 @@ export class Player {
       this.bundle.mesh.geometry.dispose(); // géométrie clonée joueur
     }
     this.carId = id;
+    this._origPos = null; // géométrie différente : on oubliera l'ancienne copie de déformation
     this.spec = CATALOG[id];
     this.bundle = this.factory.build(id, { color, forPlayer: true });
     this.scene.add(this.bundle.group);
@@ -55,8 +56,8 @@ export class Player {
       m, wb, a, b, hcg: moto ? 0.6 : 0.55, Iz: m * (a * a + b * b) * 0.55,
       Cf: (moto ? 9000 : 72000) * (0.85 + perf.man * 0.3), Cr: (moto ? 11000 : 82000) * (0.85 + perf.man * 0.3),
       mu: 1.0 + perf.frein * 0.12,
-      steerMax: moto ? 0.6 : 0.55, steerFade: moto ? 9 : 8.5, steerRate: moto ? 2.4 : 1.6,
-      holdK: 3.2, holdD: 1.0, rollK: sp.kind === 'suv' || sp.kind === 'van' ? 0.016 : 0.011, pitchK: 0.007,
+      steerMax: moto ? 0.62 : 0.6, steerFade: moto ? 9 : 8.5, steerRate: moto ? 2.4 : 1.6,
+      hGain: 4.2, yawAcc: moto ? 4.5 : 3.6, vLat: (moto ? 6.2 : 5.2) + perf.man * 1.4, rollK: sp.kind === 'suv' || sp.kind === 'van' ? 0.016 : 0.011, pitchK: 0.007,
     };
   }
 
@@ -69,7 +70,7 @@ export class Player {
     this.latVel = 0;
     this.steerCmd = 0;
     this.h = 0; this.r = 0; this.vy = 0; this.delta = 0; this.ay = 0; this.ax = 0; this.slip = 0; this.abs = false;
-    this.rollV = 0; this.pitchV = 0; this._prevS = null;
+    this.rollV = 0; this.pitchV = 0; this._prevS = null; this.steerIn = 0; this._latHold = null;
     this.yaw = 0;
     this.roll = 0;
     this.pitch = 0;
@@ -127,44 +128,74 @@ export class Player {
     if (inp.brake > 0.6 && this.v > MS(30)) this.hardBrakeTime += dt;
     if (this.v > MS(CFG.SPEED_LIMIT_KMH + 10)) this.overspeedTime += dt;
 
-    // — direction : volant (vitesse de rotation limitée) + assistance de trajectoire —
+    // — direction v19 : conduite « arcade assistée » ————————————————————
+    // La consigne fixe un CAP visé (donc une vitesse latérale), le lacet est
+    // borné par l'adhérence (a_lat ≤ μg) et par le braquage maxi à basse
+    // vitesse. Au relâché, la voiture finit son mouvement et se cale dans la
+    // voie vers laquelle elle allait (pas de retour brutal du volant).
     const v = this.v;
-    const dMax = P.steerMax / (1 + Math.pow(v / P.steerFade, 2)); // direction moins démultipliée à haute vitesse
-    let dTarget = inp.steer * dMax;
-    if (Math.abs(inp.steer) < 0.05) {
-      // mains sur le volant : on redresse doucement la voiture dans l'axe de la route
-      dTarget = clamp(-(this.h * P.holdK + this.r * P.holdD) * P.wb / Math.max(v, 3), -dMax, dMax);
+    const stIn = clamp(inp.steer, -1, 1);
+    // consigne progressive (les boutons tactiles sont tout-ou-rien)
+    const sr = Math.abs(stIn) > Math.abs(this.steerIn || 0) ? 6.5 : 4.5;
+    this.steerIn = (this.steerIn || 0) + clamp(stIn - (this.steerIn || 0), -sr * dt, sr * dt);
+    const aLatMax = mu * g * (this.isMoto ? 0.95 : 0.88);
+    const rKin = Math.max(v, 0.4) * Math.tan(P.steerMax) / P.wb;       // braquage maxi (basse vitesse)
+    const rMax = Math.min(rKin, aLatMax / Math.max(v, 0.5));             // limite d'adhérence
+    const vLatMax = P.vLat;
+    const hMaxFor = (vv) => Math.min(0.5, Math.asin(Math.min(0.95, vLatMax / Math.max(vv, 0.5))));
+    let hT;
+    const steering = Math.abs(this.steerIn) > 0.04 && Math.abs(stIn) > 0;
+    if (steering) {
+      hT = this.steerIn * hMaxFor(v);
+      this._latHold = null;
+    } else {
+      // cible latérale : là où l'élan latéral nous emmène, calée au centre de voie
+      if (this._latHold == null) {
+        const lv = this.latVel || 0;
+        let lt = this.lat + clamp(lv, -6, 6) * (this.isMoto ? 0.45 : 0.3);
+        if (!this.isMoto && !this.ramp) {
+          // assistance de changement de voie : on finit le mouvement engagé jusqu'au
+          // centre de la voie suivante, sinon on se recale dans la voie la plus proche
+          const c0 = laneCenter(0), Lw = CFG.LANE_WIDTH, nL = CFG.LANES;
+          const near = clamp(Math.round((this.lat - c0) / Lw), 0, nL - 1);
+          const inLanes = this.lat > c0 - Lw * 0.7 && this.lat < laneCenter(nL - 1) + Lw * 0.7;
+          if (inLanes) {
+            const dir = Math.sign(lv);
+            const off = this.lat - laneCenter(near);
+            if (Math.abs(lv) > Math.min(1.1, 0.25 * v + 0.3) || (off + lv * 0.5) * dir > 0.38) {
+              let k = near;
+              while (k >= 0 && k < nL && (laneCenter(k) - this.lat) * dir < 0.25) k += dir;
+              lt = laneCenter(clamp(k, 0, nL - 1));
+            } else lt = laneCenter(near);
+          }
+        }
+        this._latHold = lt;
+      }
+      let latT = this._latHold;
+      if (this.ramp && this.rampO) { // sur bretelle : on suit le milieu de la bretelle
+        const o = this.rampO;
+        latT = this.track.mainEdgeAt(this.s) + o.gap + o.w * 0.5;
+      }
+      const vlDes = clamp((latT - this.lat) * 1.5, -vLatMax * 0.7, vLatMax * 0.7);
+      hT = Math.asin(clamp(vlDes / Math.max(v, 0.5), -0.6, 0.6));
+      if (v < 0.5) hT = this.h;
     }
-    const dRate = P.steerRate;
-    this.delta += clamp(dTarget - this.delta, -dRate * dt, dRate * dt);
-    this.steerCmd = dMax > 0 ? clamp(this.delta / P.steerMax * 2.2, -1, 1) : 0;
+    // lacet visé puis lissé (inertie de caisse), borné par l'adhérence
+    const rDes = clamp((hT - this.h) * P.hGain, -rMax, rMax);
+    const want = (hT - this.h) * P.hGain;
+    this.r += clamp(rDes - this.r, -P.yawAcc * dt, P.yawAcc * dt);
+    // dérive (glissade) quand on demande plus que l'adhérence : crissement + léger survirage visuel
+    const over = Math.max(0, Math.abs(want) - rMax) * v;
+    this.slip = clamp(over / (aLatMax + 1) * 0.12 + Math.abs(this.r * v) / (aLatMax + 1) * 0.05, 0, 0.3);
+    this.vy += (-Math.sign(this.r) * Math.min(over, 6) * 0.05 - this.vy) * Math.min(1, dt * 4);
+    this.delta = v > 0.3 ? Math.atan(this.r * P.wb / Math.max(v, 0.3)) : this.delta * 0.9 + this.steerIn * P.steerMax * 0.1;
+    this.delta = clamp(this.delta + this.vy * 0.02, -P.steerMax, P.steerMax);
+    this.steerCmd = clamp(this.delta / P.steerMax * 2.2, -1, 1);
 
-    // — latéral : modèle à deux essieux, pneus non linéaires, transferts de charge —
     const prevLat = this.lat;
     const n = Math.max(1, Math.ceil(dt / 0.008));
     const h2 = dt / n;
     for (let k = 0; k < n; k++) {
-      if (v < 2.5) {
-        // basse vitesse : cinématique pure
-        this.r = (v / P.wb) * Math.tan(this.delta);
-        this.vy *= 0.8;
-      } else {
-        const Fzf = P.m * g * P.b / P.wb - P.m * ax * P.hcg / P.wb;
-        const Fzr = P.m * g * P.a / P.wb + P.m * ax * P.hcg / P.wb;
-        const af = Math.atan2(this.vy + P.a * this.r, v) - this.delta;
-        const ar = Math.atan2(this.vy - P.b * this.r, v);
-        const tire = (alpha, Fz, C) => {
-          const D = mu * Fz, B = C / (1.45 * Math.max(D, 1));
-          return -D * Math.sin(1.45 * Math.atan(B * alpha));
-        };
-        const Fyf = tire(af, Fzf, P.Cf), Fyr = tire(ar, Fzr, P.Cr);
-        const vyDot = (Fyf * Math.cos(this.delta) + Fyr) / P.m - v * this.r;
-        const rDot = (P.a * Fyf * Math.cos(this.delta) - P.b * Fyr) / P.Iz;
-        this.vy += vyDot * h2;
-        this.r += rDot * h2;
-        this.ay = vyDot + v * this.r;
-        this.slip = Math.max(Math.abs(af), Math.abs(ar));
-      }
       this.h += this.r * h2;
       this.h = clamp(this.h, -0.7, 0.7);
       const ds = (v * Math.cos(this.h) - this.vy * Math.sin(this.h)) * h2;
@@ -172,7 +203,7 @@ export class Player {
       this.s = (this.s + Math.max(0, ds)) % track.length;
       this.distance += Math.max(0, ds);
     }
-    if (v < 2.5) this.ay = v * this.r;
+    this.ay = v * this.r;
     this.latVel = (this.lat - prevLat) / Math.max(dt, 1e-4);
     this.latAcc = this.ay || 0;
 
@@ -203,6 +234,8 @@ export class Player {
       this.lat = lim.min;
       this.h = Math.max(this.h, 0) * 0.3; this.r = 0; this.vy = Math.max(this.vy, 0) * 0.3;
     }
+
+    if (this._latHold != null) this._latHold = clamp(this._latHold, lim.min + 0.25, Math.max(lim.min + 0.25, lim.max - 0.25));
 
     // — attitude : cap réel, suspension (roulis / tangage), inclinaison moto —
     this.yaw = -this.h + (this.vy !== 0 ? -Math.atan2(this.vy, Math.max(v, 3)) * 0.6 : 0);
@@ -322,31 +355,28 @@ export class Player {
     this.bundle.glows.visible = on;
   }
 
-  // caméra 3e personne
+  // caméra 3e personne (v19) : toujours dans l'axe de la ROUTE, regard droit
+  // devant ; seul le décalage latéral suit la voiture (lissé), sans balayage
+  // quand la voiture braque. La voiture reste centrée à l'écran.
   updateCamera(camera, dt, firstFrame = false) {
     const p = this._camP;
-    const back = 5.4 + this.v * 0.05 + this.len * 0.35;
+    const back = 5.6 + this.v * 0.045 + this.len * 0.35;
     const camS = this.s - back;
     this.track.pointAt(camS, p);
     const lookP = this._p;
-    // la caméra se place dans l'axe réel de la voiture (cap h) : elle « balaie » dans les manœuvres
-    const camLat = this.lat * 0.92 - Math.sin(this.h || 0) * back * 0.85;
-    const targetX = p.x + p.rx * camLat;
+    if (firstFrame || this._camLat == null) { this._camLat = this.lat; this._camY = null; }
+    this._camLat = damp(this._camLat, this.lat, 9, dt);
+    const camLat = this._camLat;
     const targetY = (this.y ?? p.y) + 2.35 + this.v * 0.008;
-    const targetZ = p.z + p.rz * camLat;
-    const lam = firstFrame ? 1000 : 7.5;
-    camera.position.set(
-      damp(camera.position.x, targetX, lam, dt),
-      damp(camera.position.y, targetY, lam, dt),
-      damp(camera.position.z, targetZ, lam, dt),
-    );
+    this._camY = this._camY == null ? targetY : damp(this._camY, targetY, 6, dt);
+    camera.position.set(p.x + p.rx * camLat, this._camY, p.z + p.rz * camLat);
     if (this.camShake > 0.001) {
       camera.position.x += (Math.random() - 0.5) * this.camShake;
       camera.position.y += (Math.random() - 0.5) * this.camShake * 0.6;
       this.camShake *= Math.exp(-dt * 5);
     }
     this.track.pointAt(this.s + 14 + this.v * 0.25, lookP);
-    const lookLat = this.lat * 0.75 + Math.sin(this.h || 0) * (14 + this.v * 0.25) * 0.7;
+    const lookLat = camLat;
     camera.lookAt(lookP.x + lookP.rx * lookLat, (this.y ?? lookP.y) + (lookP.y - p.y) * 0.3 + 1.15, lookP.z + lookP.rz * lookLat);
     const fovT = CFG.FOV_BASE + CFG.FOV_SPEED_GAIN * clamp((this.v - MS(45)) / MS(100), 0, 1);
     camera.fov = damp(camera.fov, fovT, 4, dt);

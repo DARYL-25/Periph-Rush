@@ -340,24 +340,26 @@ html, body {
 .pick-value span { font-family: var(--disp); font-weight: 800; font-style: italic; font-size: 23px; letter-spacing: 0.5px; line-height: 1.05; }
 .pick-value small { font-size: 9.5px; font-weight: 800; letter-spacing: 1.6px; opacity: 0.7; margin-top: 1px; }
 
-.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
 .seg button {
   display: flex; flex-direction: column; align-items: center; gap: 5px;
   padding: 10px 4px 9px; border-radius: 13px;
   background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
   color: rgba(255, 255, 255, 0.72);
-  font-family: var(--disp); font-weight: 800; font-style: italic; font-size: 16px; letter-spacing: 1.2px;
+  font-family: var(--disp); font-weight: 800; font-style: italic; font-size: 14px; letter-spacing: 0.6px;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .seg button.sel { color: #fff; border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); box-shadow: 0 0 22px color-mix(in srgb, var(--c) 30%, transparent); }
 .seg button[data-lv="0"] { --c: var(--ok); }
 .seg button[data-lv="1"] { --c: var(--warn); }
 .seg button[data-lv="2"] { --c: var(--danger); }
+.seg button[data-lv="3"] { --c: #ff8a3d; }
+.lvl { height: 17px; }
 .lvl { display: flex; gap: 3px; align-items: flex-end; height: 16px; }
-.lvl b { width: 7px; border-radius: 2px; background: rgba(255, 255, 255, 0.18); }
-.lvl b:nth-child(1) { height: 6px; } .lvl b:nth-child(2) { height: 11px; } .lvl b:nth-child(3) { height: 16px; }
+.lvl b { width: 6px; border-radius: 2px; background: rgba(255, 255, 255, 0.18); }
+.lvl b:nth-child(1) { height: 5px; } .lvl b:nth-child(2) { height: 9px; } .lvl b:nth-child(3) { height: 13px; } .lvl b:nth-child(4) { height: 17px; }
 .seg button.sel .lvl b { background: var(--c); }
-.lvl.l1 b:nth-child(n+2), .lvl.l2 b:nth-child(3) { opacity: 0.35; }
+.lvl.l1 b:nth-child(n+2), .lvl.l2 b:nth-child(n+3), .lvl.l3 b:nth-child(4) { opacity: 0.35; }
 
 .btn.play {
   position: relative; overflow: hidden;
@@ -449,7 +451,7 @@ html, body {
   .pick-value { padding: 4px 8px; }
   .pick-value span { font-size: 20px; }
   .btn.play { padding: 8px; font-size: 26px; border-radius: 13px; }
-  .seg button { padding: 6px 4px; flex-direction: row; justify-content: center; font-size: 14px; gap: 7px; }
+  .seg button { padding: 6px 3px; flex-direction: row; justify-content: center; font-size: 13px; gap: 5px; }
   .tile { padding: 6px 10px; }
   .tile i { width: 28px; height: 28px; }
   .tile b { font-size: 16px; }

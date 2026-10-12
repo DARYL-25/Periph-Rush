@@ -145,7 +145,7 @@ export class Fleet {
       return layer;
     };
     // la géométrie est en repère « modèle » (x = avant) : rotation -90° intégrée par instance
-    const near = mk(gb || g, true), far = gf ? mk(gf, false) : null, ufar = gu ? mk(gu, false) : null;
+    const near = mk(gb || g, true), far = gf ? mk(gf, false) : gb ? mk(g, false) : null, ufar = gu ? mk(gu, false) : null;
     // roues instanciées : un gabarit par côté (géométrie centrée sur le moyeu, groupes pneu / jante)
     let wheels = null;
     if (gb && g.userData.wheels?.length) {
@@ -178,7 +178,8 @@ export class Fleet {
       // clignotants : [gauche…], [droite…] (la droite du véhicule = -X local)
       blinkL: moto ? [lm(0.16, ud.wr + 0.5, -L / 2, Math.PI), lm(0.16, 0.95, L / 2 - 0.2)] : [lm(W / 2 - 0.16, by, -L / 2 - 0.035, Math.PI), lm(W / 2 - 0.2, ud.yBot + 0.42, L / 2 + 0.02)],
       blinkR: moto ? [lm(-0.16, ud.wr + 0.5, -L / 2, Math.PI), lm(-0.16, 0.95, L / 2 - 0.2)] : [lm(-(W / 2 - 0.16), by, -L / 2 - 0.035, Math.PI), lm(-(W / 2 - 0.2), ud.yBot + 0.42, L / 2 + 0.02)],
-      beacon: m.emergency ? [lm(0.32, H + 0.07, L * 0.12), lm(-0.32, H + 0.07, L * 0.12)]
+      beacon: m.beacon ? [lm(m.beacon.z, m.beacon.y, m.beacon.x), lm(-m.beacon.z, m.beacon.y, m.beacon.x)]
+        : m.emergency ? [lm(0.32, H + 0.07, L * 0.12), lm(-0.32, H + 0.07, L * 0.12)]
         : (m.kind === 'tow' || m.municipal) ? [lm(0, H + 0.08, L * 0.17)] : [],
       streakR: moto ? [lm(0, 0.03, -L / 2 - 1.7)] : [-1, 1].map((sd) => lm(sd * (W / 2 - 0.42), 0.03, -L / 2 - 1.7)),
       streakF: moto ? [lm(0, 0.03, L / 2 + 2.4)] : [-1, 1].map((sd) => lm(sd * (W / 2 - 0.35), 0.03, L / 2 + 2.4)),

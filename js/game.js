@@ -107,7 +107,7 @@ export class Game {
     this.applyNight();
     this.world.prebuild(this.player.s);
     this.ui.showHUD();
-    this.world.setVMSAhead(this.player.s, [['PERIPH FLUIDE', 'BONNE ROUTE'], ['TRAFIC DENSE', 'RALENTISSEMENTS'], ['PERIPH SATURE', 'BOUCHONS · PRUDENCE']][this.traffic.level]);
+    this.world.setVMSAhead(this.player.s, [['PERIPH FLUIDE', 'BONNE ROUTE'], ['TRAFIC CHARGE', 'RALENTISSEMENTS'], ['PERIPH SATURE', 'BOUCHONS · PRUDENCE'], ['TRAFIC DENSE', 'ATTENTION RALENTISSEMENTS']][this.traffic.level]);
     this.world.updateVMS(this.player.s, true);
     this.applyCamera();
   }
@@ -136,7 +136,7 @@ export class Game {
   startHour(set) {
     const map = { matin: 7.6, midi: 12.5, soir: 18.9, nuit: 23.2 };
     if (map[set.startHour]) return map[set.startHour];
-    return [12 + Math.random() * 3, 17.1 + Math.random() * 0.6, 7.9 + Math.random() * 0.5][this.traffic.level] ?? 14;
+    return [12 + Math.random() * 3, 17.1 + Math.random() * 0.6, 7.9 + Math.random() * 0.5, 18.4 + Math.random() * 0.8][this.traffic.level] ?? 14;
   }
 
   applyNight() {
@@ -304,8 +304,8 @@ export class Game {
       const a = t.nextPorte(wrap(jam.s - jam.len / 2 - 200, L)).porte?.name;
       const b = t.nextPorte(wrap(jam.s + jam.len / 2, L)).porte?.name;
       const km = Math.max(1, Math.round((jam.len + (lv === 2 ? 1500 : 0)) / 1000));
-      lines.push(`Sur le périphérique intérieur, ${lv === 2 ? 'bouchon' : 'ralentissement'} de ${km} kilomètre${km > 1 ? 's' : ''} entre ${short(a)} et ${short(b)}.`);
-    } else lines.push(['Le trafic est fluide sur l’ensemble du périphérique intérieur.', 'Circulation dense mais sans difficulté majeure sur le périphérique intérieur.', 'Le périphérique est saturé sur la quasi-totalité de l’anneau.'][lv]);
+      lines.push(`Sur le périphérique intérieur, ${lv === 2 ? 'bouchon' : lv === 3 ? 'ralentissements en accordéon' : 'ralentissement'} de ${km} kilomètre${km > 1 ? 's' : ''} entre ${short(a)} et ${short(b)}.`);
+    } else lines.push(['Le trafic est fluide sur l’ensemble du périphérique intérieur.', 'Circulation dense mais sans difficulté majeure sur le périphérique intérieur.', 'Le périphérique est saturé sur la quasi-totalité de l’anneau.', 'Trafic très dense sur le périphérique intérieur, avec des ralentissements en accordéon : gardez vos distances.'][lv]);
     const ev = this.events.active?.[0];
     if (ev) lines.push(`${ev.type === 'travaux' ? 'Des travaux' : 'Un accident'} neutralise${ev.type === 'travaux' ? 'nt' : ''} une voie à hauteur de ${short(t.nextPorte(ev.s0).porte?.name)}.`);
     if (lv === 2) lines.push('Rappel : la voie de gauche est réservée au covoiturage, aux taxis et aux bus.');
@@ -421,6 +421,8 @@ export class Game {
       npc.v = Math.max(0, npc.v * (kind === 'front' ? 1.05 : 0.85)); npc.brakeFlash = 2; npc.hazardT = 8;
     }
     p.v *= kind === 'front' ? 0.55 : kind === 'cone' ? 0.85 : 0.8;
+    // v19 : le choc casse la trajectoire en cours (cap redressé, cible latérale recalculée)
+    p.h *= kind === 'front' ? 0.5 : 0.25; p.r = 0; p._latHold = null;
     this.ui.popup(`${kind === 'cone' ? 'CÔNE PERCUTÉ' : 'ACCROCHAGE'} · CARROSSERIE −${dmg} %`, 'fine');
   }
 
