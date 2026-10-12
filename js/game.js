@@ -92,6 +92,8 @@ export class Game {
     const LV = TRAFFIC_LEVELS[this.traffic.level];
     this.player.reset(carId, this.track.startFor(set.startPorte), color);
     this.rules.reset(this.traffic.level);
+    const ps = this.player.spec;
+    this.audio.setVehicle?.(ps.kind === 'moto' ? (ps.moto === 'scooter' ? 'scoot1' : 'moto2') : 'car4');
     this.hitCooldown = 0;
     this.radioT = 20;
     this.player.v = MS(LV.startV);
@@ -244,6 +246,21 @@ export class Game {
   // ---------- sons du trafic, sirènes, joints de viaduc, radio ----------
   updateSounds(dt) {
     const p = this.player, L = this.track.length, a = this.audio;
+    a.tires?.(p.slip || 0, p.abs, p.v, dt);
+    // les 3 véhicules les plus proches : moteur + roulement spatialisés (Doppler)
+    const near = [];
+    for (const n of this.traffic.npcs) {
+      if (n.mode === 'emerg') continue;
+      const ds = loopDelta(n.s, p.s, L), dl = n.lat - p.lat;
+      const d = Math.hypot(ds, dl);
+      if (d < 45) near.push({ n, d, ds, dl });
+    }
+    near.sort((x, y) => x.d - y.d);
+    a.voices?.(near.slice(0, 3).map(({ n, d, ds, dl }) => {
+      const dir = ds / Math.max(d, 0.1);
+      const vr = (p.v - n.v) * dir; // > 0 : on se rapproche (il est devant et plus lent)
+      return { dist: d, pan: clamp(dl / 6, -1, 1), doppler: 343 / (343 - clamp(vr, -40, 40)), rpm: n.moto ? 3500 + n.v * 160 : 900 + Math.min(n.v, 20) * 70 + Math.max(0, n.acc) * 300, moto: n.moto, v: n.v };
+    }));
     for (const e of this.traffic.sfx) {
       if (!e.s) continue;
       const ds = loopDelta(e.s, p.s, L), dl = e.lat - p.lat;

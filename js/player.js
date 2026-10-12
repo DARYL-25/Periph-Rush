@@ -45,6 +45,19 @@ export class Player {
     this.brakeF = 8.5 + perf.frein * 4.0;
     this.steerF = 0.75 + perf.man * 0.55;
     this.baseGeom = this.bundle.mesh.geometry;
+    // paramètres physiques (masse, empattement, raideurs de dérive…) selon le véhicule
+    const sp = this.spec, moto = sp.kind === 'moto';
+    this.isMoto = moto;
+    const wb = sp.wb || sp.dims[0] * 0.6;
+    const m = moto ? 280 : sp.kind === 'suv' ? 1550 : sp.kind === 'van' ? 1750 : 1250 + (sp.dims[0] - 4) * 250;
+    const a = wb * (moto ? 0.5 : 0.42), b = wb - a;
+    this.phys = {
+      m, wb, a, b, hcg: moto ? 0.6 : 0.55, Iz: m * (a * a + b * b) * 0.55,
+      Cf: (moto ? 9000 : 72000) * (0.85 + perf.man * 0.3), Cr: (moto ? 11000 : 82000) * (0.85 + perf.man * 0.3),
+      mu: 1.0 + perf.frein * 0.12,
+      steerMax: moto ? 0.6 : 0.55, steerFade: moto ? 9 : 8.5, steerRate: moto ? 2.4 : 1.6,
+      holdK: 3.2, holdD: 1.0, rollK: sp.kind === 'suv' || sp.kind === 'van' ? 0.016 : 0.011, pitchK: 0.007,
+    };
   }
 
   reset(carId, startS, color) {
@@ -55,6 +68,8 @@ export class Player {
     this.v = MS(48);
     this.latVel = 0;
     this.steerCmd = 0;
+    this.h = 0; this.r = 0; this.vy = 0; this.delta = 0; this.ay = 0; this.ax = 0; this.slip = 0; this.abs = false;
+    this.rollV = 0; this.pitchV = 0; this._prevS = null;
     this.yaw = 0;
     this.roll = 0;
     this.pitch = 0;
@@ -82,27 +97,89 @@ export class Player {
     const inp = this.input;
     const track = this.track;
 
-    // — longitudinal —
+    // ===== dynamique « bicyclette » à pneus (v18) =========================
+    // états : v (vitesse longitudinale), vy (glissement latéral de caisse),
+    // r (vitesse de lacet), h (cap / route, + à droite), delta (braquage roues)
+    const P = this.phys;
+    const g = 9.81;
+    const mu = (P.mu) * (1 - 0.3 * (this.wet || 0));
+    this.grip = mu / P.mu;
     const throttle = this.autoThrottle ? Math.max(inp.throttle, 1 - inp.brake) : inp.throttle;
-    let a = 0;
-    // adhérence : chaussée mouillée = freinage et motricité réduits
-    const grip = 1 - 0.3 * (this.wet || 0);
-    this.grip = grip;
-    if (inp.brake > 0) a -= this.brakeF * inp.brake * (0.55 + 0.45 * grip);
-    if (throttle > 0) a += this.accel * throttle * (1 - this.v / this.vmax) * (0.8 + 0.2 * grip);
-    // voiture abîmée : moins de punch
-    if (this.health < 60) a *= throttle > 0 && a > 0 ? 0.6 + this.health / 150 : 1;
-    if (throttle <= 0 && inp.brake <= 0) a -= 0.9 + this.v * 0.015; // frein moteur
-    this.v = clamp(this.v + a * dt, 0, this.vmax);
+    // — longitudinal : moteur (courbe), frein (ABS borné par l'adhérence), traînées —
+    const vmax = this.vmax;
+    let ax = 0;
+    if (throttle > 0) ax += this.accel * throttle * Math.max(0, 1 - Math.pow(this.v / vmax, 2.2)) * (this.health < 60 ? 0.6 + this.health / 150 : 1);
+    const brakeDemand = inp.brake > 0 ? this.brakeF * inp.brake : 0;
+    this.abs = false;
+    if (brakeDemand > 0) {
+      const maxB = mu * g * 0.98;            // ABS : on ne dépasse pas l'adhérence disponible
+      if (brakeDemand > maxB) this.abs = true;
+      ax -= Math.min(brakeDemand, maxB);
+    }
+    if (throttle <= 0 && inp.brake <= 0) ax -= 0.55 + this.v * 0.012;  // frein moteur
+    ax -= 0.0004 * this.v * this.v + 0.12;    // aéro + roulement
+    // cercle d'adhérence : forte charge latérale → moins de motricité/freinage
+    const ayNow = Math.abs(this.ay || 0);
+    const room = Math.sqrt(Math.max(0.05, 1 - Math.pow(ayNow / (mu * g), 2)));
+    ax = clamp(ax, -mu * g * room, mu * g * room);
+    this.v = clamp(this.v + ax * dt, 0, vmax);
+    this.ax = ax;
     if (inp.brake > 0.6 && this.v > MS(30)) this.hardBrakeTime += dt;
     if (this.v > MS(CFG.SPEED_LIMIT_KMH + 10)) this.overspeedTime += dt;
 
-    const ds = this.v * dt;
-    const prevS = this.s;
-    this.s = (this.s + ds) % track.length;
-    this.distance += ds;
+    // — direction : volant (vitesse de rotation limitée) + assistance de trajectoire —
+    const v = this.v;
+    const dMax = P.steerMax / (1 + Math.pow(v / P.steerFade, 2)); // direction moins démultipliée à haute vitesse
+    let dTarget = inp.steer * dMax;
+    if (Math.abs(inp.steer) < 0.05) {
+      // mains sur le volant : on redresse doucement la voiture dans l'axe de la route
+      dTarget = clamp(-(this.h * P.holdK + this.r * P.holdD) * P.wb / Math.max(v, 3), -dMax, dMax);
+    }
+    const dRate = P.steerRate;
+    this.delta += clamp(dTarget - this.delta, -dRate * dt, dRate * dt);
+    this.steerCmd = dMax > 0 ? clamp(this.delta / P.steerMax * 2.2, -1, 1) : 0;
+
+    // — latéral : modèle à deux essieux, pneus non linéaires, transferts de charge —
+    const prevLat = this.lat;
+    const n = Math.max(1, Math.ceil(dt / 0.008));
+    const h2 = dt / n;
+    for (let k = 0; k < n; k++) {
+      if (v < 2.5) {
+        // basse vitesse : cinématique pure
+        this.r = (v / P.wb) * Math.tan(this.delta);
+        this.vy *= 0.8;
+      } else {
+        const Fzf = P.m * g * P.b / P.wb - P.m * ax * P.hcg / P.wb;
+        const Fzr = P.m * g * P.a / P.wb + P.m * ax * P.hcg / P.wb;
+        const af = Math.atan2(this.vy + P.a * this.r, v) - this.delta;
+        const ar = Math.atan2(this.vy - P.b * this.r, v);
+        const tire = (alpha, Fz, C) => {
+          const D = mu * Fz, B = C / (1.45 * Math.max(D, 1));
+          return -D * Math.sin(1.45 * Math.atan(B * alpha));
+        };
+        const Fyf = tire(af, Fzf, P.Cf), Fyr = tire(ar, Fzr, P.Cr);
+        const vyDot = (Fyf * Math.cos(this.delta) + Fyr) / P.m - v * this.r;
+        const rDot = (P.a * Fyf * Math.cos(this.delta) - P.b * Fyr) / P.Iz;
+        this.vy += vyDot * h2;
+        this.r += rDot * h2;
+        this.ay = vyDot + v * this.r;
+        this.slip = Math.max(Math.abs(af), Math.abs(ar));
+      }
+      this.h += this.r * h2;
+      this.h = clamp(this.h, -0.7, 0.7);
+      const ds = (v * Math.cos(this.h) - this.vy * Math.sin(this.h)) * h2;
+      this.lat += (v * Math.sin(this.h) + this.vy * Math.cos(this.h)) * h2;
+      this.s = (this.s + Math.max(0, ds)) % track.length;
+      this.distance += Math.max(0, ds);
+    }
+    if (v < 2.5) this.ay = v * this.r;
+    this.latVel = (this.lat - prevLat) / Math.max(dt, 1e-4);
+    this.latAcc = this.ay || 0;
+
     // tour complet : franchit le point de départ (armé après 1 km)
     const startS = this.startS ?? track.startS;
+    const prevS = this._prevS ?? this.s;
+    this._prevS = this.s;
     if (!this._lapArmed && ((this.s - startS + track.length) % track.length) > 1000) this._lapArmed = true;
     const before = (prevS - startS + track.length) % track.length;
     const after = (this.s - startS + track.length) % track.length;
@@ -112,19 +189,6 @@ export class Player {
       this.onLap?.(this.laps);
     }
 
-    // — latéral —
-    this.steerCmd = damp(this.steerCmd, inp.steer, CFG.STEER_RESPONSE, dt);
-    const speedFactor = clamp(this.v / MS(50), 0.25, 1.6);
-    // sous-virage à haute vitesse : la direction perd de son efficacité
-    const under = 1 / (1 + Math.max(0, this.v - MS(70)) / MS(55));
-    const targetLatVel = this.steerCmd * CFG.STEER_SPEED * this.steerF * speedFactor * under;
-    // inertie latérale bornée par l'adhérence (glisse sur le mouillé)
-    const latAccMax = (14 + this.steerF * 6) * this.grip;
-    const want = damp(this.latVel, targetLatVel, 9 * (0.6 + 0.4 * this.grip), dt) - this.latVel;
-    const prevLatVel = this.latVel;
-    this.latVel += clamp(want, -latAccMax * dt, latAccMax * dt);
-    this.latAcc = (this.latVel - prevLatVel) / Math.max(dt, 1e-3);
-    this.lat += this.latVel * dt;
     // butées : glissière extérieure / séparateur — et bretelles praticables
     this.wallContact = 0;
     this.updateRamp();
@@ -132,19 +196,32 @@ export class Player {
     if (this.lat > lim.max) {
       if (this.latVel > 2.6 || this.lat - lim.max > 0.3) this.wallContact = Math.max(this.latVel, 3);
       this.lat = lim.max;
-      this.latVel = Math.min(this.latVel, 0) * 0.3;
+      this.h = Math.min(this.h, 0) * 0.3; this.r = 0; this.vy = Math.min(this.vy, 0) * 0.3;
     } else if (this.lat < lim.min) {
       // à cheval sur le musoir quand la séparation commence → choc sur l'atténuateur
       if (this.latVel < -2.6 || lim.min - this.lat > 0.3) this.wallContact = Math.min(this.latVel, -3);
       this.lat = lim.min;
-      this.latVel = Math.max(this.latVel, 0) * 0.3;
+      this.h = Math.max(this.h, 0) * 0.3; this.r = 0; this.vy = Math.max(this.vy, 0) * 0.3;
     }
 
-    // — attitude visuelle — (lat croît vers la droite = -X local → lacet négatif)
-    this.yaw = damp(this.yaw, -Math.atan2(this.latVel, Math.max(this.v, 4)) * 1.15, 10, dt);
-    // transferts de masse : roulis selon l'accélération latérale, plongée au freinage
-    this.roll = damp(this.roll, clamp(-this.latVel * 0.02 - (this.latAcc || 0) * 0.006, -0.09, 0.09), 7, dt);
-    this.pitch = damp(this.pitch, clamp(-a * 0.0085, -0.045, 0.085), 5, dt);
+    // — attitude : cap réel, suspension (roulis / tangage), inclinaison moto —
+    this.yaw = -this.h + (this.vy !== 0 ? -Math.atan2(this.vy, Math.max(v, 3)) * 0.6 : 0);
+    if (this.isMoto) {
+      const leanT = Math.atan((this.ay || 0) / g);
+      this.roll += (leanT - this.roll) * Math.min(1, dt * 8);
+      this.rollV = 0;
+    } else {
+      const w = 8.5, z = 0.5;
+      const rT = clamp(-(this.ay || 0) * P.rollK, -0.1, 0.1);
+      this.rollV = (this.rollV || 0) + ((rT - this.roll) * w * w - 2 * z * w * (this.rollV || 0)) * dt;
+      this.roll += this.rollV * dt;
+    }
+    {
+      const w = 7.5, z = 0.55;
+      const pT = clamp(-ax * P.pitchK, -0.05, 0.09);
+      this.pitchV = (this.pitchV || 0) + ((pT - this.pitch) * w * w - 2 * z * w * (this.pitchV || 0)) * dt;
+      this.pitch += this.pitchV * dt;
+    }
     this.wheelSpin += (this.v / (this.spec.wr || 0.3)) * dt;
 
     this.place();
@@ -218,15 +295,15 @@ export class Player {
     g.position.set(p.x + p.rx * this.lat, y, p.z + p.rz * this.lat);
     g.rotation.set(0, Math.atan2(p.tx, p.tz) + this.yaw, 0);
     g.rotateX(this.pitch);
-    g.rotateZ(this.roll + (this.bundle.ud.moto ? -this.steerCmd * 0.32 : 0));
+    g.rotateZ(this.roll);
     if (this.bundle.wheels) {
       for (let i = 0; i < this.bundle.wheels.length; i++) {
         const w = this.bundle.wheels[i];
         // braquage des roues AVANT (ordre YXZ : pivot vertical avant la rotation
         // de roulement), signe négatif car la droite du véhicule = -X local
-        if (i < 2 || this.bundle.wheels.length <= 2) {
+        if (this.bundle.wheels.length > 2 ? i < 2 : i === 0) {
           w.rotation.order = 'YXZ';
-          w.rotation.y = -this.steerCmd * 0.42;
+          w.rotation.y = -this.delta;
         }
         w.rotation.x = this.wheelSpin;
       }
@@ -252,9 +329,11 @@ export class Player {
     const camS = this.s - back;
     this.track.pointAt(camS, p);
     const lookP = this._p;
-    const targetX = p.x + p.rx * (this.lat * 0.92);
+    // la caméra se place dans l'axe réel de la voiture (cap h) : elle « balaie » dans les manœuvres
+    const camLat = this.lat * 0.92 - Math.sin(this.h || 0) * back * 0.85;
+    const targetX = p.x + p.rx * camLat;
     const targetY = (this.y ?? p.y) + 2.35 + this.v * 0.008;
-    const targetZ = p.z + p.rz * (this.lat * 0.92);
+    const targetZ = p.z + p.rz * camLat;
     const lam = firstFrame ? 1000 : 7.5;
     camera.position.set(
       damp(camera.position.x, targetX, lam, dt),
@@ -267,7 +346,8 @@ export class Player {
       this.camShake *= Math.exp(-dt * 5);
     }
     this.track.pointAt(this.s + 14 + this.v * 0.25, lookP);
-    camera.lookAt(lookP.x + lookP.rx * this.lat * 0.75, (this.y ?? lookP.y) + (lookP.y - p.y) * 0.3 + 1.15, lookP.z + lookP.rz * this.lat * 0.75);
+    const lookLat = this.lat * 0.75 + Math.sin(this.h || 0) * (14 + this.v * 0.25) * 0.7;
+    camera.lookAt(lookP.x + lookP.rx * lookLat, (this.y ?? lookP.y) + (lookP.y - p.y) * 0.3 + 1.15, lookP.z + lookP.rz * lookLat);
     const fovT = CFG.FOV_BASE + CFG.FOV_SPEED_GAIN * clamp((this.v - MS(45)) / MS(100), 0, 1);
     camera.fov = damp(camera.fov, fovT, 4, dt);
     camera.updateProjectionMatrix();

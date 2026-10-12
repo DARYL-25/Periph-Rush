@@ -22,8 +22,9 @@ import {
   sosTexture, prPlateTexture, goreTexture, VMSPanel, bpStack, exitLines,
   noStoppingTexture, fuelSignTexture, fuelPanelTexture, touristTexture, nicheSignTexture,
 } from './signs.js';
-import { Scenery, buildLandmarks } from './scenery.js';
+import { Scenery, buildLandmarks, geoToLocal } from './scenery.js';
 import { buildDetailedLandmarks } from './landmarks.js';
+import { buildParcDesPrinces } from './stadium.js';
 
 const ROW = 5;            // pas des rangées de construction (m)
 const MED = 0.31;         // demi-largeur de la DBA centrale
@@ -239,7 +240,8 @@ export class World {
     this.vms = this.features.filter((f) => f.type === 'pmv').map((f) => ({ s: f.s, panel: new VMSPanel(THREE), override: 0 }));
     this.features.filter((f) => f.type === 'pmv').forEach((f, i) => { f.vms = this.vms[i]; });
     this.landmarks = buildLandmarks(THREE, scene);
-    this.detailed = buildDetailedLandmarks(THREE, scene, track);   // v17 : Parc des Princes, tour TF1, pavillon Habib-Bourguiba
+    this.detailed = buildDetailedLandmarks(THREE, scene, track, { parc: false });   // v17 : tour TF1, pavillon Habib-Bourguiba
+    this.stadium = buildParcDesPrinces(THREE, scene, geoToLocal, track);             // v18 : Parc des Princes
     this._p = {};
   }
 

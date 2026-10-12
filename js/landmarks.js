@@ -276,10 +276,10 @@ function pavillonBourguiba(T, BK, BG, BS, track) {
 }
 
 // ============================================================
-export function buildDetailedLandmarks(T, scene, track) {
+export function buildDetailedLandmarks(T, scene, track, opts = {}) {
   const group = new T.Group();
   const B = new Batch(), BS = new Batch(), BG = new Batch(), BC = new Batch(), BK = new Batch();
-  parcDesPrinces(T, B);
+  if (opts.parc !== false) parcDesPrinces(T, B);
   tourTF1(T, BG, BC, BS);
   pavillonBourguiba(T, BK, BG, BS, track);
   const add = (batch, mat) => { const g = batch.build(T); if (!g) return; const m = new T.Mesh(g, mat); m.castShadow = true; m.receiveShadow = true; group.add(m); };

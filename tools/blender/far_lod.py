@@ -16,7 +16,7 @@ for vid in IDS:
     bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, f'{vid}.glb'))
     t0 = tris()
     for o in list(bpy.data.objects):
-        if o.type == 'MESH' and any(o.name.startswith(d) for d in DROP):
+        if o.type == 'MESH' and not vid.startswith('m_') and any(o.name.startswith(d) for d in DROP):
             bpy.data.objects.remove(o, do_unlink=True)
     for o in list(bpy.data.objects):
         if o.type != 'MESH':
@@ -36,5 +36,5 @@ for vid in IDS:
         o.select_set(o.type == 'MESH')
     out = os.path.join(ROOT, f'{vid}_{"ufar" if ULTRA else "far"}.glb')
     bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_yup=True,
-                              export_materials='EXPORT', export_animations=False)
+                              export_materials='EXPORT', export_animations=False, export_vertex_color='ACTIVE')
     print('FAR', vid, t0, '->', tris(), os.path.getsize(out))

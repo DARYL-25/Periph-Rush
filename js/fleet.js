@@ -98,6 +98,7 @@ export class Fleet {
     });
     this.mats = [this.paintMat, ...[f.glassMat, f.matteMat, f.brightMat, f.lensFMat, f.lensRMat].map((m) => noInstanceColor(T, m.clone()))];
     f.instMats = this.mats; // setNight() met aussi à jour ces clones
+    this.tireMat = new T.MeshStandardMaterial({ color: 0x141619, roughness: 0.92 });
     // calques
     const quad = (w, h) => new T.PlaneGeometry(w, h);
     const streak = streakTexture(T);
@@ -135,6 +136,7 @@ export class Fleet {
     if (this.buckets.has(id)) return this.buckets.get(id);
     const T = this.T, f = this.factory;
     const g = f.geometry(id), gf = f.farGeometry(id), gu = f.farGeometry(id, '_ufar');
+    const gb = f.bodyGeometry ? f.bodyGeometry(id) : null; // caisse sans roues (roues animées à part)
     const m = f.specOf(id), ud = g.userData;
     const rot = new T.Matrix4().makeRotationY(-Math.PI / 2);
     const mk = (geom, shadow) => {
@@ -143,13 +145,33 @@ export class Fleet {
       return layer;
     };
     // la géométrie est en repère « modèle » (x = avant) : rotation -90° intégrée par instance
-    const near = mk(g, true), far = gf ? mk(gf, false) : null, ufar = gu ? mk(gu, false) : null;
+    const near = mk(gb || g, true), far = gf ? mk(gf, false) : null, ufar = gu ? mk(gu, false) : null;
+    // roues instanciées : un gabarit par côté (géométrie centrée sur le moyeu, groupes pneu / jante)
+    let wheels = null;
+    if (gb && g.userData.wheels?.length) {
+      const W = g.userData.wheels;
+      const rightT = W.find((w) => w.center.z > 0.05) || W[0];
+      const leftT = W.find((w) => w.center.z < -0.05) || rightT;
+      const layers = new Map();
+      const mkW = (tpl) => {
+        if (!layers.has(tpl)) {
+          const l = new Layer(T, this.scene, tpl.geom, [this.tireMat, this.mats[3]], 640, { shadow: true });
+          layers.set(tpl, l);
+        }
+        return layers.get(tpl);
+      };
+      wheels = {
+        layers: null,
+        list: W.map((w) => ({ c: w.center, layer: w.center.z > 0.05 ? mkW(rightT) : w.center.z < -0.05 ? mkW(leftT) : mkW(w), front: w.center.x > 0.05, r: w.radius || 0.3 })),
+      };
+      wheels.layers = [...new Set(wheels.list.map((w) => w.layer))];
+    }
     const moto = !!ud.moto || m.kind === 'moto';
     const L = ud.L, W = ud.W, H = ud.H;
     const by = m.brakeY ?? H * (m.prof ? m.prof.tailH - 0.09 : 0.35);
     const lm = (x, y, z, ry = 0, sc = 1) => new T.Matrix4().compose(new T.Vector3(x, y, z), new T.Quaternion().setFromEuler(new T.Euler(0, ry, 0)), new T.Vector3(sc, sc, sc));
     const b = {
-      id, m, ud, near, far, ufar, rot, moto,
+      id, m, ud, near, far, ufar, rot, moto, wheels,
       plates: moto ? [lm(0, ud.wr + 0.35, -L / 2 - 0.02, Math.PI, 0.6)]
         : [lm(0, m.plateR ?? (m.plateHigh ? H * 0.37 : ud.yBot + 0.26), -L / 2 - 0.02, Math.PI), lm(0, m.plateF ?? ud.yBot + 0.22, L / 2 + 0.02)],
       brakes: moto ? [lm(0, ud.wr + 0.55, -L / 2 - 0.03, Math.PI, 0.5)] : [-1, 1].map((sd) => lm(sd * (W / 2 - 0.42), by, -L / 2 - 0.03, Math.PI)),
@@ -197,7 +219,7 @@ export class Fleet {
     const camPos = camera.getWorldPosition(this.camPos);
     const k = (this.lodScale ?? 1) * (this.handles.size > 90 ? 0.75 : 1);
     const D1 = (LOD_DIST * k) ** 2, D2 = (LOD_DIST2 * k) ** 2;
-    for (const b of this.buckets.values()) { b.near.begin(); b.far?.begin(); b.ufar?.begin(); }
+    for (const b of this.buckets.values()) { b.near.begin(); b.far?.begin(); b.ufar?.begin(); if (b.wheels) for (const l of b.wheels.layers) l.begin(); }
     for (const k in this.L) this.L[k].begin();
     const blinkOn = (h) => ((this.time + h.blinkPhase) % 0.8) < 0.42;
     const flash = Math.floor(this.time * 6) % 2;
@@ -213,6 +235,23 @@ export class Fleet {
       const lod = b.ufar && d2 > D2 ? b.ufar : b.far && d2 > D1 ? b.far : b.near;
       this._m.multiplyMatrices(base, b.rot);
       lod.push(this._m, h.color);
+      // roues proches : rotation selon la vitesse, braquage des roues avant
+      if (lod === b.near && b.wheels) {
+        h.spin = (h.spin || 0) - ((h.speed || 0) * dt) / (b.wheels.list[0].r || 0.3);
+        const model = this._mm || (this._mm = new this.T.Matrix4());
+        model.copy(this._m);
+        for (const w of b.wheels.list) {
+          this._e = this._e || new this.T.Euler(0, 0, 0, 'YZX');
+          this._e.set(0, w.front ? (h.steer || 0) : 0, h.spin);
+          this._q.setFromEuler(this._e);
+          this._s.set(1, 1, 1);
+          this._wm = this._wm || new this.T.Matrix4();
+          this._wm.compose(w.c, this._q, this._s);
+          this._w2 = this._w2 || new this.T.Matrix4();
+          this._w2.multiplyMatrices(model, this._wm);
+          w.layer.push(this._w2);
+        }
+      }
       if (d2 > 260 * 260) continue; // détails invisibles au loin
       for (const pl of b.plates) this.pushLocal(this.L.plate, base, pl, h.plateUV);
       if (h.brake.visible) for (const q of b.brakes) this.pushLocal(this.L.brake, base, q);
@@ -242,7 +281,7 @@ export class Fleet {
         }
       }
     }
-    for (const b of this.buckets.values()) { b.near.end(); b.far?.end(); b.ufar?.end(); }
+    for (const b of this.buckets.values()) { b.near.end(); b.far?.end(); b.ufar?.end(); if (b.wheels) for (const l of b.wheels.layers) l.end(); }
     for (const k in this.L) this.L[k].end();
   }
 

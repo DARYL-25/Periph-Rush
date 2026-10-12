@@ -52,23 +52,49 @@ export class GameAudio {
     this.brownBuf = bbuf;
     const loop = (b, rate = 1) => { const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.playbackRate.value = rate; s.start(); return s; };
 
-    // — moteur : fondamentale d'allumage + harmoniques + grondement —
-    this.engGain = ctx.createGain(); this.engGain.gain.value = 0;
+    // — moteur : couches d'impulsions d'échappement synthétisées (voir buildEngine) —
+    this.engBus = ctx.createGain(); this.engBus.gain.value = 0;
     this.engFilter = ctx.createBiquadFilter();
-    this.engFilter.type = 'lowpass'; this.engFilter.frequency.value = 500; this.engFilter.Q.value = 1.8;
-    this.osc1 = ctx.createOscillator(); this.osc1.type = 'sawtooth';
-    this.osc2 = ctx.createOscillator(); this.osc2.type = 'square';
-    this.osc3 = ctx.createOscillator(); this.osc3.type = 'triangle';
-    const og2 = ctx.createGain(); og2.gain.value = 0.35;
-    const og3 = ctx.createGain(); og3.gain.value = 0.5;
-    this.osc1.connect(this.engFilter);
-    this.osc2.connect(og2).connect(this.engFilter);
-    this.osc3.connect(og3).connect(this.engFilter);
-    const rumble = loop(this.brownBuf, 0.6);
-    this.rumbleGain = ctx.createGain(); this.rumbleGain.gain.value = 0.25;
-    rumble.connect(this.rumbleGain).connect(this.engFilter);
+    this.engFilter.type = 'lowpass'; this.engFilter.frequency.value = 2400; this.engFilter.Q.value = 0.5;
+    this.engBody = ctx.createBiquadFilter();
+    this.engBody.type = 'peaking'; this.engBody.frequency.value = 140; this.engBody.Q.value = 0.9; this.engBody.gain.value = 3;
+    this.engShaper = ctx.createWaveShaper();
+    this.engShaper.curve = this.makeCurve(1.6);
+    this.engBus.connect(this.engShaper).connect(this.engBody).connect(this.engFilter);
+    this.engGain = ctx.createGain(); this.engGain.gain.value = 0;
     this.engFilter.connect(this.engGain).connect(this.out);
-    this.osc1.start(); this.osc2.start(); this.osc3.start();
+    // admission : souffle filtré qui suit le régime
+    this.intake = loop(buf, 1);
+    this.intakeF = ctx.createBiquadFilter(); this.intakeF.type = 'bandpass'; this.intakeF.frequency.value = 600; this.intakeF.Q.value = 1.2;
+    this.intakeG = ctx.createGain(); this.intakeG.gain.value = 0;
+    this.intake.connect(this.intakeF).connect(this.intakeG).connect(this.out);
+    this.layers = [];
+    this.setVehicle('car4');
+    // — pneus : crissement (dérive) + vibration ABS —
+    this.sqSrc = loop(buf, 1);
+    this.sqF = ctx.createBiquadFilter(); this.sqF.type = 'bandpass'; this.sqF.frequency.value = 1050; this.sqF.Q.value = 9;
+    this.sqF2 = ctx.createBiquadFilter(); this.sqF2.type = 'bandpass'; this.sqF2.frequency.value = 1650; this.sqF2.Q.value = 12;
+    this.sqG = ctx.createGain(); this.sqG.gain.value = 0;
+    this.sqSrc.connect(this.sqF).connect(this.sqG);
+    this.sqSrc.connect(this.sqF2).connect(this.sqG);
+    this.sqG.connect(this.out);
+    // — véhicules voisins : 3 voix spatialisées (moteur + roulement, Doppler) —
+    this.voicePool = [];
+    for (let i = 0; i < 3; i++) {
+      const src = ctx.createBufferSource(); src.loop = true;
+      src.buffer = this.genLayer('car4', 1900, 1.2).buf;
+      const msrc = ctx.createBufferSource(); msrc.loop = true;
+      msrc.buffer = this.genLayer('scoot1', 5200, 1.0).buf;
+      const tire = ctx.createBufferSource(); tire.buffer = this.brownBuf; tire.loop = true;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400;
+      const gC = ctx.createGain(), gM = ctx.createGain(), gT = ctx.createGain();
+      gC.gain.value = 0; gM.gain.value = 0; gT.gain.value = 0;
+      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain();
+      src.connect(gC).connect(lp); msrc.connect(gM).connect(lp); tire.connect(gT).connect(lp);
+      lp.connect(pan).connect(this.out);
+      src.start(ctx.currentTime + i * 0.13); msrc.start(ctx.currentTime + i * 0.07); tire.start();
+      this.voicePool.push({ src, msrc, tire, gC, gM, gT, lp, pan });
+    }
 
     // — roulement : grondement (sec) + chuintement (mouillé) —
     this.rollSrc = loop(this.brownBuf, 1);
@@ -132,35 +158,166 @@ export class GameAudio {
     this.dry.gain.setTargetAtTime(tunnel ? 0.85 : 1, t, 0.3);
   }
 
+  // ---------- moteur : synthèse par impulsions d'échappement ----------------
+  // Chaque couche est une boucle de cycles moteur à un régime donné : une
+  // impulsion amortie par allumage (résonances du collecteur et de la ligne),
+  // irrégularités cylindre par cylindre. En jeu, on fond les couches voisines
+  // du régime courant et on ajuste légèrement leur vitesse de lecture : les
+  // résonances restent à leur place (pas d'effet « accéléré » artificiel).
+  makeCurve(k) {
+    const n = 1024, c = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
+    return c;
+  }
+  genLayer(type, rpm, dur = 1.6) {
+    const ctx = this.ctx, sr = ctx.sampleRate;
+    const T = {
+      car4: { cyl: [0, 0.25, 0.5, 0.75], amp: [1, 0.86, 0.95, 0.9], f1: 105, f2: 330, f3: 920, tau1: 0.016, noise: 0.25 },
+      moto2: { cyl: [0, 0.375], amp: [1, 0.92], f1: 140, f2: 420, f3: 1300, tau1: 0.012, noise: 0.35 },
+      scoot1: { cyl: [0], amp: [1], f1: 190, f2: 560, f3: 1700, tau1: 0.008, noise: 0.45 },
+    }[type];
+    const cycle = 120 / rpm; // 4 temps : un cycle = 2 tours
+    const nCyc = Math.max(2, Math.round(dur / cycle));
+    const len = Math.round(nCyc * cycle * sr);
+    const out = new Float32Array(len);
+    let seed = rpm * 7 + type.length * 131;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const pulseLen = Math.min(Math.round(sr * 0.06), Math.round(cycle * sr));
+    const pulse = (amp, j) => {
+      const p = new Float32Array(pulseLen);
+      const f1 = T.f1 * (1 + (rnd() - 0.5) * 0.04), ph = rnd() * 0.6;
+      for (let i = 0; i < pulseLen; i++) {
+        const t = i / sr;
+        p[i] = amp * (Math.exp(-t / T.tau1) * Math.sin(2 * Math.PI * f1 * t + ph)
+          + 0.55 * Math.exp(-t / 0.005) * Math.sin(2 * Math.PI * T.f2 * t)
+          + 0.22 * Math.exp(-t / 0.0022) * Math.sin(2 * Math.PI * T.f3 * t)
+          + T.noise * Math.exp(-t / 0.0025) * (rnd() * 2 - 1));
+      }
+      return p;
+    };
+    for (let c = 0; c < nCyc; c++) {
+      T.cyl.forEach((phase, k) => {
+        const jitter = (rnd() - 0.5) * 0.012;
+        const start = Math.round(((c + phase + jitter) * cycle) * sr);
+        const p = pulse(T.amp[k] * (0.9 + rnd() * 0.2), k);
+        for (let i = 0; i < pulseLen; i++) out[(start + i) % len] += p[i];
+      });
+    }
+    // grave continu (inertie de l'échappement) : passe-bas à 1 pôle bouclé
+    let y = 0;
+    for (let pass = 0; pass < 2; pass++) for (let i = 0; i < len; i++) { y += (out[i] - y) * 0.08; if (pass) out[i] = out[i] * 0.7 + y * 1.4; }
+    let rms = 0;
+    for (let i = 0; i < len; i++) rms += out[i] * out[i];
+    rms = Math.sqrt(rms / len) || 1;
+    for (let i = 0; i < len; i++) out[i] = Math.max(-1, Math.min(1, out[i] / rms * 0.28));
+    const buf = ctx.createBuffer(1, len, sr);
+    buf.getChannelData(0).set(out);
+    return { buf, rpm };
+  }
+  setVehicle(type) {
+    if (!this.ctx || this.vehType === type) return;
+    this.vehType = type;
+    this.engCache = this.engCache || {};
+    const rpms = type === 'scoot1' ? [3200, 5200, 7400] : type === 'moto2' ? [1200, 3000, 5600, 8500] : [850, 1900, 3400, 5400];
+    if (!this.engCache[type]) this.engCache[type] = rpms.map((r) => this.genLayer(type, r));
+    for (const l of this.layers) { try { l.src.stop(); } catch (e) { /* déjà arrêtée */ } l.src.disconnect(); }
+    const t = this.ctx.currentTime;
+    this.layers = this.engCache[type].map(({ buf, rpm }) => {
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      const g = this.ctx.createGain(); g.gain.value = 0;
+      src.connect(g).connect(this.engBus);
+      src.start(t + Math.random() * 0.05);
+      return { src, g, rpm };
+    });
+    this.engBody.frequency.value = type === 'car4' ? 140 : 220;
+  }
+
   // v, vmax en m/s · throttle 0..1
   engine(v, vmax, throttle, dt = 0.016) {
     if (!this.ctx || !this.engineOn) return;
     const kmh = v * 3.6;
-    // boîte à 6 rapports avec hystérésis + coupure d'injection au passage
-    let g = this.gear;
-    if (kmh > GEARS[g] + 3 && g < 6) { g++; this.shiftT = 0.18; }
-    else if (g > 1 && kmh < GEARS[g - 1] - 6) { g--; this.shiftT = 0.1; }
-    this.gear = g;
-    this.shiftT = Math.max(0, this.shiftT - dt);
-    const lo = GEARS[g - 1], hi = g === 6 ? 190 : GEARS[g];
-    const x = Math.min(1, Math.max(0, (kmh - lo) / (hi - lo)));
-    this.rpm = g === 1 ? 850 + x * 4600 : 2100 + x * 3600;
-    if (kmh < 2) this.rpm = 850 + throttle * 600;
-    const fire = this.rpm / 60 * 2; // 4 cylindres 4 temps : 2 allumages / tour
+    const scooter = this.vehType === 'scoot1';
+    if (scooter) {
+      // variateur (CVT) : régime qui monte vite puis reste haut sous charge
+      const target = kmh < 3 ? 1700 + throttle * 1500 : 3600 + throttle * 3200 + Math.min(kmh, 140) * 12;
+      this.rpm = (this.rpm || 1700) + (target - (this.rpm || 1700)) * Math.min(1, dt * 4);
+    } else {
+      // boîte à 6 rapports avec hystérésis + coupure au passage
+      const GE = this.vehType === 'moto2' ? [0, 30, 55, 80, 105, 130, 999] : GEARS;
+      let g = this.gear;
+      if (kmh > GE[g] + 3 && g < 6) { g++; this.shiftT = 0.22; }
+      else if (g > 1 && kmh < GE[g - 1] - 6) { g--; this.shiftT = 0.12; }
+      this.gear = g;
+      this.shiftT = Math.max(0, this.shiftT - dt);
+      const lo = GE[g - 1], hi = g === 6 ? 200 : GE[g];
+      const x = Math.min(1, Math.max(0, (kmh - lo) / (hi - lo)));
+      const top = this.vehType === 'moto2' ? 9000 : 5800, low = this.vehType === 'moto2' ? 3000 : 2000;
+      let rpm = g === 1 ? 850 + x * (top - 1300) : low + x * (top - low - 400);
+      if (kmh < 2) rpm = 850 + throttle * 700;
+      this.rpm = (this.rpm || rpm) + (rpm - (this.rpm || rpm)) * Math.min(1, dt * (this.shiftT > 0 ? 10 : 6));
+    }
+    const rpm = this.rpm;
     const t = this.ctx.currentTime;
-    const cut = this.shiftT > 0 ? 0.35 : 1;
-    const ck = this.env.cockpit ? 0.7 : 1;
-    this.osc1.frequency.setTargetAtTime(fire, t, 0.04);
-    this.osc2.frequency.setTargetAtTime(fire / 2, t, 0.04);
-    this.osc3.frequency.setTargetAtTime(fire * 1.5, t, 0.04);
-    this.engFilter.frequency.setTargetAtTime((240 + this.rpm * 0.18 + throttle * 600) * ck, t, 0.06);
-    this.engGain.gain.setTargetAtTime((0.045 + 0.08 * throttle * cut + (this.rpm / 6000) * 0.035) * (this.env.cockpit ? 1.15 : 1), t, 0.06);
+    // fondu entre couches voisines + lecture légèrement accélérée/ralentie
+    const L = this.layers;
+    for (let i = 0; i < L.length; i++) {
+      const a = L[i];
+      const prev = L[i - 1]?.rpm ?? a.rpm * 0.5, next = L[i + 1]?.rpm ?? a.rpm * 1.6;
+      let w = 0;
+      if (rpm <= a.rpm) w = Math.max(0, (rpm - prev) / (a.rpm - prev));
+      else w = Math.max(0, (next - rpm) / (next - a.rpm));
+      if (i === 0 && rpm < a.rpm) w = 1;
+      if (i === L.length - 1 && rpm > a.rpm) w = 1;
+      a.g.gain.setTargetAtTime(Math.sqrt(w), t, 0.03);
+      a.src.playbackRate.setTargetAtTime(Math.min(1.6, Math.max(0.6, rpm / a.rpm)), t, 0.03);
+    }
+    const load = this.shiftT > 0 ? 0.1 : throttle;
+    const ck = this.env.cockpit;
+    this.engBus.gain.setTargetAtTime(1, t, 0.05);
+    // sous charge : plus de grave et d'aigu ; en décélération : son creux et étouffé
+    this.engFilter.frequency.setTargetAtTime((ck ? 900 : 1300) + load * (ck ? 1600 : 3200) + rpm * 0.12, t, 0.06);
+    this.engBody.gain.setTargetAtTime(2 + load * 4, t, 0.1);
+    this.engGain.gain.setTargetAtTime((0.05 + 0.12 * load + (rpm / 7000) * 0.05) * (ck ? 1.2 : 1) * (scooter ? 0.8 : 1), t, 0.05);
+    this.intakeF.frequency.setTargetAtTime(300 + rpm * 0.25, t, 0.05);
+    this.intakeG.gain.setTargetAtTime(load * (rpm / 7000) * 0.05 * (ck ? 1.4 : 0.6), t, 0.05);
     // roulement + vent
     const sp = Math.min(kmh / 90, 1.4);
-    this.rollGain.gain.setTargetAtTime(sp * 0.12 * (this.env.cockpit ? 1.2 : 1), t, 0.15);
-    this.rollFilter.frequency.setTargetAtTime(260 + sp * 500, t, 0.2);
-    this.hissGain.gain.setTargetAtTime(sp * this.env.wet * 0.09, t, 0.2);
-    this.windGain.gain.setTargetAtTime(Math.pow(Math.min(v / 55, 1), 2) * (this.env.cockpit ? 0.08 : 0.16), t, 0.15);
+    this.rollGain.gain.setTargetAtTime(sp * 0.13 * (ck ? 1.2 : 1), t, 0.15);
+    this.rollFilter.frequency.setTargetAtTime(240 + sp * 520, t, 0.2);
+    this.hissGain.gain.setTargetAtTime(sp * this.env.wet * 0.1, t, 0.2);
+    this.windGain.gain.setTargetAtTime(Math.pow(Math.min(v / 55, 1), 2) * (ck ? 0.07 : 0.16), t, 0.15);
+  }
+
+  // crissement des pneus (dérive) et broutement de l'ABS
+  tires(slip, abs, v, dt = 0.016) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.absT = (this.absT || 0) + dt;
+    const sq = Math.max(0, slip - 0.06) * 6 * Math.min(1, v / 8);
+    let g = Math.min(0.09, sq * 0.09);
+    if (abs && v > 2) g = Math.max(g, 0.05 * (0.5 + 0.5 * Math.sign(Math.sin(this.absT * 2 * Math.PI * 14))));
+    this.sqG.gain.setTargetAtTime(this.enabled ? g * (1 - 0.6 * this.env.wet) : 0, t, 0.03);
+    this.sqF.frequency.setTargetAtTime(950 + Math.min(v, 30) * 6, t, 0.05);
+  }
+
+  // véhicules proches : [{ dist, pan, doppler, rpm, moto }]
+  voices(list) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.voicePool.forEach((vp, i) => {
+      const o = list[i];
+      if (!o || !this.enabled) { vp.gC.gain.setTargetAtTime(0, t, 0.1); vp.gM.gain.setTargetAtTime(0, t, 0.1); vp.gT.gain.setTargetAtTime(0, t, 0.1); return; }
+      const att = Math.min(1, 6 / (4 + o.dist * o.dist * 0.08));
+      vp.gC.gain.setTargetAtTime(o.moto ? 0 : att * 0.22, t, 0.08);
+      vp.gM.gain.setTargetAtTime(o.moto ? att * 0.3 : 0, t, 0.08);
+      vp.gT.gain.setTargetAtTime(att * Math.min(1, o.v / 14) * 0.35, t, 0.08);
+      const rate = Math.min(1.8, Math.max(0.5, (o.rpm || 1900) / (o.moto ? 5200 : 1900) * o.doppler));
+      vp.src.playbackRate.setTargetAtTime(rate, t, 0.05);
+      vp.msrc.playbackRate.setTargetAtTime(rate, t, 0.05);
+      vp.lp.frequency.setTargetAtTime(500 + 3000 * att, t, 0.08);
+      if (vp.pan.pan) vp.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, o.pan)), t, 0.05);
+    });
   }
 
   rain(amount) {
@@ -172,6 +329,9 @@ export class GameAudio {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     this.engGain.gain.setTargetAtTime(0, t, 0.2);
+    this.intakeG?.gain.setTargetAtTime(0, t, 0.2);
+    this.sqG?.gain.setTargetAtTime(0, t, 0.1);
+    this.voices?.([]);
     this.windGain.gain.setTargetAtTime(0, t, 0.2);
     this.rollGain.gain.setTargetAtTime(0, t, 0.2);
     this.hissGain.gain.setTargetAtTime(0, t, 0.2);

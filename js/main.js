@@ -90,13 +90,14 @@ async function boot() {
   // flotte au design original (Blender) : voiture du joueur en haute définition + modèles du trafic
   {
     const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
-    const FLEET = [['lutece', 'lutece_hi'], ['lutece_t', 'lutece'], ['mistral'], ['aurore'], ['concorde'], ['taxi'], ['riviera'], ['atlas'], ['odyssee'], ['cargo'], ['furia']];
+    const FLEET = [['lutece', 'lutece_hi'], ['lutece_t', 'lutece'], ['mistral'], ['aurore'], ['concorde'], ['taxi'], ['riviera'], ['atlas'], ['odyssee'], ['cargo'], ['furia'],
+      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur']];
     await Promise.all(FLEET.map(async ([id, file]) => {
       try { await factory.loadGLB(id, `assets/fleet/${file || id}.glb`, GLTFLoader); }
       catch (e) { console.warn('GLB ' + id + ' indisponible — repli procédural', e); }
     }));
     // LOD lointains (≈ 1/3 des triangles) pour le trafic dense
-    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia'];
+    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia', 'm_maxi', 'm_scoot', 'm_road', 'm_trail', 'm_livreur'];
     await Promise.all(FAR.map(async (id) => {
       try { await factory.loadGLB(id + '_far', `assets/fleet/${id}_far.glb`, GLTFLoader); }
       catch (e) { console.warn('LOD lointain ' + id + ' indisponible', e); }

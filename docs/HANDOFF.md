@@ -677,3 +677,32 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - Écrans : 9 nouvelles tuiles d'atlas (`textures.js`, fin de fichier) ; relevé `survey.js` mis à jour.
 - `CFG.LATERAL_MIN` = 2,02 (le TPC élargi n'est plus mordu). Cache SW `periph-v17`, `?v=17`.
 - Toujours à faire (demandé) : modes de jeu à missions (sortir à une porte précise, contre-la-montre d'un tour).
+
+## v18 — physique, motos Blender, sons, collisions, Parc des Princes
+- **Motos Blender** (`tools/blender/moto_build.py`, designs originaux) : maxi-scooter `m_maxi`, scooter `m_scoot`,
+  roadster `m_road`, trail `m_trail`, scooter de livreur `m_livreur`, chacun avec son pilote posé par IK (bras vers
+  le guidon, jambes vers plancher / repose-pieds, casque intégral à visière). Couleurs des vêtements en couleurs de
+  sommets (attribut `Col`, matériau `det`, conservées par `loadGLB`). Roues séparées `WheelF/WheelR`. LOD `_far` /
+  `_ufar` via `far_lod.py`. Catalogue : `glbId` des motos existantes + nouveau `roadster`.
+- **Roues animées** : la caisse proche des PNJ est rendue sans roues (`factory.bodyGeometry`), les roues sont
+  instanciées à part (`fleet.js`) avec rotation selon la vitesse et braquage des roues avant. Le joueur utilise
+  aussi les roues du GLB (correctif : regroupement des primitives d'une roue multi-matériaux dans `loadGLB`).
+- **Dynamique des PNJ** (`traffic.dynamics`) : modèle bicyclette — le conducteur vise la trajectoire (`latT`) par
+  poursuite pure, braquage borné par l'accélération latérale admise (personnalité, mouillé) et la vitesse de
+  rotation du volant ; le cap fait avancer le véhicule de côté. Roulis/tangage sur suspension amortie, inclinaison
+  d'équilibre des motos (atan(a/g)) + louvoiement à basse vitesse. Changements de voie 2,2–4,6 s.
+- **Collisions** : détection du meneur étendue au couloir visé et aux véhicules qui se rabattent devant ;
+  `gapOK` tient compte des trajectoires visées ; garde-fou `resolveOverlaps` (le véhicule qui se déporte renonce,
+  sinon le suiveur recule) ; fermetures de voie = obstacles fixes (on s'arrête si on ne peut pas se rabattre) ;
+  sens extérieur avec suivi par voie. Test : 0 chevauchement sur 2 × 80 s (dense / pointe).
+- **Physique du joueur** (`player.update`) : modèle bicyclette à deux essieux, pneus non linéaires (Pacejka
+  simplifié), transferts de charge, cercle d'adhérence, ABS, direction démultipliée selon la vitesse, assistance de
+  maintien de cap quand on lâche la direction, roulis/tangage sur ressorts, inclinaison des motos.
+- **Sons** (`audio.js`) : moteur synthétisé par impulsions d'échappement (couches à plusieurs régimes fondues,
+  4 cylindres / bicylindre / monocylindre de scooter à variateur), admission, charge/décélération, crissement des
+  pneus selon la dérive, broutement ABS, 3 voix spatialisées pour les véhicules proches (Doppler, motos).
+- **Parc des Princes** (`js/stadium.js`) : superellipse 228 × 194 m au-dessus du périphérique, 50 portiques en
+  béton à tête recourbée (hauteur ondulante), couverture en porte-à-faux, façade en bandes, deux niveaux de gradins.
+- Le Parc des Princes v18 (`stadium.js`) remplace celui de `landmarks.js` (option `{ parc: false }`) ; la tour TF1
+  et le pavillon Habib-Bourguiba de la v17 sont conservés.
+- Cache SW `periph-v18`.

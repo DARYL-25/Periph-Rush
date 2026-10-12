@@ -156,7 +156,7 @@ export const CATALOG = {
     prof: { nose: 0.36, hood: 0.45, hoodX: 0.30, roofX: 0.48, roofH: 0.94, roofEndX: 0.73, tailH: 0.56 },
     glass: { belt: 0.60, endX: 0.86 }, lights: 'slim', cols: [P.noir, P.blanc, P.grisNardo, P.bleuSport, P.grisF], w: 0, sport: 1,
     perf: { vmax: 240, acc: 0.96, man: 0.76, frein: 0.85 }, unlock: { laps: 5, coins: 6500 } },
-  gs: { name: 'GS 1250', kind: 'moto', dims: [2.21, 0.95, 1.43], wb: 1.52, wr: 0.32, moto: 'adv',
+  gs: { glbId: 'm_trail', name: 'GS 1250', kind: 'moto', dims: [2.21, 0.95, 1.43], wb: 1.52, wr: 0.32, moto: 'adv',
     cols: [P.blanc, P.noir, P.bleuSport, P.rouge, P.kaki], w: 2,
     perf: { vmax: 210, acc: 0.85, man: 0.9, frein: 0.7 }, unlock: { laps: 2, coins: 3000 } },
   // ——— Toyota ———
@@ -190,16 +190,16 @@ export const CATALOG = {
     glass: { belt: 0.60, endX: 0.95 }, lights: 'blade', cols: [P.grisNardo, P.noir, P.blanc, P.vertMamba, P.bleuSport], w: 0, sport: 1,
     perf: { vmax: 245, acc: 0.98, man: 0.72, frein: 0.88 }, unlock: { laps: 6, coins: 7000 } },
   // ——— deux-roues ———
-  tmax530: { name: 'T-Max 530', kind: 'moto', dims: [2.20, 0.78, 1.42], wb: 1.58, wr: 0.26, moto: 'maxiscooter',
+  tmax530: { glbId: 'm_maxi', name: 'T-Max 530', kind: 'moto', dims: [2.20, 0.78, 1.42], wb: 1.58, wr: 0.26, moto: 'maxiscooter',
     cols: [P.noir, P.grisF, P.blanc, P.bleuNuit], w: 5,
     perf: { vmax: 175, acc: 0.75, man: 0.95, frein: 0.6 }, unlock: { coins: 1600 } },
-  tmax560: { name: 'T-Max 560', kind: 'moto', dims: [2.20, 0.78, 1.42], wb: 1.58, wr: 0.26, moto: 'maxiscooter',
+  tmax560: { glbId: 'm_maxi', name: 'T-Max 560', kind: 'moto', dims: [2.20, 0.78, 1.42], wb: 1.58, wr: 0.26, moto: 'maxiscooter',
     cols: [P.noir, P.grisNardo, P.blancNacre, P.jaune], w: 3,
     perf: { vmax: 180, acc: 0.78, man: 0.95, frein: 0.62 }, unlock: { coins: 2000 } },
-  xmax: { name: 'X-Max', kind: 'moto', dims: [2.18, 0.79, 1.41], wb: 1.54, wr: 0.25, moto: 'scooter',
+  xmax: { glbId: 'm_scoot', name: 'X-Max', kind: 'moto', dims: [2.18, 0.79, 1.41], wb: 1.54, wr: 0.25, moto: 'scooter',
     cols: [P.noir, P.grisF, P.bleu, P.blanc], w: 4.5,
     perf: { vmax: 160, acc: 0.65, man: 0.92, frein: 0.55 }, unlock: { coins: 1100 } },
-  xadv: { name: 'X-ADV', kind: 'moto', dims: [2.24, 0.91, 1.34], wb: 1.59, wr: 0.28, moto: 'adv',
+  xadv: { glbId: 'm_maxi', name: 'X-ADV', kind: 'moto', dims: [2.24, 0.91, 1.34], wb: 1.59, wr: 0.28, moto: 'adv',
     cols: [P.noir, P.rouge, P.grisF, P.kaki], w: 2,
     perf: { vmax: 185, acc: 0.8, man: 0.88, frein: 0.65 }, unlock: { coins: 2600 } },
   // ——— trafic générique (non jouable) ———
@@ -229,9 +229,11 @@ export const CATALOG = {
   municipal: { name: 'Ville de Paris', kind: 'box', dims: [5.4, 2.05, 2.4], wb: 3.3, wr: 0.34,
     cols: [P.vertParis], w: 1, municipal: true },
   // v16 : variété du trafic (designs génériques)
+  roadster: { glbId: 'm_road', name: 'Roadster', kind: 'moto', dims: [2.1, 0.8, 1.42], wb: 1.45, wr: 0.31, moto: 'naked',
+    cols: [P.rougeVif, P.noir, P.grisF, P.bleu], w: 3 },
   semi: { name: 'Poids lourd', kind: 'semi', dims: [16.5, 2.55, 3.95], wb: 3.8, wr: 0.5,
     cols: [P.blanc, P.bleuF, P.rouge, P.grisF, P.vertF, P.blancVan], w: 1.6 },
-  scooter_liv: { name: 'Scooter livraison', kind: 'moto', dims: [1.95, 0.72, 1.32], wb: 1.35, wr: 0.22, moto: 'scooter', topbox: true,
+  scooter_liv: { glbId: 'm_livreur', name: 'Scooter livraison', kind: 'moto', dims: [1.95, 0.72, 1.32], wb: 1.35, wr: 0.22, moto: 'scooter', topbox: true,
     cols: [P.noir, P.blanc, P.grisF, P.rouge], w: 2.6 },
   police: { name: 'Police', kind: 'sedan', glbId: 'concorde', dims: [4.68, 1.82, 1.46], wb: 2.76, wr: 0.32, plateR: 0.61, plateF: 0.40, brakeY: 0.93,
     cols: [0x1c2a4a], w: 0, emergency: 'police' },
@@ -424,11 +426,20 @@ export class VehicleFactory {
     gltf.scene.traverse((o) => {
       if (!o.isMesh) return;
       let wheelName = null;
-      for (let a = o; a; a = a.parent) if (/^Wheel/.test(a.name)) { wheelName = a.name; break; }
+      // ancêtre « Wheel… » le plus haut (une roue multi-matériaux = un groupe de primitives)
+      for (let a = o; a; a = a.parent) if (/^Wheel/.test(a.name)) wheelName = a.name.replace(/[_.]\d+$/, '');
       const g = o.geometry.clone();
       g.applyMatrix4(o.matrixWorld);
-      for (const drop of ['color', 'tangent']) if (g.getAttribute(drop)) g.deleteAttribute(drop);
       const matName = o.material?.name || 'paint';
+      if (g.getAttribute('tangent')) g.deleteAttribute('tangent');
+      const ca = g.getAttribute('color');
+      if (ca) { // couleurs de sommets (vêtements des pilotes…) gardées pour « det », normalisées en RGB flottant
+        if (matName === 'det') {
+          const n = ca.count, arr = new Float32Array(n * 3);
+          for (let i = 0; i < n; i++) { arr[i * 3] = ca.getX(i); arr[i * 3 + 1] = ca.getY(i); arr[i * 3 + 2] = ca.getZ(i); }
+          g.setAttribute('color', new T.BufferAttribute(arr, 3));
+        } else g.deleteAttribute('color');
+      }
       if (wheelName) {
         if (!wheelMap.has(wheelName)) wheelMap.set(wheelName, { geoms: [] });
         wheelMap.get(wheelName).geoms.push({ g, matName });
@@ -470,14 +481,15 @@ export class VehicleFactory {
     return tpl;
   }
 
-  glbGeometry(id, spec = null) {
+  glbGeometry(id, spec = null, { noWheels = false } = {}) {
     const T = this.T;
     const tpl = this.glb.get(id);
     const m = spec || CATALOG[id];
-    // PNJ : tout fusionné (roues comprises, statiques) dans les 6 groupes
+    // PNJ : tout fusionné dans les 6 groupes (roues comprises sauf noWheels :
+    // elles sont alors rendues à part, en rotation)
     const parts = {};
     for (const k of Object.keys(tpl.parts)) parts[k] = tpl.parts[k].map((g) => g.clone());
-    for (const w of tpl.wheels) {
+    for (const w of (noWheels ? [] : tpl.wheels)) {
       const g = w.geom.clone();
       g.translate(w.center.x, w.center.y, w.center.z);
       // groupes locaux 0=tire 1=rim → seaux det/bright
@@ -506,6 +518,7 @@ export class VehicleFactory {
       L: Math.min(bb.max.x - bb.min.x, m.dims[0] + 0.05),
       H: Math.min(bb.max.y, m.dims[2] + 0.03),
       yBot: Math.max(bb.min.y, 0.05) + 0.15, glb: true,
+      moto: m.kind === 'moto', wheels: tpl.wheels,
     };
     return geom;
   }
@@ -1014,6 +1027,17 @@ export class VehicleFactory {
     return geom;
   }
 
+  // géométrie proche sans roues (roues instanciées et animées à part)
+  bodyGeometry(id) {
+    const key = id + '#body';
+    if (this.geomCache.has(key)) return this.geomCache.get(key);
+    const m = CATALOG[id];
+    const gid = m.glbId || id;
+    const g = this.glb?.has(gid) && this.glb.get(gid).wheels.length >= 2 ? this.glbGeometry(gid, m, { noWheels: true }) : null;
+    this.geomCache.set(key, g);
+    return g;
+  }
+
   // LOD lointain (GLB décimé) pour les PNJ, si disponible
   farGeometry(id, suffix = '_far') {
     const key = id + '#' + suffix;
@@ -1029,7 +1053,7 @@ export class VehicleFactory {
   build(id, { color, dirt = 0, forPlayer = false } = {}) {
     const T = this.T;
     const m = CATALOG[id];
-    const src = this.geometry(id);
+    const src = (forPlayer && this.bodyGeometry(id)) || this.geometry(id);
     const geom = forPlayer ? src.clone() : src;
     const ud = src.userData;
     const paintMat = this.paint(color ?? m.cols[0], forPlayer ? 0 : dirt);
@@ -1086,8 +1110,8 @@ export class VehicleFactory {
 
     // roues séparées (joueur : braquage + rotation visibles)
     let wheels = null;
-    const glbTpl = this.glb?.get(id);
-    if (forPlayer && glbTpl?.wheels?.length === 4) {
+    const glbTpl = this.glb?.get(m.glbId || id);
+    if (forPlayer && glbTpl?.wheels?.length >= 2) {
       // roues du modèle Blender : wrapper (braquage/rotation) + mesh orienté
       wheels = [];
       const tireM = new T.MeshStandardMaterial({ color: 0x141619, roughness: 0.92 });

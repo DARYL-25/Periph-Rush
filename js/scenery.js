@@ -525,10 +525,8 @@ export function buildLandmarks(T, scene) {
     const a = at(48.8925, 2.2359);
     box(a.x, a.z - 45, 110, 10, 0, 110, 0xe4e7ea); box(a.x, a.z + 45, 110, 10, 0, 110, 0xe4e7ea); box(a.x, a.z, 110, 100, 100, 10, 0xe4e7ea);
   }
-  // Roland-Garros (le Parc des Princes est modélisé en détail dans js/landmarks.js)
-  {
-    const rg = at(48.8467, 2.2493); box(rg.x, rg.z, 110, 90, 0, 22, 0xb7553a);
-  }
+  // Roland-Garros (le Parc des Princes est modélisé à part : stadium.js)
+  { const rg = at(48.8467, 2.2493); box(rg.x, rg.z, 110, 90, 0, 22, 0xb7553a); }
   // Arc de Triomphe : deux piles + linteau (axe vers la Défense ≈ 63° nord-ouest)
   {
     const { x, z } = at(48.8738, 2.2950), a = -0.43, ca = Math.cos(a), sa = Math.sin(a);

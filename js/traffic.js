@@ -29,10 +29,11 @@ export const TRAFFIC_LEVELS = [
 ];
 
 // personnalités de conduite
+// dur : durée du changement de voie (s) ; aLat : accélération latérale max (m/s²)
 const PERSONAS = {
-  normal: { T: 1, v0: 1, lc: 1, accept: 1, dur: 1.6 },
-  presse: { T: 0.72, v0: 1.12, lc: 2.4, accept: 0.62, dur: 1.0 },
-  dimanche: { T: 1.55, v0: 0.85, lc: 0.35, accept: 1.45, dur: 2.3 },
+  normal: { T: 1, v0: 1, lc: 1, accept: 1, dur: 3.4, aLat: 2.4 },
+  presse: { T: 0.72, v0: 1.12, lc: 2.4, accept: 0.62, dur: 2.2, aLat: 3.8 },
+  dimanche: { T: 1.55, v0: 0.85, lc: 0.35, accept: 1.45, dur: 4.6, aLat: 1.6 },
 };
 
 export class Traffic {
@@ -154,7 +155,11 @@ export class Traffic {
       blinker: 0, hazardT: 0, brakeFlash: 0, panicAt: 200 + this.rand() * 900,
       yaw: 0, yieldOff: 0, passed: false,
       ramp: null, rampBlend: 0, exitPlan: null, decided: null, hornCd: 2 + this.rand() * 6, stuckT: 0,
-      lat: 0, y: null, acc: 0,
+      lat: 0, latT: 0, y: null, acc: 0,
+      // dynamique : cap (rad, + vers la droite), braquage, roulis/tangage suspendus, inclinaison moto
+      h: 0, steer: 0, latAcc: 0, roll: 0, rollV: 0, pitch: 0, pitchV: 0, lean: 0,
+      wb: m.wb || m.dims[0] * 0.6, moto: m.kind === 'moto',
+      aLat: (m.kind === 'moto' ? 1.6 : HEAVY.includes(id) ? 0.6 : 1) * persona.aLat,
       ...extra,
     };
   }
@@ -191,7 +196,7 @@ export class Traffic {
       const g = this.rand() < LV.gap0 ? 0 : this.gapMaxAt(s);
       npc.gap = npc.gapFrom = npc.gapTo = g;
     }
-    npc.lat = this.computeLat(npc);
+    npc.lat = npc.latT = this.computeLat(npc);
     const lim = Math.min(this.localLimit(s, interfile ? 1 : lane), this.baseLimit(s, interfile ? 1 : lane));
     npc.v = Math.min(npc.v, interfile ? Math.max(lim + MS(15), MS(22)) : lim);
     if (this.collides(npc, npc.lat)) return null;
@@ -216,7 +221,7 @@ export class Traffic {
     const right = this.rightLane(e.s);
     npc.lane = npc.laneFrom = npc.laneTo = right;
     npc.v = MS(28 + this.rand() * 14);
-    npc.lat = this.computeLat(npc);
+    npc.lat = npc.latT = this.computeLat(npc);
     if (this.collides(npc, npc.lat)) return;
     npc.bundle = this.acquire(id);
     this.npcs.push(npc);
@@ -345,7 +350,7 @@ export class Traffic {
     }
 
     // pré-calcul des positions latérales
-    for (const n of this.npcs) n.lat = this.computeLat(n);
+    for (const n of this.npcs) n.latT = this.computeLat(n); // trajectoire visée ; n.lat = position réelle
     const rel = (npc) => loopDelta(npc.s, playerS, L);
     this.npcs.sort((a, b) => rel(a) - rel(b));
     const playerObs = { s: playerS, lat: player.lat, v: player.v, len: player.len, wid: player.wid, isPlayer: true };
@@ -361,6 +366,7 @@ export class Traffic {
     for (let i = 0; i < this.npcs.length; i++) {
       const n = this.npcs[i];
       const myLat = n.lat;
+      const myMoving = Math.abs(n.latT - n.lat) > 0.4;
       const special = n.mode === 'interfile' || n.mode === 'emerg';
 
       // — leader (même couloir) —
@@ -372,7 +378,12 @@ export class Traffic {
         if (d <= 0.1 || d > 130) continue;
         const sp = special || o.mode === 'interfile' || o.mode === 'emerg';
         const thr = sp ? (o.wid + n.wid) / 2 + 0.15 : (o.wid + n.wid) / 2 + 0.55;
-        if (Math.abs(o.lat - myLat) < thr) {
+        // couloir occupé maintenant, couloir visé pendant un déport, et
+        // véhicule devant qui se rabat dans notre couloir (on lui laisse la place)
+        const hit = Math.abs(o.lat - myLat) < thr
+          || (myMoving && Math.abs(o.lat - n.latT) < thr && d < 45)
+          || (Math.abs(o.latT - o.lat) > 0.4 && Math.abs(o.latT - myLat) < thr - 0.2 && d < 30);
+        if (hit) {
           const g = d - (o.len + n.len) / 2;
           if (g < gap) { gap = g; leader = o; }
         }
@@ -383,6 +394,18 @@ export class Traffic {
         if (d > 0.1 && d < 130 && Math.abs(playerObs.lat - myLat) < thr) {
           const g = d - (playerObs.len + n.len) / 2;
           if (g < gap) { gap = g; leader = playerObs; }
+        }
+      }
+
+      // fermeture de voie (accident, travaux, voie supprimée) : obstacle fixe
+      if (n.mode === 'lane') {
+        for (const c of this.closures) {
+          if (!c.lanes.includes(n.lane) || (n.laneT < 1 && !c.lanes.includes(n.laneTo) && n.laneT > 0.5)) continue;
+          const d = loopDelta(c.s0, n.s, L);
+          if (d > 0 && d < 140) {
+            const g2 = d - n.len / 2 - 1.5;
+            if (g2 < gap) { gap = Math.max(0.3, g2); leader = { v: 0, s: c.s0, len: 0, wid: 0 }; }
+          }
         }
       }
 
@@ -454,11 +477,9 @@ export class Traffic {
       n.yieldOff = lerp(n.yieldOff, yt, Math.min(1, dt * 1.3));
 
       // lacet visuel
-      let targetYaw = n.laneT < 1 ? -(laneCenter(n.laneTo) - laneCenter(n.laneFrom)) * 0.035 * Math.sin(n.laneT * Math.PI) / (n.laneDur / 1.6) : 0;
-      if (n.mode === 'interfile' && n.gapT < 1) targetYaw = -(interfileCenter(n.gapTo) - interfileCenter(n.gapFrom)) * 0.05 * Math.sin(n.gapT * Math.PI);
-      if ((n.mode === 'exit' || n.mode === 'enter') && n.rampBlend > 0 && n.rampBlend < 1) targetYaw = (n.mode === 'exit' ? -0.06 : 0.06) * Math.sin(n.rampBlend * Math.PI);
-      n.yaw = lerp(n.yaw, targetYaw + (n.mode === 'interfile' ? Math.sin(this.time * 2.2 + n.s) * 0.02 : 0), Math.min(1, dt * 6));
+      this.dynamics(n, dt);
     }
+    this.resolveOverlaps(playerObs);
 
     // recyclage hors fenêtre / fin de bretelle
     for (let i = this.npcs.length - 1; i >= 0; i--) {
@@ -473,13 +494,29 @@ export class Traffic {
     // — sens extérieur (décoratif) —
     while (this.oncoming.length < CFG.ONCOMING_COUNT * LV.onc * this.quality) {
       const id = pickWeighted(this.rand, CAR_IDS, CAR_W);
+      const so = wrap(playerS + this.rand() * 700 - 100, L);
+      const laneO = (this.rand() * (this.track.lanesAt ? this.track.lanesAt(playerS) : CFG.LANES)) | 0;
+      if (this.oncoming.some((q) => q.lane === laneO && Math.abs(loopDelta(q.s, so, L)) < 14)) break;
       this.oncoming.push({
         id, bundle: this.acquire(id),
-        s: wrap(playerS + this.rand() * 700 - 100, L),
+        s: so,
         v: this.level === 2 ? MS(6 + this.rand() * 26) : MS(40 + this.rand() * 25),
-        lane: (this.rand() * (this.track.lanesAt ? this.track.lanesAt(playerS) : CFG.LANES)) | 0,
+        lane: laneO,
         len: CATALOG[id].dims[0],
       });
+    }
+    // sens extérieur : suivi simple par voie (ils roulent vers les s décroissants)
+    for (const o of this.oncoming) {
+      o.v0 = o.v0 ?? o.v;
+      let gap = 1e9, lead = null;
+      for (const q of this.oncoming) {
+        if (q === o || q.lane !== o.lane) continue;
+        const d = loopDelta(o.s, q.s, L) - (o.len + q.len) / 2; // q devant o si o.s > q.s
+        if (d > -0.5 && d < gap) { gap = d; lead = q; }
+      }
+      const want = lead ? Math.min(o.v0, lead.v + (gap - 6) * 0.5) : o.v0;
+      o.v = Math.max(0, o.v + clamp(want - o.v, -6 * dt, 2 * dt));
+      if (lead && gap < 1.5) o.v = Math.min(o.v, lead.v);
     }
     for (let i = this.oncoming.length - 1; i >= 0; i--) {
       const o = this.oncoming[i];
@@ -514,7 +551,9 @@ export class Traffic {
     // fermeture de voie devant → rabattement obligatoire
     if (this.laneClosedAt(n.s, n.laneTo, 170) && n.laneT >= 1) {
       const dir = n.laneTo >= 3 ? -1 : (n.laneTo <= 0 ? 1 : (this.laneClosedAt(n.s, n.laneTo - 1, 170) ? 1 : -1));
-      this.startLaneChange(n, clamp(n.laneTo + dir, 0, CFG.LANES - 1));
+      const target = clamp(n.laneTo + dir, 0, CFG.LANES - 1);
+      // rabattement seulement si la place existe (sinon on s'arrête avant l'obstacle)
+      if (this.gapOK(n, target, playerObs, 0.55)) this.startLaneChange(n, target);
     }
     // — sorties —
     if (!this.ramps || CATALOG[n.id].kind === 'moto' && n.mode !== 'lane') return;
@@ -534,7 +573,7 @@ export class Traffic {
         const urg = clamp(1 - dj / 300, 0, 1);
         const accept = lerp(1, 0.45, urg) * n.persona.accept;
         if (this.rand() < dt * (1.2 + urg * 4) && this.gapOK(n, n.lane + 1, playerObs, accept)) {
-          if (dj < 70) n.laneDur = 0.85; // changement de voie de dernière seconde
+          if (dj < 70) n.laneDur = 1.6; // changement de voie de dernière seconde
           this.startLaneChange(n, n.lane + 1);
         } else if (dj < 25 && n.lane < right - 1) { n.exitPlan = null; n.blinker = 0; } // sortie ratée
       } else if (n.laneT >= 1 && n.lane === right) {
@@ -582,7 +621,7 @@ export class Traffic {
   }
 
   updateExit(n, dt) {
-    if (n.rampBlend < 1) n.rampBlend = Math.min(1, n.rampBlend + dt / 2.0);
+    if (n.rampBlend < 1) n.rampBlend = Math.min(1, n.rampBlend + dt / 3.0);
     else n.blinker = 0;
     const o = this.rampGeom(n);
     if (!o || o.t > 0.9) n.gone = true; // a quitté le périphérique
@@ -644,7 +683,7 @@ export class Traffic {
       if (this.laneClosedAt(n.s, target, 120)) continue;
       if (this.gapOK(n, target, playerObs, n.persona.accept)) {
         // « queue de poisson » des pressés : changement court
-        n.laneDur = n.personaKey === 'presse' && this.rand() < 0.4 ? 0.9 : n.persona.dur;
+        n.laneDur = n.personaKey === 'presse' && this.rand() < 0.4 ? 1.5 : n.persona.dur;
         this.startLaneChange(n, target);
         return;
       }
@@ -661,7 +700,7 @@ export class Traffic {
     };
     for (const o of this.npcs) {
       if (o === n || o.mode === 'exit' || o.mode === 'enter' && !o.merging) continue;
-      if (Math.abs(loopDelta(o.s, n.s, this.track.length)) < 80 && !check(o, o.lat)) return false;
+      if (Math.abs(loopDelta(o.s, n.s, this.track.length)) < 80 && (!check(o, o.lat) || (Math.abs(o.latT - o.lat) > 0.4 && !check(o, o.latT)))) return false;
     }
     if (!check(playerObs, playerObs.lat)) return false;
     return true;
@@ -675,17 +714,94 @@ export class Traffic {
     n.blinker = target > n.lane ? 1 : -1;
   }
 
+  // ---------- dynamique du véhicule ----------------------------------------
+  // Modèle « bicyclette » : le conducteur vise la trajectoire (latT) par
+  // poursuite pure ; braquage borné par l'accélération latérale admise et
+  // par la vitesse de rotation du volant ; le cap fait avancer le véhicule
+  // de côté (pas de translation latérale « magique »). Roulis et tangage
+  // passent par une suspension amortie ; la moto s'incline dans le virage.
+  dynamics(n, dt) {
+    const v = Math.max(n.v, 0.9);
+    const err = n.latT - n.lat;
+    const look = Math.max(6, v * 1.6);
+    const hd = Math.atan2(err * 1.15, look);
+    const wb = n.wb;
+    let dDes = Math.atan((2 * wb * Math.sin(hd - n.h)) / look);
+    const aMax = n.mode === 'emerg' ? 4 : n.aLat * (1 - 0.3 * this.wet);
+    const dMax = Math.min(0.5, Math.atan((aMax * wb) / (v * v)));
+    dDes = clamp(dDes, -dMax, dMax);
+    const rate = n.moto ? 1.4 : 0.55;           // vitesse de braquage (rad/s aux roues)
+    n.steer += clamp(dDes - n.steer, -rate * dt, rate * dt);
+    const hDot = (v / wb) * Math.tan(n.steer);
+    n.h = clamp(n.h + hDot * dt, -0.32, 0.32);
+    n.lat += v * Math.sin(n.h) * dt;
+    if (Math.abs(err) < 0.02 && Math.abs(n.h) < 0.002) { n.h *= 0.9; n.steer *= 0.9; }
+    const latAcc = v * hDot;
+    n.latAcc = lerp(n.latAcc, latAcc, Math.min(1, dt * 8));
+    if (n.moto) {
+      // contre-braquage / inclinaison d'équilibre + léger louvoiement à basse vitesse
+      const weave = n.v < 4 ? Math.sin(this.time * 3 + n.s) * 0.05 * (1 - n.v / 4) : 0;
+      const leanT = Math.atan(n.latAcc / 9.81) + weave;
+      n.lean += (leanT - n.lean) * Math.min(1, dt * 7);
+      n.pitch += (-n.acc * 0.006 - n.pitch) * Math.min(1, dt * 6);
+      return;
+    }
+    // suspension : ressort-amortisseur sur le roulis et le tangage
+    const kR = n.heavy ? 0.024 : 0.015, kP = n.heavy ? 0.009 : 0.011;
+    const rT = clamp(-n.latAcc * kR, -0.08, 0.08), pT = clamp(-n.acc * kP, -0.04, 0.07);
+    const w = 9, z = 0.55;
+    n.rollV += ((rT - n.roll) * w * w - 2 * z * w * n.rollV) * dt;
+    n.roll += n.rollV * dt;
+    n.pitchV += ((pT - n.pitch) * w * w - 2 * z * w * n.pitchV) * dt;
+    n.pitch += n.pitchV * dt;
+  }
+
+  // ---------- garde-fou : aucun véhicule ne doit en traverser un autre -------
+  resolveOverlaps(playerObs) {
+    const L = this.track.length;
+    const list = this.npcs;
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        const ds = loopDelta(b.s, a.s, L); // > 0 : b devant a
+        const lon = (a.len + b.len) / 2 + 0.35 - Math.abs(ds);
+        if (lon <= 0) { if (ds > 0) break; else continue; }
+        const latOv = (a.wid + b.wid) / 2 + 0.1 - Math.abs(b.lat - a.lat);
+        if (latOv <= 0) continue;
+        // celui qui se déporte renonce et se remet dans son couloir ;
+        // sinon le suiveur recule et cale sa vitesse sur celle du meneur
+        const aMoving = Math.abs(a.latT - a.lat) > 0.25, bMoving = Math.abs(b.latT - b.lat) > 0.25;
+        const mover = aMoving && !bMoving ? a : bMoving && !aMoving ? b : null;
+        if (mover && latOv < 0.9) {
+          const other = mover === a ? b : a;
+          const sgn = Math.sign(mover.lat - other.lat) || 1;
+          mover.lat += sgn * latOv;
+          mover.h *= 0.3; mover.steer = 0;
+          if (mover.mode === 'lane' && mover.laneT < 1) { mover.laneTo = mover.laneFrom; mover.laneT = 1; mover.lane = mover.laneFrom; mover.blinker = 0; }
+          continue;
+        }
+        const lead = ds > 0 ? b : a, foll = ds > 0 ? a : b;
+        foll.s = wrap(lead.s - Math.sign(ds || 1) * 0 - ((a.len + b.len) / 2 + 0.36), L);
+        foll.v = Math.min(foll.v, lead.v);
+      }
+    }
+  }
+
   // ---------- placement (poignées instanciées) ----------------------------
   place() {
     const track = this.track;
     const p = this._p;
     for (const n of this.npcs) {
       track.pointAt(n.s, p);
-      const lat = n.lat = this.computeLat(n);
+      const lat = n.lat;
       const h = n.bundle;
       const g = h.group;
-      g.position.set(p.x + p.rx * lat, n.y ?? p.y, p.z + p.rz * lat);
-      g.rotation.set(0, Math.atan2(p.tx, p.tz) + n.yaw, n.mode === 'interfile' ? -n.yaw * 6 : 0);
+      g.position.set(p.x + p.rx * lat, (n.y ?? p.y) + (n.moto ? 0 : -Math.abs(n.roll) * 0.15), p.z + p.rz * lat);
+      g.rotation.order = 'YXZ';
+      // cap : + à gauche dans le repère du véhicule ; roulis de caisse / inclinaison de la moto
+      g.rotation.set(n.pitch, Math.atan2(p.tx, p.tz) - n.h, n.moto ? n.lean : n.roll);
+      h.steer = -n.steer;
       h.speed = n.v;
       h.brake.visible = n.acc < -0.9 || n.brakeFlash > 0 || n.v < 0.4;
       h.blink = n.hazardT > 0 ? 2 : n.blinker;
@@ -697,6 +813,7 @@ export class Traffic {
       g.position.set(p.x + p.rx * lat, p.y, p.z + p.rz * lat);
       g.rotation.set(0, Math.atan2(p.tx, p.tz) + Math.PI, 0);
       o.bundle.speed = o.v;
+      o.bundle.steer = 0;
       o.bundle.brake.visible = o.v < MS(10);
     }
   }
