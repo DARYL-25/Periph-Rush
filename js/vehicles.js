@@ -238,6 +238,9 @@ export const CATALOG = {
   // v19 : Police nationale (berline sérigraphiée) et CRS (fourgon) — tools/blender/police_build.py
   police: { name: 'Police nationale', kind: 'sedan', glbId: 'police_pn', dims: [4.68, 1.82, 1.46], wb: 2.76, wr: 0.32, plateR: 0.61, plateF: 0.40, brakeY: 0.93,
     cols: [0xf3f4f6], w: 0, emergency: 'police', beacon: { x: -0.15, y: 1.50, z: 0.3 } },
+  // v21 : fourgon d'intervention / de balisage (livrée réglementaire, sans logo) — tools/blender/patrol_build.py
+  patrouilleur: { name: 'Fourgon d\'intervention', kind: 'van', glbId: 'patrol_van', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0xd5e81e], w: 0 },
   police_moto: { glbId: 'm_police', name: 'Motard de police', kind: 'moto', dims: [2.25, 0.95, 1.5], wb: 1.53, wr: 0.33, moto: 'adv',
     cols: [0xf2f3f5], w: 0, emergency: 'police', beacon: { x: 0.70, y: 1.02, z: 0.13 } },
   crs: { name: 'CRS', kind: 'van', glbId: 'crs_van', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,

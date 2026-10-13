@@ -18,7 +18,7 @@ import { Survey } from './survey.js';
 import { makeAtlas, makeAtlasLike, atlasify } from './atlas.js';
 import * as TX from './textures.js';
 import {
-  directionPanel, gantryPanel, speedLimitTexture, radarTexture, hovTexture, laneSignalTexture,
+  directionPanel, gantryPanel, signBackTexture, speedLimitTexture, radarTexture, hovTexture, laneSignalTexture,
   sosTexture, prPlateTexture, goreTexture, VMSPanel, bpStack, exitLines,
   noStoppingTexture, fuelSignTexture, fuelPanelTexture, touristTexture, nicheSignTexture,
 } from './signs.js';
@@ -1680,12 +1680,24 @@ export class World {
       const room = rv.face(b) - rv.inner(b);
       if (room >= w * k) break;
       if (b < 2.0) { b = 2.0; continue; }
-      k = Math.max(0.55, room / w);
+      k = 0; // ne tient pas : traité ci-dessous
       break;
+    }
+    if (k === 0) {
+      // v21 : jamais dans le mur. À ciel ouvert, le panneau passe en potence au-dessus de
+      // l'accotement / de la voie de droite (gabarit 5 m), entièrement devant le mur ;
+      // sous couverture (hauteur limitée), il est réduit pour tenir entre la DBA et la paroi.
+      if (!rv.cover) {
+        b = Math.max(b, 5.0);
+        const face = rv.face(b);
+        return { lat: face - w / 2 - 0.08, bottom: b, w, h, cantilever: true };
+      }
+      const room = rv.face(b) - rv.inner(b) - 0.06;
+      k = clamp(room / w, 0.3, 1);
     }
     const W = w * k, Hh = h * k;
     const want = prefer == null ? rv.post : prefer;
-    const lat = clamp(want, rv.inner(b) + W / 2, Math.max(rv.inner(b) + W / 2, rv.face(b) - W / 2));
+    const lat = clamp(want, rv.inner(b) + W / 2, Math.min(Math.max(rv.inner(b) + W / 2, rv.face(b) - W / 2), rv.face(b) - W / 2 - 0.04));
     return { lat, bottom: b, w: W, h: Hh };
   }
   // panneau de rive complet : mât (hors chaussée), console si le panneau est déporté, dos métallique
@@ -1695,7 +1707,7 @@ export class World {
     const y0 = rv.H + pl.bottom;
     this.addSign(ctx, s, sd * pl.lat, y0 + pl.h / 2, tex, pl.w, pl.h, rev);
     const off = rev ? -0.07 : 0.07;
-    boxAt(B.metal, this.rowAt(s + off), sd * pl.lat, y0, pl.w, pl.h, 0.05, rgb(0x6d7177), 1);
+    this.signBack(ctx, s, off, sd * pl.lat, y0, tex, pl.w, pl.h, rev);
     const pr = this.rowAt(s + off * 2), col = rgb(0x868b91);
     const top = y0 + pl.h * 0.85;
     boxAt(B.metal, pr, sd * rv.post, rv.postY - 0.05, 0.1, top - rv.postY + 0.05, 0.1, col);
@@ -1707,6 +1719,14 @@ export class World {
       }
     }
     return pl;
+  }
+
+  // dos du panneau : tôle de même silhouette pour les panneaux découpés (ronds…),
+  // caisson rectangulaire sinon
+  signBack(ctx, s, off, lat, yBottom, tex, w, h, rev) {
+    if (tex && (tex.round || tex.shaped)) {
+      this.addSign(ctx, s + off * 0.25, lat, yBottom + h / 2, signBackTexture(this.T, tex), w, h, !rev);
+    } else boxAt(ctx.B.metal, this.rowAt(s + off), lat, yBottom, w, h, 0.05, rgb(0x6d7177), 1);
   }
 
   // panneau avec dos métallique + supports
@@ -1804,7 +1824,7 @@ export class World {
           const rm = this.rowAt(sm), mh = this.medianHalf(rm);
           const y0 = rm.h + (mh > 0.42 ? 0.1 : 0.82);
           this.addSign(ctx, sm, 0.42, rm.h + 2.45, tex, 0.7, 0.93);
-          boxAt(B.metal, this.rowAt(sm + 0.06), 0.42, rm.h + 1.98, 0.7, 0.93, 0.04, rgb(0x6d7177), 1);
+          this.signBack(ctx, sm, 0.06, 0.42, rm.h + 1.985, tex, 0.7, 0.93, false);
           boxAt(B.metal, this.rowAt(sm + 0.12), 0.06, y0, 0.08, rm.h + 2.8 - y0, 0.08, rgb(0x868b91));
           break;
         }

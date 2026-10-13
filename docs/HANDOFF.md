@@ -767,3 +767,25 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
   LOD manquants (lutece_t, poids lourds), recherche du meneur limitée aux véhicules devant. Pointe : 1,03 M → 0,65 M
   triangles, 511 → 445 appels.
 - Cache SW `periph-v20`, `?v=20`. Toujours à faire (demandé) : missions, garage complet, fantôme / classement.
+
+## v21 — freinages réalistes, maniabilité à haute vitesse, fourgons d'intervention, police sur les ponts, panneaux
+- **Freinages du trafic** (`traffic.js`) : style par conducteur — `doux` (majorité : décélération de confort
+  1,5–2 m/s², mise en freinage progressive), `tardif` (16 %, 38 % chez les pressés : freine tard et fort, warnings),
+  `erratique` (3,5 % : rares coups de frein sans raison, tous les 2,5–7,5 km). Les ondes de fond (`baseLimit`) ne
+  touchent que les véhicules en peloton (meneur à < 45 m) : plus personne ne pile sur une route dégagée. IDM avec `b`
+  propre au conducteur. Test : ~1 % du temps en freinage fort, 0–0,4 % de freinage sans véhicule devant.
+- **Maniabilité** : quasi constante dès ~35 km/h, −10 % seulement vers 150 km/h.
+- **Réglages** : « Radars automatiques » et « Contrôles de police aux jumelles » activables (`settings.radars`,
+  `settings.jumelles`).
+- **Contrôles aux jumelles** : policiers sur le pont d'une porte (tête de couverture, au-dessus des voies de droite),
+  motards garés sur la bretelle d'entrée suivante ; prévenus par radio, ils partent quand vous passez l'entrée.
+- **Fourgon d'intervention** (`tools/blender/patrol_build.py` → `patrol_van.glb`, catalogue `patrouilleur`) : grand
+  fourgon jaune fluo à toit surélevé, chevrons rouges/blancs (face arrière en V, arrière des flancs), bandeau bleu ;
+  équipement de toit dans `events.patrolVan` : flèche lumineuse (matrice 7×5 de feux jaunes, gauche/droite/croix),
+  PMV à LED (« RALENTIR », « TRAVAUX », « ACCIDENT »), rampe de feux à éclats, gyrophares bleus. Travaux : fourgon de
+  pré-signalisation ~130 m en amont (le périph n'a pas de BAU), fourgon de protection en tête de biseau, cônes,
+  chantier de nuit plus lourd. Accidents « dépannage » : fourgon à flèche en zone tampon.
+- **Panneaux** : les panneaux découpés (ronds, panonceaux) ont un dos de même silhouette (`signBackTexture`, fini le
+  carré noir) ; panneaux de rive qui ne tiennent pas entre DBA et mur : en potence au-dessus de l'accotement
+  (gabarit 5 m) à ciel ouvert, réduits sous couverture — jamais dans le mur.
+- Cache SW `periph-v21`, `?v=21`.

@@ -93,6 +93,8 @@ export class UI {
     $('set-camera').onchange = (e) => { this.prog.data.settings.camera = e.target.value; this.prog.save(); this.emit('camera'); };
     $('set-radio').onchange = (e) => { this.prog.data.settings.radio = e.target.value; this.prog.save(); this.refreshRadio(); this.emit('radio'); };
     $('set-mirror').onchange = (e) => { this.prog.data.settings.mirror = e.target.checked; this.prog.save(); this.emit('settings'); };
+    $('set-radars').onchange = (e) => { this.prog.data.settings.radars = e.target.checked; this.prog.save(); this.emit('settings'); };
+    $('set-jumelles').onchange = (e) => { this.prog.data.settings.jumelles = e.target.checked; this.prog.save(); this.emit('settings'); };
     $('set-steer').onchange = (e) => {
       this.prog.data.settings.steerMode = e.target.value; this.prog.save();
       if (e.target.value === 'inclinaison') this.enableTilt(); else this.disableTilt();
@@ -434,6 +436,8 @@ export class UI {
     $('set-camera').value = s.camera || 'chase';
     $('set-radio').value = UI.radioKey(s.radio);
     $('set-mirror').checked = !!s.mirror;
+    $('set-radars').checked = s.radars !== false;
+    $('set-jumelles').checked = s.jumelles !== false;
     $('set-steer').value = s.steerMode || 'boutons';
   }
 

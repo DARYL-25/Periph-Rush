@@ -137,8 +137,10 @@ export class Player {
     const v = this.v;
     const steerAxis = clamp(inp.steer, -1, 1);
     this.steerIn = damp(this.steerIn || 0, steerAxis, CFG.STEER_RESPONSE, dt);
-    const speedFactor = clamp(v / MS(50), 0.25, 1.6);
-    const under = 1 / (1 + Math.max(0, v - MS(70)) / MS(55));     // sous-virage à haute vitesse
+    // v21 : maniabilité quasi constante — pleine dès ~35 km/h, à peine réduite à très
+    // haute vitesse (−10 % vers 150 km/h) ; à très basse vitesse on ne glisse pas de côté
+    const speedFactor = clamp(0.3 + v / MS(35) * 0.7, 0.3, 1.0) * 1.1;
+    const under = 1 - 0.1 * clamp((v - MS(70)) / MS(80), 0, 1);
     const targetLatVel = this.steerIn * CFG.STEER_SPEED * this.steerF * speedFactor * under * (this.sens ?? 1);
     const latAccMax = (14 + this.steerF * 6) * this.grip;
     const prevLatVel = this.vl || 0;

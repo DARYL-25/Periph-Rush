@@ -142,10 +142,16 @@ export class Events {
   // protection avec atténuateur de choc et flèche, barrières à lampes
   // clignotantes, engin (raboteuse), agents en orange.
   spawnRoadworks(s0) {
-    const T = this.T, track = this.track, L = track.length;
-    const len = 170 + this.rand() * 110;
+    // v21 : balisage tel qu'on le voit en France sur voie rapide — fourgon(s)
+    // d'intervention à flèche lumineuse, long biseau de cônes, zone de travaux
+    // derrière des cônes (et la nuit, un vrai chantier : barrières à lampes,
+    // camion, parfois une raboteuse), agents en orange.
+    const track = this.track, L = track.length;
+    const h = this.hour ?? 14, night = h >= 21.5 || h < 5.5;
+    const big = night && this.rand() < 0.55;          // chantier de nuit
+    const len = (big ? 190 : 120) + this.rand() * 90;
     const right = this.rand() < 0.7;
-    const two = this.rand() < 0.3;
+    const two = big && this.rand() < 0.35;
     const lanes = right ? (two ? [2, 3] : [3]) : (two ? [0, 1] : [0]);
     const s1 = wrap(s0 + len, L);
     const e = this.newEvent('travaux', s0, s1, lanes);
@@ -153,34 +159,41 @@ export class Events {
     const closedEdge = right ? laneCenter(Math.min(...lanes)) - CFG.LANE_WIDTH / 2 : laneCenter(Math.max(...lanes)) + CFG.LANE_WIDTH / 2;
     const openEdge = right ? laneCenter(Math.max(...lanes)) + CFG.LANE_WIDTH / 2 : laneCenter(Math.min(...lanes)) - CFG.LANE_WIDTH / 2;
     const midClosed = (closedEdge + openEdge) / 2;
-    const taper = 70;
-    // remorque FLR au début du biseau, côté fermé
-    this.arrowTrailer(e, statics, s0 + 4, midClosed, right);
-    for (let d = 10; d < len; d += d < taper ? 5 : 8) {
-      const t = clamp(d / taper, 0, 1);
-      this.addCone(cones, e, s0 + d, openEdge + (closedEdge - openEdge) * t);
+    const taper = 60 + this.rand() * 25;
+    const arrow = right ? 'left' : 'right';
+    // fourgon de protection en tête de biseau, flèche de rabattement
+    this.patrolVan(e, s0 + 2, midClosed + (right ? 0.25 : -0.25), 0, { arrow, pmv: 'TRAVAUX' });
+    // fourgon de pré-signalisation ~130 m en amont, dans la voie neutralisée (le périph n'a
+    // pas de bande d'arrêt d'urgence) : la neutralisation commence à lui
+    if (this.rand() < 0.6) {
+      const sp = wrap(s0 - 115 - this.rand() * 40, L);
+      this.patrolVan(e, sp, midClosed, 0, { arrow, pmv: 'RALENTIR' });
+      e.s0 = sp;
     }
-    // camion de protection (atténuateur + flèche) en tête de zone
-    const tma = this.factory.build('fourgon', { color: 0xf2c200 });
-    this.placeVehicle(e, tma, wrap(s0 + taper + 18, L), midClosed, 0);
-    this.attenuator(e, statics, tma, right);
-    if (tma.beacon) e.strobes.push(tma.beacon);
-    // barrières lumineuses le long de la zone
-    for (let d = taper + 40; d < len - 10; d += 20) {
-      const lat = closedEdge + (right ? 0.6 : -0.6);
-      this.barrierWithLamp(e, statics, s0 + d, lat);
+    // biseau puis alignement de cônes (espacement réglementaire plus serré dans le biseau)
+    for (let d = 9; d < len; d += d < taper ? 6 : 10) {
+      const t = clamp((d - 9) / taper, 0, 1);
+      this.addCone(cones, e, s0 + d, openEdge + (closedEdge - openEdge) * t + (right ? 0.15 : -0.15));
     }
-    // engin + camion du chantier, agents
-    const truck = this.factory.build('municipal', { color: 0x3d5f43 });
-    this.placeVehicle(e, truck, wrap(s0 + len * 0.72, L), midClosed, 0.06);
-    if (truck.beacon) e.strobes.push(truck.beacon);
-    this.planer(e, statics, s0 + len * 0.5, midClosed);
+    // fin de chantier : cônes en biseau de sortie
+    for (let d = 0; d < 30; d += 6) this.addCone(cones, e, s1 - 30 + d, closedEdge + (openEdge - closedEdge) * 0 + (right ? 0.15 : -0.15) + (d / 30) * (right ? 1 : -1) * 0.2);
+    // agents + matériel dans la zone
     const nW = 2 + ((this.rand() * 3) | 0);
     for (let k = 0; k < nW; k++) {
       const pose = pick(this.rand, ['stand', 'arms', 'point', 'stand']);
-      this.addPerson(e, { ...OUTFITS.worker, pose }, s0 + len * (0.42 + this.rand() * 0.4), midClosed + (this.rand() - 0.5) * 2.2, this.rand() * Math.PI * 2);
+      this.addPerson(e, { ...OUTFITS.worker, pose }, s0 + taper + 25 + this.rand() * (len - taper - 40), midClosed + (this.rand() - 0.5) * 2.0, this.rand() * Math.PI * 2);
     }
-    for (const dz of [160, 330]) this.roadSign(e, s0 - dz, right, dz === 160 ? 'TRAVAUX' : `TRAVAUX ${dz} m`);
+    if (big) {
+      for (let d = taper + 40; d < len - 20; d += 24) this.barrierWithLamp(e, statics, s0 + d, closedEdge + (right ? 0.6 : -0.6));
+      const truck = this.factory.build('municipal', { color: 0x3d5f43 });
+      this.placeVehicle(e, truck, wrap(s0 + len * 0.72, L), midClosed, 0.04);
+      if (truck.beacon) e.strobes.push(truck.beacon);
+      if (this.rand() < 0.6) this.planer(e, statics, s0 + len * 0.5, midClosed);
+    } else if (this.rand() < 0.5) {
+      // petite intervention de jour : second fourgon dans la zone
+      this.patrolVan(e, s0 + taper + 30, midClosed, 0.02, { arrow, pmv: 'TRAVAUX' });
+    }
+    for (const dz of [200, 380]) this.roadSign(e, s0 - dz, right, dz === 200 ? 'TRAVAUX' : `TRAVAUX ${dz} m`);
     this.finalize(e, cones, statics);
     this.world.setVMSAhead(wrap(s0 - 500, L), ['TRAVAUX', right ? 'VOIE DE DROITE NEUTRALISEE' : 'VOIE DE GAUCHE NEUTRALISEE']);
   }
@@ -253,11 +266,8 @@ export class Events {
       e.slowExtra = 1;
     }
     if (phase === 'depannage') {
-      // fourgon jaune à flèche lumineuse 100 m en amont, dans la voie neutralisée
-      const fg = this.factory.build('fourgon', { color: 0xf2c200 });
-      this.placeVehicle(e, fg, wrap(s0 + 8, L), laneCenter(laneA), 0);
-      this.attenuator(e, statics, fg, laneA >= 2);
-      if (fg.beacon) e.strobes.push(fg.beacon);
+      // fourgon d'intervention à flèche lumineuse 100 m en amont, dans la voie neutralisée (zone tampon)
+      this.patrolVan(e, s0 + 8, laneCenter(laneA), 0, { arrow: laneA >= 2 ? 'left' : 'right', pmv: 'ACCIDENT' });
       for (let d = -40; d < 6; d += 5) this.addCone(cones, e, s0 + d, laneCenter(laneA) + (laneA >= 2 ? -1 : 1) * (CFG.LANE_WIDTH / 2) * (1 - (d + 40) / 46) + (laneA >= 2 ? -1 : 1) * 0.2);
       // dépanneuse à plateau devant, véhicule chargé ou en attente
       const tow = this.factory.build('depanneuse', {});
@@ -285,6 +295,58 @@ export class Events {
     for (const dz of [150, 320]) this.roadSign(e, s0 - dz, true, 'ACCIDENT');
     this.finalize(e, cones, statics);
     this.world.setVMSAhead(wrap(s0 - 500, L), ['ACCIDENT', laneA >= 2 ? 'VOIE DE DROITE NEUTRALISEE' : 'VOIE DE GAUCHE NEUTRALISEE']);
+  }
+
+  // ---------- fourgon d'intervention (v21) ------------------------------------
+  // Fourgon jaune fluo à chevrons + équipement de toit : flèche lumineuse de
+  // rabattement (matrice de feux jaunes ronds), PMV à LED « RALENTIR / TRAVAUX »,
+  // rampe de feux à éclats jaunes, gyrophares bleus à l'avant.
+  patrolVan(e, s, lat, yaw, { arrow = 'left', pmv = 'RALENTIR', shoulder = false } = {}) {
+    const T = this.T, L = this.track.length;
+    const van = this.factory.build('patrouilleur', { color: 0xd5e81e });
+    this.placeVehicle(e, van, wrap(s, L), lat, yaw);
+    const g = van.group, ud = van.ud;
+    const H = Math.max(ud.H, 2.2), zr = -ud.L / 2 + 0.55;
+    const frameM = this.frameMat || (this.frameMat = new T.MeshLambertMaterial({ color: 0x1b1d20 }));
+    const greyM = this.greyM || (this.greyM = new T.MeshLambertMaterial({ color: 0x8d9298 }));
+    const housM = this.housM || (this.housM = new T.MeshBasicMaterial({ color: 0x4a3410 }));
+    const add = (geo, mat, x, y, z, ry = 0) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; g.add(m); return m; };
+    // galerie de toit + vérins
+    add(new T.BoxGeometry(1.7, 0.06, 2.6), greyM, 0, H + 0.05, -0.2);
+    for (const x of [-0.7, 0.7]) add(new T.BoxGeometry(0.06, 0.55, 0.06), greyM, x, H + 0.32, zr + 0.15);
+    // panneau flèche relevé (face vers l'arrière)
+    const bw = 1.8, bh = 1.25, yB = H + 0.62 + bh / 2;
+    add(new T.BoxGeometry(bw, bh, 0.12), frameM, 0, yB, zr);
+    const disc = this.discG || (this.discG = new T.CircleGeometry(0.075, 14));
+    const pat = arrow === 'right'
+      ? ['....X..', '.....X.', 'XXXXXXX', '.....X.', '....X..']
+      : arrow === 'left' ? ['..X....', '.X.....', 'XXXXXXX', '.X.....', '..X....']
+        : ['X.....X', '.X...X.', '..X.X..', '.X...X.', 'X.....X']; // croix : voie fermée
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 7; c++) {
+        const x = -(c - 3) * 0.22, y = yB + (2 - r) * 0.22; // motif écrit tel que vu de l'arrière
+        // vue de l'arrière : la droite de l'observateur est la gauche du véhicule (+X local)
+        add(disc, housM, x, y, zr - 0.065, Math.PI);
+        if (pat[r][c] === 'X') e.blinkers.push(add(disc, this.arrowOn, x, y, zr - 0.068, Math.PI));
+      }
+    }
+    // rampe de feux à éclats jaunes au sommet du panneau
+    for (let k = 0; k < 6; k++) {
+      const b = add(new T.CylinderGeometry(0.07, 0.07, 0.11, 10), this.arrowOn, (k - 2.5) * 0.3, yB + bh / 2 + 0.07, zr);
+      (k % 2 ? e.blinkers : e.strobes).push(b);
+    }
+    // PMV à LED sous la flèche
+    const pm = new T.Mesh(new T.PlaneGeometry(1.7, 0.34), new T.MeshBasicMaterial({ map: ledTexture(T, pmv), toneMapped: false }));
+    pm.position.set(0, H + 0.42, zr - 0.07); pm.rotation.y = Math.PI; g.add(pm);
+    add(new T.BoxGeometry(1.78, 0.4, 0.1), frameM, 0, H + 0.42, zr + 0.01);
+    // gyrophares bleus avant + feux à éclats jaunes arrière
+    for (const sd of [-1, 1]) {
+      e.strobes.push(add(new T.CylinderGeometry(0.08, 0.08, 0.14, 10), this.blueMat, sd * 0.7, H + 0.12, ud.L / 2 - 0.9));
+      e.blinkers.push(add(new T.CylinderGeometry(0.07, 0.07, 0.1, 10), this.arrowOn, sd * 0.78, H + 0.1, zr + 0.4));
+    }
+    this.hazards(e, van);
+    if (shoulder) e.obstacles[e.obstacles.length - 1].wid = ud.W;
+    return van;
   }
 
   // ---------- éléments de scène ----------------------------------------------
@@ -518,6 +580,32 @@ export class Events {
     this.nextAt = 2200;
     this.lapBoost = 1;
   }
+}
+
+// PMV à LED orange (matrice de points) sur fond noir
+const _led = new Map();
+function ledTexture(T, text) {
+  if (_led.has(text)) return _led.get(text);
+  const W = 512, H = 100;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#0b0c0d'; c.fillRect(0, 0, W, H);
+  // texte rendu en basse définition puis échantillonné en points ronds
+  const lo = document.createElement('canvas'); lo.width = 128; lo.height = 20;
+  const l = lo.getContext('2d');
+  l.fillStyle = '#000'; l.fillRect(0, 0, 128, 20);
+  l.fillStyle = '#fff'; l.font = 'bold 15px sans-serif'; l.textAlign = 'center'; l.textBaseline = 'middle';
+  l.fillText(text, 64, 11);
+  const d = l.getImageData(0, 0, 128, 20).data;
+  for (let y = 0; y < 20; y++) for (let x = 0; x < 128; x++) {
+    const on = d[(y * 128 + x) * 4] > 110;
+    c.fillStyle = on ? '#ffa31a' : '#231a0c';
+    c.beginPath(); c.arc(x * 4 + 2, y * 5 + 2.5, on ? 1.9 : 1.1, 0, Math.PI * 2); c.fill();
+  }
+  const t = new T.CanvasTexture(cv);
+  t.colorSpace = T.SRGBColorSpace;
+  _led.set(text, t);
+  return t;
 }
 
 function loopDeltaE(a, b, L) { let d = (a - b) % L; if (d > L / 2) d -= L; if (d < -L / 2) d += L; return d; }

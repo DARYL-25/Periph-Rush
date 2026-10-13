@@ -579,7 +579,25 @@ export function noStoppingTexture(THREE, rappel = true) {
     text(ctx, 'RAPPEL', S / 2, S + 46, 46, '#111', 'center', 600);
   }
   weather(ctx, S, H, 0.4);
-  return finish(THREE, cv, key);
+  return finish(THREE, cv, key, { shaped: true });
+}
+
+// v21 : dos d'un panneau découpé (rond, panonceau…) : même silhouette, tôle grise.
+// Évite le « carré noir » d'une plaque rectangulaire derrière un panneau rond.
+export function signBackTexture(THREE, front) {
+  const src = front.tex ? front.tex : front;
+  const key = 'back:' + src.uuid;
+  if (texCache.has(key)) return texCache.get(key);
+  const img = src.image;
+  const cv = makeCanvas(img.width, img.height), ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.fillStyle = '#7d8288';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = 'rgba(40,44,48,0.5)'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(cv.width * 0.5, cv.height * 0.1); ctx.lineTo(cv.width * 0.5, cv.height * 0.9); ctx.stroke(); // rail de fixation
+  return finish(THREE, cv, key, { shaped: true });
 }
 
 // pictogramme pompe à carburant (blanc)

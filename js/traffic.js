@@ -161,14 +161,21 @@ export class Traffic {
     else if (heavy) v0 = MS(42 + this.rand() * 10);
     else v0 = MS(44 + this.rand() * 16);
     v0 *= persona.v0;
+    // style de freinage : la grande majorité anticipe et freine en douceur ; une minorité
+    // freine tard et fort (plus fréquente chez les pressés) ; de rares conducteurs
+    // « erratiques » donnent des coups de frein sans raison
+    const rb = this.rand();
+    const lateP = personaKey === 'presse' ? 0.38 : personaKey === 'dimanche' ? 0.06 : 0.16;
+    const style = rb < 0.035 ? 'erratique' : rb < 0.035 + lateP ? 'tardif' : 'doux';
     return {
+      style, b: style === 'tardif' ? 4.2 + this.rand() * 0.8 : style === 'erratique' ? 3.0 : 1.5 + this.rand() * 0.5,
       id, bundle: null, s, v: v0 * 0.9, v0,
       lane: 1, laneFrom: 1, laneTo: 1, laneT: 1, laneDur: persona.dur,
       mode: 'lane', gap: 0, gapFrom: 0, gapTo: 0, gapT: 1,
       len: m.dims[0], wid: m.dims[1], heavy,
       persona, personaKey, aggro: sport ? 0.85 : personaKey === 'presse' ? 0.75 : this.rand() * 0.55,
       eligible: !!(m.taxi || id === 'bus' || m.emergency || this.rand() < 0.28), // covoiturage, taxis, bus
-      blinker: 0, hazardT: 0, brakeFlash: 0, panicAt: 200 + this.rand() * 900,
+      blinker: 0, hazardT: 0, brakeFlash: 0, panicAt: 1500 + this.rand() * 4000,
       yaw: 0, yieldOff: 0, passed: false,
       ramp: null, rampBlend: 0, exitPlan: null, decided: null, hornCd: 2 + this.rand() * 6, stuckT: 0,
       lat: 0, latT: 0, y: null, acc: 0,
@@ -483,7 +490,10 @@ export class Traffic {
 
       // — vitesse désirée —
       const laneForLim = special ? 1 : n.lane;
-      const lim = Math.min(this.localLimit(n.s, laneForLim), n.mode === 'emerg' ? Infinity : this.baseLimit(n.s, n.mode === 'interfile' ? n.gapTo : n.laneTo));
+      // ondes de ralentissement de fond : elles ne concernent que les véhicules en peloton
+      // (quelqu'un devant à moins de ~45 m) — personne ne freine sur une route dégagée
+      const inPlatoon = n.mode !== 'lane' || (leader && gap < 45);
+      const lim = Math.min(this.localLimit(n.s, laneForLim), n.mode === 'emerg' || !inPlatoon ? Infinity : this.baseLimit(n.s, n.mode === 'interfile' ? n.gapTo : n.laneTo));
       let v0 = Math.min(n.v0 * (1 - 0.12 * wet), lim);
       if (n.mode === 'interfile') v0 = Math.min(n.v0, Math.max(lim + MS(this.level === 2 ? 22 : 18), MS(this.level === 2 ? 28 : 25)));
       if (n.mode === 'emerg') v0 = n.v0;
@@ -496,29 +506,38 @@ export class Traffic {
         if (dp > 0 && dp < 40) v0 = Math.min(v0, Math.max(MS(15), player.v - 2.5));
         else n.blockT = 0;
       }
-      n.panicAt -= n.v * dt;
-      if (n.panicAt < 0) { n.panicAt = 500 + this.rand() * 1400; n.brakeFlash = 0.9 + this.rand() * 0.8; }
-      if (n.brakeFlash > 0) { n.brakeFlash -= dt; v0 = Math.min(v0, n.v * 0.55); }
+      // coups de frein inexpliqués : seulement les rares conducteurs erratiques, espacés
+      if (n.style === 'erratique' && n.mode === 'lane' && n.v > MS(25)) {
+        n.panicAt -= n.v * dt;
+        if (n.panicAt < 0) { n.panicAt = 2500 + this.rand() * 5000; n.brakeFlash = 0.6 + this.rand() * 0.6; }
+      }
+      if (n.brakeFlash > 0) { n.brakeFlash -= dt; v0 = Math.min(v0, n.v * 0.7); }
 
       // — IDM —
-      const free = Math.max(1 - Math.pow(n.v / Math.max(v0, 0.1), 4), -2);
+      let free = Math.max(1 - Math.pow(n.v / Math.max(v0, 0.1), 4), -2);
       // accélération de confort : relances franches en trafic dense (on « recolle » vite)
       const A = CFG.IDM_A * (this.level === 3 ? 1.25 : 1) * (n.heavy ? 0.7 : 1) * (n.personaKey === 'presse' ? 1.15 : n.personaKey === 'dimanche' ? 0.85 : 1);
+      // ralentir vers une vitesse cible plus basse (bouchon annoncé, zone lente) : décélération
+      // de confort propre au conducteur, pas un coup de frein
+      if (free < 0 && n.mode !== 'emerg' && !(n.brakeFlash > 0)) free = Math.max(free, -(n.b * (n.style === 'tardif' ? 0.9 : 0.55)) / A);
       let acc;
-      const Tg = CFG.IDM_T * n.persona.T * (1 + 0.35 * wet);
+      const Tg = CFG.IDM_T * n.persona.T * (1 + 0.35 * wet) * (n.style === 'tardif' ? 0.85 : 1);
       if (leader) {
         const dv = n.v - leader.v;
         const s0 = this.level === 2 ? 1.6 : this.level === 3 ? 1.9 : CFG.IDM_S0;
-        const sStar = s0 + Math.max(0, n.v * Tg + (n.v * dv) / (2 * Math.sqrt(CFG.IDM_A * CFG.IDM_B)));
+        const sStar = s0 + Math.max(0, n.v * Tg + (n.v * dv) / (2 * Math.sqrt(A * (n.b || CFG.IDM_B))));
         acc = A * (free - Math.pow(sStar / Math.max(gap, 0.5), 2));
       } else acc = A * free;
       if (v0 < 0.3 && n.v < 0.4) acc = Math.min(acc, 0);
       acc = clamp(acc, -8.5 * (1 - 0.25 * wet), 3.2);
       // temps de réaction / douceur : la pédale ne passe pas instantanément d'un extrême à l'autre
       // (le freinage peut s'établir vite, l'accélération reprend progressivement)
-      acc = acc < n.acc ? Math.max(acc, n.acc - 22 * dt) : Math.min(acc, n.acc + 5.5 * dt);
+      // mise en freinage progressive pour les conducteurs doux (sauf urgence : distance très courte)
+      const urgent = leader && gap < Math.max(4, n.v * 0.6);
+      const onset = urgent || n.style !== 'doux' || n.brakeFlash > 0 ? 24 : 7;
+      acc = acc < n.acc ? Math.max(acc, n.acc - onset * dt) : Math.min(acc, n.acc + 5.5 * dt);
       // warnings : gros freinage à l'approche d'un ralentissement
-      if (acc < -3.2 && n.v > MS(30) && n.hazardT <= 0 && this.rand() < 0.6 && n.mode === 'lane') n.hazardT = 3 + this.rand() * 4;
+      if (acc < -3.2 && n.v > MS(30) && n.hazardT <= 0 && this.rand() < (n.style === 'tardif' ? 0.7 : 0.45) && n.mode === 'lane') n.hazardT = 3 + this.rand() * 4;
       if (n.hazardT > 0) n.hazardT -= dt;
       n.acc = acc;
       n.v = Math.max(0, n.v + acc * dt);

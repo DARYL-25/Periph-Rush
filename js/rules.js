@@ -55,7 +55,7 @@ export class Rules {
       for (const r of radars) {
         const a = loopDelta(this.lastS, r.s, L), b = loopDelta(s, r.s, L);
         if (!(a < 0 && b >= 0)) continue;
-        if (r.kind === 'speed') {
+        if (r.kind === 'speed' && this.radarsOn !== false) {
           const kmh = player.v * 3.6;
           const retenue = kmh - 5; // marge technique de 5 km/h sous 100 km/h
           if (retenue > CFG.SPEED_LIMIT_KMH) {

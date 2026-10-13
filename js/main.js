@@ -92,7 +92,7 @@ async function boot() {
   {
     const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
     const FLEET = [['lutece', 'lutece_hi'], ['lutece_t', 'lutece'], ['mistral'], ['aurore'], ['concorde'], ['taxi'], ['riviera'], ['atlas'], ['odyssee'], ['cargo'], ['furia'],
-      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur'], ['police_pn'], ['crs_van'], ['w_heavy'], ['m_police']];
+      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur'], ['police_pn'], ['crs_van'], ['w_heavy'], ['m_police'], ['patrol_van']];
     await Promise.all(FLEET.map(async ([id, file]) => {
       try { await factory.loadGLB(id, `assets/fleet/${file || id}.glb`, GLTFLoader); }
       catch (e) { console.warn('GLB ' + id + ' indisponible — repli procédural', e); }

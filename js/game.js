@@ -95,6 +95,8 @@ export class Game {
     const LV = TRAFFIC_LEVELS[this.traffic.level];
     this.player.reset(carId, this.track.startFor(set.startPorte), color);
     this.rules.reset(this.traffic.level);
+    this.rules.radarsOn = set.radars !== false;
+    this.police.enabled = set.jumelles !== false;
     const ps = this.player.spec;
     this.audio.setVehicle?.(ps.kind === 'moto' ? (ps.moto === 'scooter' ? 'scoot1' : 'moto2') : 'car4');
     this.hitCooldown = 0;
@@ -184,7 +186,12 @@ export class Game {
     this.traffic.update(dt, this.player, this.events);
     this.events.hour = this.ambience.hour;
     this.events.update(dt, this.player, this.traffic);
-    if (this.state === 'running') this.police.update(dt, this.player, this);
+    if (this.state === 'running') {
+      const st = this.ui.prog.data.settings;
+      this.rules.radarsOn = st.radars !== false;
+      this.police.enabled = st.jumelles !== false;
+      this.police.update(dt, this.player, this);
+    }
     if (this.state !== 'running' && this.state !== 'crashing') return;
     this.world.update(this.player.s);
     const tunnel = this.track.inTunnel(this.player.s);

@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-180.png">
   <link rel="preload" href="assets/fonts/barlow-condensed-latin-900-italic.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=20">
+  <link rel="stylesheet" href="css/style.css?v=21">
   <script type="importmap">
     { "imports": { "three": "./vendor/three.module.min.js" } }
   </script>
@@ -214,6 +214,8 @@
           <option value="off">Éteinte</option>
         </select></label>
       <label class="row"><span>Rétroviseur</span><input type="checkbox" id="set-mirror"></label>
+      <label class="row"><span>Radars automatiques</span><input type="checkbox" id="set-radars"></label>
+      <label class="row"><span>Contrôles de police aux jumelles</span><input type="checkbox" id="set-jumelles"></label>
       <label class="row"><span>Qualité graphique</span>
         <select id="set-quality">
           <option value="auto">Auto</option>
@@ -265,6 +267,6 @@
     <div id="loading-txt">Construction du périphérique…</div>
   </div>
 
-  <script type="module" src="js/main.js?v=20"></script>
+  <script type="module" src="js/main.js?v=21"></script>
 </body>
 </html>
