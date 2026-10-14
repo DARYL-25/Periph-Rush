@@ -222,8 +222,11 @@ export const CATALOG = {
   camionnette: { name: 'Camionnette', kind: 'van', dims: [4.4, 1.85, 1.85], wb: 2.9, wr: 0.31,
     prof: { nose: 0.32, hood: 0.45, hoodX: 0.15, roofX: 0.32, roofH: 0.99, roofEndX: 0.96, tailH: 0.94, mono: true },
     glass: { belt: 0.48, endX: 0.45, panel: true }, lights: 'oval', cols: [P.blancVan, P.blancVan, P.gris, P.bleu], w: 0 },
+  // v23 : bus urbain (livrée blanche à bandeau vert jade) et bus de nuit (bleu nuit, bandeau bleu ciel), girouette à LED
   bus: { name: 'Bus', kind: 'bus', dims: [12.0, 2.55, 3.1], wb: 6.0, wr: 0.45,
-    cols: [0xdfe5e2], w: 1.2 },
+    cols: [0xe4e9e7], w: 1.2, day: true, livery: 'jade' },
+  bus_noct: { name: 'Bus de nuit', kind: 'bus', dims: [12.0, 2.55, 3.1], wb: 6.0, wr: 0.45,
+    cols: [0x1f2c63], w: 0, night: true, livery: 'noct' },
   depanneuse: { name: 'Dépanneuse', kind: 'tow', dims: [6.5, 2.2, 2.6], wb: 3.6, wr: 0.37,
     cols: [P.jaune, P.blancVan, P.orange], w: 0.5 },
   municipal: { name: 'Ville de Paris', kind: 'box', dims: [5.4, 2.05, 2.4], wb: 3.3, wr: 0.34,
@@ -1006,8 +1009,17 @@ export class VehicleFactory {
       const g = xform(new T.BoxGeometry(w, h, d), tf);
       arr.push(arr === det ? colorize(T, g, col ?? 0x24262a) : g);
     };
-    box(det, L * 0.98, 0.22, 0.02, { y: H * 0.34, z: W / 2 + 0.005 }, 0x2f8c85);
-    box(det, L * 0.98, 0.22, 0.02, { y: H * 0.34, z: -W / 2 - 0.005 }, 0x2f8c85);
+    const band = m.livery === 'noct' ? 0x4fb3e8 : 0x2f9a86;
+    box(det, L * 0.98, 0.22, 0.02, { y: H * 0.34, z: W / 2 + 0.005 }, band);
+    box(det, L * 0.98, 0.22, 0.02, { y: H * 0.34, z: -W / 2 - 0.005 }, band);
+    if (m.livery === 'jade') { // bas de caisse et face avant gris anthracite
+      box(det, L * 0.99, 0.32, W + 0.01, { y: yBot + 0.2 }, 0x3a4044);
+    }
+    // girouettes à LED (avant + flanc droit + arrière) : lentilles émissives la nuit
+    lensF.push(xform(new T.BoxGeometry(0.04, 0.24, W * 0.72), { x: L / 2 + 0.02, y: H - 0.32 }));
+    lensF.push(xform(new T.BoxGeometry(1.5, 0.2, 0.03), { x: L / 2 - 1.6, y: H - 0.3, z: W / 2 + 0.01 }));
+    lensF.push(xform(new T.BoxGeometry(0.04, 0.2, 0.5), { x: -L / 2 - 0.02, y: H - 0.35 }));
+    box(det, 0.05, 0.3, W * 0.78, { x: L / 2 + 0.005, y: H - 0.32 }, 0x101214);
     box(det, L * 0.25, 0.18, 0.02, { x: L / 2 - L * 0.15, y: H * 0.88, z: W / 2 + 0.005 }, 0x14181c);
     // portes
     for (const dx of [L * 0.18, -L * 0.1, -L * 0.35]) {

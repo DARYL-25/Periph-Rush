@@ -18,7 +18,7 @@ const CAR_W = CAR_IDS.map((id) => CATALOG[id].w);
 const MOTO_IDS = TRAFFIC_IDS.filter((id) => CATALOG[id].kind === 'moto');
 const MOTO_W = MOTO_IDS.map((id) => CATALOG[id].w);
 const SPORT_IDS = ['furia'];
-const HEAVY = ['bus', 'fourgon', 'livraison', 'depanneuse', 'municipal', 'camionnette', 'trafic', 'semi', 'semi_pv', 'semi_cit', 'semi_frigo', 'cargo', 'pro_btp', 'pro_loc', 'pro_demen'];
+const HEAVY = ['bus', 'bus_noct', 'fourgon', 'livraison', 'depanneuse', 'municipal', 'camionnette', 'trafic', 'semi', 'semi_pv', 'semi_cit', 'semi_frigo', 'cargo', 'pro_btp', 'pro_loc', 'pro_demen'];
 const EMERG_IDS = ['police', 'police', 'police', 'samu', 'smur', 'pompiers', 'crs'];
 
 // niveaux de trafic : 0 fluide · 1 chargé · 3 dense (accordéon) · 2 heure de pointe (très bouché)
@@ -149,7 +149,12 @@ export class Traffic {
     const P = this.params();
     if (isMoto) return pickWeighted(this.rand, MOTO_IDS, MOTO_W);
     if (this.rand() < P.speederFrac * 0.35) return pick(this.rand, SPORT_IDS);
-    return pickWeighted(this.rand, CAR_IDS, CAR_W);
+    let id = pickWeighted(this.rand, CAR_IDS, CAR_W);
+    const h = this.hour ?? 14, night = h >= 0.5 && h < 5.5;
+    if (CATALOG[id].night && !night) id = pickWeighted(this.rand, CAR_IDS, CAR_W);
+    if (CATALOG[id].night && !night) id = 'concorde';
+    if (CATALOG[id].day && night) id = 'bus_noct';
+    return id;
   }
 
   makeNPC(id, s, extra = {}) {
@@ -172,11 +177,16 @@ export class Traffic {
     // style de freinage : la grande majorité anticipe et freine en douceur ; une minorité
     // freine tard et fort (plus fréquente chez les pressés) ; de rares conducteurs
     // « erratiques » donnent des coups de frein sans raison
+    // v23 : distraits au téléphone (louvoient, réagissent tard) et warnings oubliés
+    const plain = !zz && !extra.mode && m.kind !== 'moto' && !m.emergency && !HEAVY.includes(id) && m.kind !== 'bus';
+    const phone = plain && this.rand() < 0.025;
+    if (phone) v0 *= 0.84;
     const rb = this.rand();
     const lateP = personaKey === 'presse' ? 0.38 : personaKey === 'dimanche' ? 0.06 : 0.16;
-    const style = zz ? 'tardif' : m.slow ? 'doux' : rb < 0.035 ? 'erratique' : rb < 0.035 + lateP ? 'tardif' : 'doux';
+    const style = zz || phone ? 'tardif' : m.slow ? 'doux' : rb < 0.035 ? 'erratique' : rb < 0.035 + lateP ? 'tardif' : 'doux';
     return {
-      zz,
+      zz, phone, phPh: this.rand() * 10,
+      forgotHaz: plain && !phone && this.rand() < 0.012,
       style, b: style === 'tardif' ? 4.2 + this.rand() * 0.8 : style === 'erratique' ? 3.0 : 1.5 + this.rand() * 0.5,
       id, bundle: null, s, v: v0 * 0.9, v0,
       lane: 1, laneFrom: 1, laneTo: 1, laneT: 1, laneDur: persona.dur,
@@ -228,7 +238,9 @@ export class Traffic {
     if (isMoto && !interfile) { npc.laneOff = -0.45 - this.rand() * 0.25; npc.lc = 1.6; }
     if (interfile) {
       npc.mode = 'interfile';
-      const g = this.rand() < LV.gap0 ? 0 : this.gapMaxAt(s);
+      // v23 : une partie des deux-roues remonte par la droite (entre les voies 3 et 4)
+      if (nl >= 4 && this.rand() < 0.2) npc.rgt = true;
+      const g = npc.rgt ? 2 : this.rand() < LV.gap0 ? 0 : this.gapMaxAt(s);
       npc.gap = npc.gapFrom = npc.gapTo = g;
     }
     npc.lat = npc.latT = this.computeLat(npc);
@@ -343,7 +355,12 @@ export class Traffic {
       return base + n.yieldOff;
     }
     if (n.mode === 'emerg') return interfileCenter(0);
-    const laneLat = lerp(laneCenter(n.laneFrom), laneCenter(n.laneTo), n.laneT) + n.yieldOff + (n.laneOff || 0);
+    let laneLat = lerp(laneCenter(n.laneFrom), laneCenter(n.laneTo), n.laneT) + n.yieldOff + (n.laneOff || 0);
+    // v23 : conducteur au téléphone — dérive lente dans sa voie, puis se recale d'un coup de volant
+    if (n.phone && n.mode === 'lane') {
+      const t = this.time * 0.45 + n.phPh;
+      laneLat += 0.55 * Math.sin(t) * Math.max(0, Math.sin(t * 0.37));
+    }
     if ((n.mode === 'exit' || n.mode === 'enter') && n.ramp) {
       const o = this.rampGeom(n);
       if (!o) return laneLat;
@@ -419,7 +436,23 @@ export class Traffic {
       });
       this.nextJamAt = lerp(LV.jamEvery[0], LV.jamEvery[1], this.rand()) / (1 + this.lap * CFG.LAP_DENSITY_GAIN);
     }
-    for (const j of this.jams) { j.age += dt; j.s = wrap(j.s - dt * 1.2, L); }
+    // v23 : un accident (ou une panne qui mord sur la voie) crée une vraie file qui remonte en amont
+    if (events && this.level >= 1) {
+      for (const e of events.active || []) {
+        if (e.type !== 'accident' && e.type !== 'panne') continue;
+        if (!this.jams.some((j) => j.ev === e)) this.jams.push({ ev: e, s: e.s0, len: 40, sev: e.type === 'accident' ? 0.9 : 0.6, age: 0, life: 1e9, grow: true });
+      }
+    }
+    for (const j of this.jams) {
+      j.age += dt;
+      if (j.ev) {
+        // la queue s'allonge (jusqu'à ~600 m en trafic chargé), la tête reste au droit de l'accident
+        const maxLen = (this.level === 2 ? 650 : this.level === 3 ? 480 : 320) * (j.ev.type === 'panne' ? 0.5 : 1);
+        j.len = Math.min(maxLen, j.len + dt * 5);
+        j.s = wrap(j.ev.s0 + 30 - j.len / 2, L);
+        if (!(events?.active || []).includes(j.ev) && j.life > j.age + 8) j.life = j.age + 8;
+      } else j.s = wrap(j.s - dt * 1.2, L);
+    }
     this.jams = this.jams.filter((j) => j.age < j.life);
 
     // population, entrées, secours
@@ -509,6 +542,12 @@ export class Traffic {
         }
       }
 
+      // v23 : feu de régulation d'accès au rouge sur la bretelle : arrêt à la ligne
+      if (n.mode === 'enter' && n.ramp && this.rampLife) {
+        const st = this.rampLife.stopGap(n);
+        if (st != null && st < gap) { gap = st; leader = { v: 0, s: n.s + st, len: 0, wid: 0 }; }
+      }
+
       // — vitesse désirée —
       const laneForLim = special ? 1 : n.lane;
       // ondes de ralentissement de fond : elles ne concernent que les véhicules en peloton
@@ -559,6 +598,9 @@ export class Traffic {
       acc = acc < n.acc ? Math.max(acc, n.acc - onset * dt) : Math.min(acc, n.acc + 5.5 * dt);
       // warnings : gros freinage à l'approche d'un ralentissement
       if (acc < -3.2 && n.v > MS(30) && n.hazardT <= 0 && this.rand() < (n.style === 'tardif' ? 0.7 : 0.45) && n.mode === 'lane') n.hazardT = 3 + this.rand() * 4;
+      // v23 : à l'approche d'une file arrêtée, on allume ses warnings (queue de bouchon)
+      if (n.mode === 'lane' && leader && leader !== playerObs && leader.v < MS(12) && n.v > MS(28) && gap < 70 && n.hazardT <= 0 && this.rand() < 0.6) n.hazardT = 4 + this.rand() * 4;
+      if (n.forgotHaz) n.hazardT = 1;
       if (n.hazardT > 0) n.hazardT -= dt;
       n.acc = acc;
       n.v = Math.max(0, n.v + acc * dt);
@@ -795,14 +837,14 @@ export class Traffic {
   }
 
   updateInterfile(n, dt) {
-    const gmax = this.gapMaxAt(n.s);
+    const gmax = n.rgt && this.laneCount(n.s) >= 4 ? 2 : this.gapMaxAt(n.s);
     if (n.gapT < 1) {
       n.gapT = Math.min(1, n.gapT + dt / 2.2);
       if (n.gapT >= 1) { n.gapFrom = n.gapTo; n.gap = n.gapTo; }
     } else if (n.gapTo > gmax) {
       n.gapFrom = n.gapTo; n.gapTo = 0; n.gapT = 0;
     } else if (gmax >= 1 && this.rand() < dt * 0.025) {
-      const want = this.rand() < this.LV.gap0 ? 0 : 1;
+      const want = n.rgt ? 2 : this.rand() < this.LV.gap0 ? 0 : 1;
       if (want !== n.gapTo && this.gapFree(n, want)) { n.gapFrom = n.gapTo; n.gapTo = want; n.gapT = 0; }
     }
   }
@@ -810,7 +852,10 @@ export class Traffic {
   considerLaneChange(n, leader, gap, playerObs) {
     const right = this.rightLane(n.s);
     if (n.zz) { this.zigzag(n, leader, gap, playerObs, right); return; }
-    const wantFaster = leader && gap < 45 && leader.v < n.v0 * 0.82;
+    if (n.phone) return;   // au téléphone : il ne pense pas à changer de voie
+    // v23 : poids lourd qui en double un autre à 2-3 km/h d'écart (et bouche deux voies)
+    const truckPass = n.heavy && leader && leader.heavy && gap < 40 && leader.v < n.v0 - 0.4 && n.lane > Math.max(1, right - 2);
+    const wantFaster = truckPass || (leader && gap < 45 && leader.v < n.v0 * 0.82);
     const wantLeft = n.aggro > 0.7 && n.lane > 0;
     const wantRight = n.aggro < 0.3 && n.lane < right && this.rand() < 0.3;
     // courtoisie : laisser s'insérer une voiture en bout de voie d'accélération
@@ -834,7 +879,8 @@ export class Traffic {
       const tl = this.laneLeader(n, target, playerObs);
       const there = tl && tl.gap < 60 ? Math.min(tl.o.v, n.v0) : n.v0;
       const keepRight = target > n.lane && (wantRight || courtesy);
-      const need = keepRight ? -1.2 : (n.personaKey === 'presse' ? 1.0 : 2.2) + (this.busy ? 1.2 : 0);
+      if (n.heavy && target < Math.max(1, right - 2)) continue;   // les camions restent sur les voies de droite
+      const need = keepRight ? -1.2 : truckPass && target < n.lane ? 0.2 : (n.personaKey === 'presse' ? 1.0 : 2.2) + (this.busy ? 1.2 : 0);
       if (there - here < need) continue;
       if (tl && tl.gap < Math.max(8, n.v * 1.2)) continue; // pas de place pour s'y installer
       if (this.gapOK(n, target, playerObs, n.persona.accept)) {

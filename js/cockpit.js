@@ -60,6 +60,25 @@ export class Cockpit {
     const spoke2 = new T.Mesh(new T.BoxGeometry(0.03, 0.16, 0.02), S(0x1d1f23, 0.5));
     spoke2.position.y = -0.08;
     for (const m of [rim, hub, spoke, spoke2]) { m.renderOrder = 11; this.wheel.add(m); }
+    // v23 : mains gantées à 9 h 15 (tournent avec le volant) et avant-bras
+    const skin = S(0x1b1d22, 0.7), sleeve = S(0x2a3242, 0.8);
+    for (const sd of [-1, 1]) {
+      const hand = new T.Mesh(new T.BoxGeometry(0.07, 0.09, 0.06), skin);
+      hand.position.set(sd * 0.168, 0.0, 0.015);
+      hand.rotation.z = sd * 0.3;
+      const arm = new T.Mesh(new T.CylinderGeometry(0.035, 0.045, 0.34, 8), sleeve);
+      arm.rotation.x = Math.PI / 2 - 0.35;
+      arm.position.set(sd * 0.2, -0.06, 0.17);
+      for (const m of [hand, arm]) { m.renderOrder = 12; this.wheel.add(m); }
+    }
+    // v23 : écran central (GPS : prochaine sortie, distance, heure) et aérateurs
+    this.scv = document.createElement('canvas');
+    this.scv.width = 256; this.scv.height = 128;
+    this.stex = new T.CanvasTexture(this.scv);
+    this.stex.colorSpace = T.SRGBColorSpace;
+    add(new T.BoxGeometry(0.3, 0.17, 0.02), S(0x0b0c0e, 0.4), 0.42, -0.25, -0.74, -0.25);
+    add(new T.PlaneGeometry(0.27, 0.14), M(0xffffff, { map: this.stex }), 0.42, -0.25, -0.728, -0.25);
+    for (const x of [-0.55, 0.25, 0.62]) add(new T.BoxGeometry(0.12, 0.05, 0.03), S(0x23262b, 0.5), x, -0.32, -0.8, -0.2);
     // combiné d'instruments (texture dynamique)
     this.gcv = document.createElement('canvas');
     this.gcv.width = 256; this.gcv.height = 96;
@@ -153,7 +172,8 @@ export class Cockpit {
     // volant, instruments, essuie-glaces, gouttes
     this.wheel.rotation.z = -pl.steerCmd * 1.7;
     this.drawGauges(pl);
-    const rain = this.rain || 0;
+    const rain = Math.min(1, (this.rain || 0) + (this.extraRain || 0));
+    if ((this.frame & 15) === 1) this.drawScreen(pl);
     this.dropMat.opacity = clamp(rain * 0.9, 0, 0.75) * (0.6 + 0.4 * Math.abs(Math.sin(this.wipeT * 0.5)));
     if (rain > 0.08) {
       this.wipeT += dt * (rain > 0.5 ? 3.6 : 2.2);
@@ -187,6 +207,32 @@ export class Cockpit {
     c.fillStyle = pl.health < 60 ? '#ffb020' : '#3ddc84';
     c.fillRect(104, 70, 48 * Math.max(0, pl.health) / 100, 5);
     this.gtex.needsUpdate = true;
+  }
+
+  drawScreen(pl) {
+    const c = this.scv.getContext('2d');
+    c.fillStyle = '#0d1b2a'; c.fillRect(0, 0, 256, 128);
+    // carte stylisée : route qui file vers le haut
+    c.fillStyle = '#1c3348'; c.fillRect(0, 0, 256, 128);
+    c.strokeStyle = '#e8eef5'; c.lineWidth = 10;
+    c.beginPath(); c.moveTo(70, 128); c.quadraticCurveTo(80, 60, 120, 0); c.stroke();
+    c.strokeStyle = '#3aa0ff'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(70, 128); c.quadraticCurveTo(80, 60, 120, 0); c.stroke();
+    c.fillStyle = '#ffd12b'; c.beginPath(); c.moveTo(72, 104); c.lineTo(64, 120); c.lineTo(80, 120); c.fill();
+    const g = this.gps?.[0];
+    c.fillStyle = 'rgba(8,14,22,0.85)'; c.fillRect(128, 0, 128, 128);
+    c.fillStyle = '#7fd0ff'; c.font = 'bold 13px sans-serif'; c.textAlign = 'left';
+    c.fillText('PROCHAINE SORTIE', 136, 22);
+    if (g) {
+      c.fillStyle = '#ffffff'; c.font = 'bold 16px sans-serif';
+      const name = g.name.replace(/^Porte /, 'Pte ');
+      c.fillText(name.length > 14 ? name.slice(0, 14) + '…' : name, 136, 48);
+      c.font = 'bold 26px sans-serif';
+      c.fillText(g.d < 1000 ? `${Math.max(0, Math.round(g.d / 50) * 50)} m` : `${(g.d / 1000).toFixed(1).replace('.', ',')} km`, 136, 84);
+      if (g.other) { c.fillStyle = '#9fb3c8'; c.font = '12px sans-serif'; c.fillText(g.other.slice(0, 18), 136, 106); }
+    }
+    c.fillStyle = '#9fb3c8'; c.font = 'bold 12px sans-serif'; c.fillText(this.clock || '', 136, 122);
+    this.stex.needsUpdate = true;
   }
 
   // rendu des rétroviseurs (une image sur deux)

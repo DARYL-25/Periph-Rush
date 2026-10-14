@@ -11,6 +11,8 @@ import { TRAFFIC_LEVELS } from './traffic.js';
 import { Rules } from './rules.js';
 import { Police } from './police.js';
 import { Cockpit } from './cockpit.js';
+import { Feel } from './feel.js';
+import { RampLife } from './ambient.js';
 
 export class Game {
   constructor({ THREE, scene, track, world, traffic, events, player, ambience, score, ui, audio }) {
@@ -23,6 +25,11 @@ export class Game {
     this.result = null;
     this.rules = new Rules(track, world, ui, audio, score);
     this.police = new Police(THREE, scene, track, world.factory || traffic.factory, traffic);
+    // v23 : sensations de conduite, vie des bretelles (feux d'accès, livreurs à vélo)
+    this.feel = new Feel(this);
+    this.rampLife = new RampLife(THREE, scene, track);
+    traffic.rampLife = this.rampLife;
+    world.eventsRef = events;
     player.onLap = (lap) => this.onLap(lap);
   }
 
@@ -89,6 +96,8 @@ export class Game {
     this.score.reset();
     this.events.reset();
     this.police.reset();
+    this.feel.reset();
+    this.rampLife.reset();
     const set = this.ui.prog.data.settings;
     this.traffic.level = set.traffic ?? 1;
     this.world.trafficLevel = this.traffic.level;
@@ -185,6 +194,8 @@ export class Game {
     }
     this.traffic.update(dt, this.player, this.events);
     this.events.hour = this.ambience.hour;
+    this.traffic.hour = this.ambience.hour;
+    this.rampLife.update(dt, this.player, this.traffic);
     this.events.update(dt, this.player, this.traffic);
     if (this.state === 'running') {
       const st = this.ui.prog.data.settings;
@@ -204,8 +215,10 @@ export class Game {
     this.updateSmoke(rawDt);
     if (!this.cockpit) { this.cockpit = new Cockpit(this.T, this.scene, camera, this.player, this.track); this.applyCamera(); }
     this.cockpit.rain = this.ambience.rainAmt;
+    if (this.cockpit.active) { this.cockpit.gps = this.gpsInfo(); this.cockpit.clock = this.ambience.clockText; }
     if (this.cockpit.active) this.cockpit.updateCamera(camera, rawDt);
     else this.player.updateCamera(camera, rawDt);
+    this.feel.update(rawDt, camera);
 
     if (this.state === 'running') {
       this.checkNearMisses();
@@ -313,12 +326,8 @@ export class Game {
       const dop = 343 / (343 - clamp(vr, -60, 60));
       a.siren(0.16 * Math.pow(1 - bd / 320, 1.6), dop, clamp((best.n.lat - p.lat) / 8, -1, 1), dt);
     } else a.siren(0, 1, 0, dt);
-    // joints de dilatation sur les viaducs
-    if (this.track.onViaduct(p.s)) {
-      const k = Math.floor(p.s / 33);
-      if (this._joint !== undefined && k !== this._joint && p.v > 3) a.thump();
-      this._joint = k;
-    } else this._joint = undefined;
+    // (v23 : joints, reprises et tampons → feel.js)
+    this.cityAmbience(dt);
     // radio : station choisie (info-trafic parlée ou musique générée)
     const st = this.radioKey();
     if (a.station !== st) a.setStation(st);
@@ -372,6 +381,31 @@ export class Game {
       out.push({ name, other, d });
     }
     return out;
+  }
+
+  // v23 : la ville autour — klaxons lointains, sirènes sur l'autre sens, moto qui remonte l'interfile
+  cityAmbience(dt) {
+    const a = this.audio, p = this.player, L = this.track.length;
+    if (!a.ctx) return;
+    const tunnel = !!this.track.inTunnel(p.s);
+    this.cityHornT = (this.cityHornT ?? 6) - dt;
+    if (this.cityHornT <= 0) {
+      this.cityHornT = (this.traffic.busy ? 5 : 11) + Math.random() * 14;
+      a.hornAt(Math.random() < 0.15 ? 'airhorn' : Math.random() < 0.3 ? 'mhorn' : 'horn', Math.random() * 2 - 1, 70 + Math.random() * 120);
+    }
+    this.citySirenT = (this.citySirenT ?? 40) - dt;
+    if (this.citySirenT <= 0) {
+      this.citySirenT = 55 + Math.random() * 80;
+      if (!tunnel) a.distantSiren?.(Math.random() < 0.6 ? 'pompiers' : 'police');
+    }
+    a.cityBed?.(tunnel ? 0.4 : 1, this.ambience.hour ?? 14);
+    // deux-roues qui passe en trombe à côté (interfile) : souffle
+    for (const n of this.traffic.npcs) {
+      if (!n.moto || n.mode !== 'interfile') continue;
+      const d = loopDelta(n.s, p.s, L);
+      if (Math.abs(d) < 1.5 && Math.abs(n.lat - p.lat) < 2.4 && n.v - p.v > 3 && !n._whoosh) { n._whoosh = true; a.whoosh?.(clamp((n.lat - p.lat) / 2, -1, 1)); }
+      if (d > 8) n._whoosh = false;
+    }
   }
 
   // ---------- frôlements ---------------------------------------------------------------
@@ -455,6 +489,7 @@ export class Game {
     this.ui.flashCrack(0);
     this.score.penalty(600 + dmg * 20);
     p.deform(this.impactFor(kind, sev), sev * 0.7);
+    if (kind === 'front' || kind === 'cone') { p.headBroken = p.headBroken || sev > 0.2; if (p.lightsOn) p.headlight.intensity = 40; }
     p.camShake = 0.18 + sev * 0.3;
     const pos = p.bundle.group.position.clone(); pos.y += 0.6;
     this.emitSmoke(pos, 6, true);

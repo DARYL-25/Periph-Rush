@@ -25,7 +25,7 @@ const PRESETS = {
     lamps: 0.75, windows: 0.45, wet: 0, rain: 0, head: 1, expo: 1.05, clouds: 0.55,
   },
   nuit: {
-    skyTop: 0x0a1422, skyHor: 0x27354d, fog: 0x141d2c, fogFar: 780,
+    skyTop: 0x0a1422, skyHor: 0x3a3a48, fog: 0x1b1e2a, fogFar: 780,   // v23 : halo orangé de la ville sur l'horizon
     hemiSky: 0x2a3a54, hemiGrd: 0x0d1014, hemiInt: 0.55,
     sunCol: 0x9fb6d8, sunInt: 0.28, sunY: 0.6, sunX: -0.3,
     lamps: 1, windows: 1, wet: 0, rain: 0, head: 1, expo: 1.15, clouds: 0.12,

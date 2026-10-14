@@ -243,10 +243,14 @@ export class UI {
         const el = $('gps-' + i);
         if (!el) return;
         const d = g.d < 1000 ? `${Math.max(0, Math.round(g.d / 50) * 50)} m` : `${(g.d / 1000).toFixed(1).replace('.', ',')} km`;
-        const key = `${g.name}|${d}`;
+        const soon = i === 0 && g.d < 650;
+        const key = `${g.name}|${d}|${soon}`;
         if (el._k === key) return;
         el._k = key;
-        el.innerHTML = `<i>${i ? 'PUIS' : 'SORTIE'}</i><b>${g.name.replace(/^Porte /, 'P<sup>te</sup> ')}</b><span>${d}</span>`;
+        // v23 : destination autoroutière éventuelle, et « voie de droite » à l'approche
+        const other = g.other && i === 0 ? `<em>${g.other}</em>` : '';
+        el.classList.toggle('soon', soon);
+        el.innerHTML = `<i>${i ? 'PUIS' : soon ? '↘ À DROITE' : 'SORTIE'}</i><b>${g.name.replace(/^Porte /, 'P<sup>te</sup> ')}${other}</b><span>${d}</span>`;
       });
     }
     const w = $('hud-warning');

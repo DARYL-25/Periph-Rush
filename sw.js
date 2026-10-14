@@ -4,7 +4,7 @@
 // Les requêtes matchent en ignoreSearch (les ?v=N de index.html).
 // ============================================================
 
-const CACHE = 'periph-v22';
+const CACHE = 'periph-v23';
 const ASSETS = [
   '.',
   'index.html',
@@ -15,7 +15,7 @@ const ASSETS = [
   'js/signs.js', 'js/vehicles.js', 'js/world.js', 'js/weather.js', 'js/traffic.js',
   'js/events.js', 'js/player.js', 'js/score.js', 'js/progression.js',
   'js/audio.js', 'js/hud.js', 'js/game.js',
-  'js/periph-data.js', 'js/geo.js', 'js/atlas.js', 'js/textures.js', 'js/scenery.js', 'js/signfont.js', 'js/survey.js', 'js/landmarks.js', 'js/fleet.js', 'js/rules.js', 'js/cockpit.js', 'js/stadium.js', 'js/people.js', 'js/police.js', 'js/mirror.js',
+  'js/periph-data.js', 'js/geo.js', 'js/atlas.js', 'js/textures.js', 'js/scenery.js', 'js/signfont.js', 'js/survey.js', 'js/landmarks.js', 'js/fleet.js', 'js/rules.js', 'js/cockpit.js', 'js/stadium.js', 'js/people.js', 'js/police.js', 'js/mirror.js', 'js/feel.js', 'js/ambient.js',
   'fonts/barlow-semi-condensed-latin-500-normal.woff2', 'fonts/barlow-semi-condensed-latin-600-normal.woff2',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'vendor/GLTFLoader.js', 'vendor/BufferGeometryUtils.js', 'assets/clio3.glb',

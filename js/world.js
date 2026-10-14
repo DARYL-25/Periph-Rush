@@ -264,6 +264,9 @@ export class World {
     this.track = track;
     this.chunks = new Map();
     this.mats = this.makeMaterials();
+    // v23 : flaques (miroir sombre) — visibles quand la chaussée est mouillée
+    this.mats.puddle = new THREE.MeshStandardMaterial({ color: 0x0c1016, roughness: 0.03, metalness: 0.9, transparent: true, opacity: 0,
+      depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, envMapIntensity: 1.4 });
     this.ramps = new Ramps(track);
     track.ramps = this.ramps;
     this.survey = new Survey(track);
@@ -521,6 +524,10 @@ export class World {
   tick() {
     // chaussée mouillée : les halos des candélabres se reflètent (plus intenses)
     this.mats.pool.opacity = Math.min(1, this.mats.lampGlow.opacity * 0.85 * (1 + (this.wetLevel || 0) * 0.9));
+    // v23 : les flaques apparaissent quand la chaussée est bien mouillée, s'effacent en séchant
+    const pw = Math.min(0.88, Math.max(0, ((this.wetLevel || 0) - 0.25) * 1.5));
+    this.mats.puddle.opacity = pw;
+    this.mats.puddle.visible = pw > 0.01;
     // la tour Eiffel s'illumine (doré) la nuit
     if (this.landmarks && this.landmarks.eiffelMat) this.landmarks.eiffelMat.emissiveIntensity = this.mats.lampGlow.opacity * 4.5;
   }
@@ -573,7 +580,7 @@ export class World {
     const rq = (i) => [i * 0.25 + 0.002, 0, 0.246, 1];
     const B = {
       road: new Batch(), paint: new Batch(), metal: new Batch(), lamp: new Batch(), tlight: new Batch(), water: new Batch(),
-      pool: new Batch(), tpool: new Batch(), ads: new Batch(), led: new Batch(),
+      pool: new Batch(), tpool: new Batch(), ads: new Batch(), led: new Batch(), puddle: new Batch(),
       S, wall: new TileView(S, wallTile), gba: new TileView(S, tl.gba), noise: new TileView(S, tl['noise' + [4, 4, 4, 0, 1, 2, 3, 5, 5][((((idx / 3) | 0) * 2654435761) >>> 0) % 9]]),
       grass: new TileView(S, tl.grass), ivy: new TileView(S, tl.ivy), ground: new TileView(S, tl.ground),
       tiles: new TileView(S, tl.tiles), ceil: new TileView(S, tl.ceil),
@@ -625,6 +632,7 @@ export class World {
     { const g = ctx.graf.build(T); if (g) { group.add(new T.Mesh(g, M.graf)); geoms.push(g); } }
     this.addMesh(ctx, B.tlight, M.tunnelLight, false, false);
     this.addMesh(ctx, B.water, M.water, false, true);
+    { const pm = this.addMesh(ctx, B.puddle, M.puddle, false, false); if (pm) pm.renderOrder = 1; }
     for (const [b, m] of [[B.pool, M.pool], [B.tpool, M.tpool]]) { const pm = this.addMesh(ctx, b, m, false, false); if (pm) pm.renderOrder = 2; }
     if (glow.length) {
       const gg = new T.BufferGeometry();
@@ -799,6 +807,26 @@ export class World {
         this.jointAt(P2, d, sg * CFG.INNER_EDGE, sg * t.mainEdgeAt(d));
       }
     }
+    // v23 : raccords d'enrobé (reprises de chaussée) sur les sections courantes
+    for (const d of this.seams(s0, s1)) for (const sg of [1, -1]) this.jointAt(P2, d, sg * CFG.INNER_EDGE, sg * t.mainEdgeAt(d));
+    // v23 : flaques dans les ornières et le long des rives (miroir visible sous la pluie)
+    for (const q of this.puddles(s0, s1)) {
+      for (const sg of [1, -1]) {
+        const n = 12, c = [1, 1, 1];
+        const ids = [];
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          const rr = 1 + 0.18 * Math.sin(a * 3 + q.s) + 0.1 * Math.cos(a * 5 + q.lat);
+          const ds = Math.cos(a) * q.len / 2 * rr, dl = Math.sin(a) * q.wid / 2 * rr;
+          const pp = this._p; t.pointAt(q.s + ds, pp);
+          const lat = sg * (q.lat + dl);
+          ids.push(B.puddle.v(pp.x + pp.rx * lat, pp.y + 0.012, pp.z + pp.rz * lat, 0, 0, c));
+        }
+        const pp = this._p; t.pointAt(q.s, pp);
+        const ctr = B.puddle.v(pp.x + pp.rx * sg * q.lat, pp.y + 0.012, pp.z + pp.rz * sg * q.lat, 0, 0, c);
+        for (let i = 0; i < n; i++) { if (sg > 0) B.puddle.tri(ctr, ids[(i + 1) % n], ids[i]); else B.puddle.tri(ctr, ids[i], ids[(i + 1) % n]); }
+      }
+    }
     // bretelles : rives + zébras de musoir
     for (const r of rows) r._k = 0;
     for (let i = 0; i < rows.length - 1; i++) {
@@ -823,6 +851,35 @@ export class World {
   }
 
   // ---------- séparateur central : DBA simple ou double avec bande plantée (relevé v12) ----------
+  // v23 : reprises d'enrobé (joints transversaux) hors ouvrages — partagé avec les sensations de conduite
+  seams(s0, s1) {
+    const t = this.track, out = [];
+    for (let k = Math.floor(s0 / 90); k * 90 < s1; k++) {
+      const h = Math.imul(k, 2654435761) >>> 0;
+      if (h % 3) continue;
+      const d = k * 90 + (h >>> 8) % 50;
+      if (d < s0 || d >= s1 || t.coverAt(d) || t.onViaduct(d) || t.onBridge(d)) continue;
+      out.push(d);
+    }
+    return out;
+  }
+  // v23 : flaques déterministes (ornières, rives) : {s, lat, len, wid} — côté joueur lat > 0
+  puddles(s0, s1) {
+    const t = this.track, out = [];
+    for (let k = Math.floor(s0 / 47); k * 47 < s1; k++) {
+      const h = Math.imul(k + 7, 2246822519) >>> 0;
+      if (h % 100 > 42) continue;
+      const s = k * 47 + (h >>> 7) % 40;
+      if (s < s0 || s >= s1 || t.coverAt(s) || t.coverAt(s + 4)) continue;
+      const kind = (h >>> 12) % 3, lanes = t.lanesAt(s);
+      let lat;
+      if (kind === 0) lat = t.mainEdgeAt(s) - 0.7;
+      else if (kind === 1) lat = CFG.INNER_EDGE + LW * (((h >>> 14) % lanes) + 0.5) + (((h >>> 18) & 1) ? 0.78 : -0.78);
+      else lat = CFG.INNER_EDGE + 0.35;
+      out.push({ s, lat, len: 1.6 + ((h >>> 20) % 32) / 10, wid: 0.55 + ((h >>> 25) % 7) / 10 });
+    }
+    return out;
+  }
   medianHalf(r) {
     if (r._mc !== undefined) return r._mc;
     let k = 0;
@@ -2099,6 +2156,27 @@ export class World {
         else if (this.wetLevel > 0.5 && k % 4 === 3) lines = ['PLUIE', 'CHAUSSEE GLISSANTE', 'ESPACEZ-VOUS'];
         else if (lvl === 1 && k % 3 === 0) lines = ['RALENTISSEMENTS', `${abbr(a.p.name)} > ${abbr(b.p.name)}`, ''];
         else if (lvl === 0 && k % 5 === 0) lines = ['PERIPH FLUIDE', '', ''];
+      }
+      // v23 : panneaux en alternance (toutes les ~8 s) : temps vers les autoroutes, messages de sécurité,
+      // et information en direct sur l'événement en aval (accident, travaux, panne)
+      const page = Math.floor(now / 8000 + k * 0.37) % 3;
+      if (page === 1) {
+        const AUTO = [['A1', 'LILLE', 'Porte de la Chapelle'], ['A3', 'BOBIGNY', 'Porte de Bagnolet'], ['A4', 'METZ NANCY', 'Porte de Bercy'],
+          ['A6', 'LYON', "Porte d'Italie"], ['A13', 'ROUEN', "Porte d'Auteuil"], ['A1', 'ROISSY CDG', 'Porte de la Chapelle']];
+        const list = AUTO.map(([a, dest, pn]) => { const p = t.portes.find((q) => q.name === pn); return p ? { a, dest, d: wrap(p.s - v.s, L) } : null; })
+          .filter((o) => o && o.d > 800).sort((x, y) => x.d - y.d).slice(0, 3);
+        if (list.length >= 2) lines = list.map((o) => `${o.a} ${o.dest}\t${Math.max(2, Math.round((o.d / 1000) / (kmh * slow) * 60) + 4)} MN`);
+      } else if (page === 2 && lvl !== 2) {
+        const MSG = [['AU VOLANT', 'LE TELEPHONE', 'TUE'], ['GARDEZ', 'VOS DISTANCES', ''], ['VITESSE', 'LIMITEE A 50', 'CONTROLES FREQUENTS'],
+          ['MOTARDS', 'EN INTERFILE', 'VIGILANCE'], ['FATIGUE ?', 'FAITES UNE PAUSE', ''], ['1 MN D INATTENTION', '= 800 M', 'A L AVEUGLE']];
+        lines = MSG[(k + Math.floor(now / 24000)) % MSG.length];
+      }
+      const ev = this.eventsRef?.active?.map((e) => ({ e, d: wrap(e.s0 - v.s, L) })).filter((o) => o.d > 100 && o.d < 6000).sort((x, y) => x.d - y.d)[0];
+      if (ev && page !== 1) {
+        const near = t.nextPorte ? t.nextPorte(ev.e.s0)?.porte?.name : null;
+        const what = { accident: 'ACCIDENT', travaux: 'TRAVAUX', panne: 'VEHICULE EN PANNE', controle: 'VEHICULE ARRETE' }[ev.e.type] || 'INCIDENT';
+        const side = ev.e.lanes?.includes(0) ? 'VOIE DE GAUCHE' : 'VOIE DE DROITE';
+        lines = [`${what} ${(ev.d / 1000).toFixed(ev.d < 1000 ? 1 : 0).replace('.', ',')} KM`, near ? abbr(near) : '', side + (ev.e.type === 'controle' ? ' GENEE' : ' NEUTRALISEE')];
       }
       v.panel.setText(lines);
     }

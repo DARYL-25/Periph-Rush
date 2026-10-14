@@ -820,3 +820,27 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
   (orange en zone de bretelle). Événements `panne` (véhicule collé à la DBA, triangle, occupants en gilet, parfois
   dépanneuse) et `controle` (voiture interceptée + police, agents).
 - Cache SW `periph-v22`, `?v=22`.
+
+## v23 — sensations, trafic vivant, ambiance de Paris, cockpit
+- **Sensations** (`js/feel.js`) : vignettage et traînées en bord d'écran au-delà de ~55 km/h, micro-vibrations de
+  caméra ; secousses + sons sur les joints de dilatation des ouvrages (tous les 42 m, essieu avant puis arrière), les
+  reprises d'enrobé (`World.seams`, dessinées dans `buildPaint`) et les tampons de regard (même calendrier que le
+  marquage) ; éblouissement du soleil rasant dans l'axe (lever / coucher).
+- **Pluie** : flaques déterministes (`World.puddles`, matériau miroir `mats.puddle` dont l'opacité suit
+  `wetLevel`), gerbe + son à la traversée, aquaplaning bref au-delà de 75 km/h (`player.aquaT`) ; rideau d'eau
+  (calque `#fx-spray`, essuie-glaces accélérés en cockpit) derrière un poids lourd ; gerbes ×2,2 pour les PL.
+- **Dégâts** : frottement plaqué contre la DBA (`player.scraping`) → étincelles, son, rayures/bosses, perte de
+  carrosserie ; fumée sous le capot sous 55 % ; optique cassée après un choc avant (`headBroken`).
+- **Trafic** (`traffic.js`) : conducteurs au téléphone (2,5 %, louvoient, ne changent pas de voie), warnings oubliés
+  (1,2 %), warnings en approche de file arrêtée, poids lourd qui en double un autre lentement (voies de droite
+  seulement), deux-roues qui remontent par la droite (interfile 3-4, `n.rgt`), file réelle qui remonte derrière un
+  accident ou une panne (`jams` liés à l'événement, jusqu'à 650 m). Bus de jour (bandeau vert jade) et bus de nuit
+  (`bus_noct`, 0 h 30 – 5 h 30), girouettes ; lumineux de taxi vert / rouge (calques `taxiG` / `taxiR`).
+- **Bretelles** (`js/ambient.js`, `RampLife`) : feux de régulation d'accès sur une entrée sur trois (ligne d'arrêt
+  110 m avant le raccordement, cycle 11 s ; `traffic` interroge `stopGap`), livreurs à vélo électrique sur les bretelles.
+- **Ambiance** : PMV en alternance (temps vers A1/A3/A4/A6/A13, messages de sécurité, événement en aval),
+  klaxons lointains, sirènes sur l'autre sens (Doppler, panoramique), rumeur de la ville, souffle des deux-roues
+  qui passent, vent à rafales ; halo orangé sur l'horizon la nuit.
+- **Cockpit** : mains gantées sur le volant, écran central GPS (prochaine sortie, distance, heure), aérateurs.
+  **HUD** : destination autoroutière sous la sortie, bandeau « ↘ À DROITE » qui clignote à moins de 650 m.
+- Cache SW `periph-v23`, `?v=23`.

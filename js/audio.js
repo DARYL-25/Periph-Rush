@@ -286,7 +286,64 @@ export class GameAudio {
     this.rollGain.gain.setTargetAtTime(sp * 0.13 * (ck ? 1.2 : 1), t, 0.15);
     this.rollFilter.frequency.setTargetAtTime(240 + sp * 520, t, 0.2);
     this.hissGain.gain.setTargetAtTime(sp * this.env.wet * 0.1, t, 0.2);
-    this.windGain.gain.setTargetAtTime(Math.pow(Math.min(v / 55, 1), 2) * (ck ? 0.07 : 0.16), t, 0.15);
+    // v23 : vent plus présent à haute vitesse, avec rafales, et qui monte dans l'aigu
+    this.gustT = (this.gustT || 0) + dt;
+    const gust = 0.82 + 0.18 * Math.sin(this.gustT * 0.9) * Math.sin(this.gustT * 2.3 + 1);
+    const wk = Math.min(v / 45, 1.25);
+    this.windGain.gain.setTargetAtTime(wk * wk * gust * (ck ? 0.09 : 0.2), t, 0.15);
+    this.windFilter.frequency.setTargetAtTime(380 + wk * 700, t, 0.3);
+  }
+
+  // v23 : choc de roue sur un joint / un tampon (amp 0..1)
+  joint(amp = 1) {
+    this.burst({ dur: 0.08, freq: 95 + amp * 40, type: 'lowpass', gain: 0.18 + amp * 0.24, rate: 0.6 });
+    if (amp > 0.7) this.burst({ dur: 0.04, freq: 1900, type: 'bandpass', q: 3, gain: 0.05 * amp });
+  }
+  // flaque traversée : gerbe dans les passages de roue
+  splash(k = 1) {
+    this.burst({ dur: 0.45 + k * 0.3, freq: 1400, type: 'bandpass', q: 0.7, gain: 0.12 + k * 0.2, sweep: -800 });
+    this.burst({ dur: 0.25, freq: 300, type: 'lowpass', gain: 0.12 * k, rate: 0.7 });
+  }
+  // deux-roues qui passe en trombe
+  whoosh(pan = 0) {
+    if (!this.ctx || !this.enabled) return;
+    const pn = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+    if (pn) { pn.pan.value = pan; pn.connect(this.out); }
+    this.burst({ dur: 0.55, freq: 700, type: 'bandpass', q: 0.8, gain: 0.22, sweep: -450, dest: pn || this.out });
+  }
+  // sirène lointaine qui passe sur l'autre sens (deux tons « pin-pon », Doppler, panoramique)
+  distantSiren(kind = 'pompiers') {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx, t = ctx.currentTime, dur = 14;
+    const o = ctx.createOscillator(); o.type = kind === 'pompiers' ? 'triangle' : 'square';
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1500;
+    const g = ctx.createGain(); g.gain.value = 0;
+    const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    o.connect(f).connect(g);
+    if (pn) { g.connect(pn).connect(this.out); pn.pan.setValueAtTime(-0.9, t); pn.pan.linearRampToValueAtTime(-0.2, t + dur * 0.5); pn.pan.linearRampToValueAtTime(-0.95, t + dur); } else g.connect(this.out);
+    const [lo, hi] = kind === 'pompiers' ? [435, 488] : [440, 585];
+    const half = kind === 'pompiers' ? 0.6 : 0.45;
+    for (let x = 0, i = 0; x < dur; x += half, i++) {
+      const dop = x < dur * 0.5 ? 1.03 : 0.97;              // plus aigu en approche, plus grave en s'éloignant
+      o.frequency.setValueAtTime((i % 2 ? hi : lo) * dop, t + x);
+    }
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.03, t + dur * 0.45);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.1);
+  }
+  // fond sonore de la ville (rumeur grave), plus présent quand on est à l'arrêt
+  cityBed(level = 1, hour = 14) {
+    if (!this.ctx) return;
+    if (!this.bedG) {
+      const ctx = this.ctx;
+      const src = ctx.createBufferSource(); src.buffer = this.brownBuf; src.loop = true; src.playbackRate.value = 0.6;
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
+      this.bedG = ctx.createGain(); this.bedG.gain.value = 0;
+      src.connect(f).connect(this.bedG).connect(this.dry); src.start();
+    }
+    const night = hour < 6 || hour > 22.5 ? 0.5 : 1;
+    this.bedG.gain.setTargetAtTime(this.enabled ? 0.05 * level * night : 0, this.ctx.currentTime, 1.0);
   }
 
   // crissement des pneus (dérive) et broutement de l'ABS
@@ -335,6 +392,7 @@ export class GameAudio {
     this.sqG?.gain.setTargetAtTime(0, t, 0.1);
     this.voices?.([]);
     this.windGain.gain.setTargetAtTime(0, t, 0.2);
+    this.bedG?.gain.setTargetAtTime(0, t, 0.3);
     this.rollGain.gain.setTargetAtTime(0, t, 0.2);
     this.hissGain.gain.setTargetAtTime(0, t, 0.2);
   }

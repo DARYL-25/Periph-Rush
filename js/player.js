@@ -77,7 +77,7 @@ export class Player {
     this.wheelSpin = 0;
     this.crashed = false;
     this.ramp = null; this.rampO = null; this.leftPeriph = false; this.exitT = 0;
-    this.health = 100; this.grip = 1; this.latAcc = 0;
+    this.health = 100; this.grip = 1; this.latAcc = 0; this.aquaT = 0; this.headBroken = false; this.scraping = 0;
     this.camShake = 0;
     this.distance = 0;
     this.laps = 0;
@@ -142,8 +142,13 @@ export class Player {
     const speedFactor = clamp(0.3 + v / MS(35) * 0.7, 0.3, 1.0) * 1.1;
     const under = 1 - 0.1 * clamp((v - MS(70)) / MS(80), 0, 1);
     const targetLatVel = this.steerIn * CFG.STEER_SPEED * this.steerF * speedFactor * under * (this.sens ?? 1);
-    const latAccMax = (14 + this.steerF * 6) * this.grip;
-    const prevLatVel = this.vl || 0;
+    const latAccMax = (14 + this.steerF * 6) * this.grip * (this.aquaT > 0 ? 0.15 : 1);
+    let prevLatVel = this.vl || 0;
+    // v23 : aquaplaning (flaque traversée vite) — plus d'adhérence latérale, la caisse dérive
+    if (this.aquaT > 0) {
+      this.aquaT -= dt;
+      prevLatVel += this.aquaDir * 3.2 * dt;
+    }
     const want = damp(prevLatVel, targetLatVel, 9 * (0.6 + 0.4 * this.grip), dt) - prevLatVel;
     this.vl = prevLatVel + clamp(want, -latAccMax * dt, latAccMax * dt);
     const latAccNow = (this.vl - prevLatVel) / Math.max(dt, 1e-3);
@@ -184,6 +189,10 @@ export class Player {
     this.wallContact = 0;
     this.updateRamp();
     const lim = this.latLimits();
+    // v23 : frottement — on reste plaqué contre le dispositif en braquant vers lui
+    this.scraping = 0;
+    if (this.lat >= lim.max - 0.005 && this.steerIn > 0.12 && !this.ramp) this.scraping = 1;
+    else if (this.lat <= lim.min + 0.005 && this.steerIn < -0.12) this.scraping = -1;
     if (this.lat > lim.max) {
       if (this.latVel > 2.6 || this.lat - lim.max > 0.3) this.wallContact = Math.max(this.latVel, 3);
       this.lat = lim.max;
@@ -321,7 +330,7 @@ export class Player {
 
   setHeadlights(on) {
     this.lightsOn = on;
-    this.headlight.intensity = on ? 95 : 0;
+    this.headlight.intensity = on ? (this.headBroken ? 40 : 95) : 0;
     this.bundle.glows.visible = on;
   }
   // appel de phares : deux éclats de pleins phares
