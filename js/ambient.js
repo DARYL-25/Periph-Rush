@@ -10,6 +10,7 @@
 // ============================================================
 
 import { wrap, loopDelta, rng } from './utils.js';
+import { personGeometry } from './people.js';
 
 const STOP_VV = 110;        // ligne d'arrêt : 110 m avant le raccordement
 const CYCLE = 11, GREEN = 3.2;
@@ -21,6 +22,7 @@ export class RampLife {
     this.time = 0;
     this.lights = new Map();     // ramp -> { ramp, phase, group }
     this.bikes = [];
+    this.walkers = [];
     this.nextBikeAt = 400;
     const T = THREE;
     this.mat = {
@@ -138,6 +140,62 @@ export class RampLife {
     return geo;
   }
 
+  // v24 : trottinette électrique + usager debout (casque, sac à dos)
+  makeScooter() {
+    const T = this.T;
+    const pg = personGeometry(T, { shirt: 0x3a4a5e, pants: 0x22252b, head: 0xe8eaed, pose: 'stand', rnd: this.rand });
+    pg.translate(0, 0.16, 0);
+    const parts = [pg];
+    const col = (g, hex) => { const c = new T.Color(hex), n = g.getAttribute('position').count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; } g.setAttribute('color', new T.BufferAttribute(a, 3)); return g.index ? g.toNonIndexed() : g; };
+    const add = (g, hex, x, y, z, rx = 0, rz = 0) => { g.rotateX(rx); g.rotateZ(rz); g.translate(x, y, z); parts.push(col(g, hex)); };
+    add(new T.BoxGeometry(0.16, 0.05, 0.85), 0x1a1c1f, 0, 0.12, 0);
+    add(new T.CylinderGeometry(0.02, 0.02, 1.05, 6), 0x2b2f35, 0, 0.62, 0.42, 0.12);
+    add(new T.BoxGeometry(0.48, 0.03, 0.03), 0x111214, 0, 1.12, 0.48);
+    for (const z of [-0.4, 0.42]) add(new T.CylinderGeometry(0.1, 0.1, 0.05, 10), 0x111214, 0, 0.1, z, 0, Math.PI / 2);
+    parts[0] = pg.index ? pg.toNonIndexed() : pg;
+    const n = parts.reduce((a, q) => a + q.getAttribute('position').count, 0);
+    const pos = new Float32Array(n * 3), cols = new Float32Array(n * 3), nor = new Float32Array(n * 3);
+    let o = 0;
+    for (const q of parts) { q.computeVertexNormals(); pos.set(q.getAttribute('position').array, o * 3); cols.set(q.getAttribute('color').array, o * 3); nor.set(q.getAttribute('normal').array, o * 3); o += q.getAttribute('position').count; }
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.BufferAttribute(nor, 3));
+    geo.setAttribute('color', new T.BufferAttribute(cols, 3));
+    return geo;
+  }
+
+  // v24 : piétons sur le pont de la porte suivante (trottoir côté trafic qui arrive)
+  updateWalkers(dt, player) {
+    const t = this.track, L = t.length, p = this._p;
+    const cover = t.covers.map((c) => ({ c, d: wrap(c.s0 - player.s, L) })).filter((q) => q.d > 60 && q.d < 700 && wrap(q.c.s1 - q.c.s0, L) < 170).sort((a, b) => a.d - b.d)[0];
+    if (cover && this.walkCover !== cover.c) {
+      for (const w of this.walkers) this.scene.remove(w.mesh);
+      this.walkers = [];
+      this.walkCover = cover.c;
+      const n = 2 + ((this.rand() * 4) | 0);
+      t.pointAt(cover.c.s0, p);
+      const deck = p.y + 5.3 + 1.3 + 0.3;
+      for (let k = 0; k < n; k++) {
+        const g = personGeometry(this.T, { shirt: [0x2d3b55, 0x7a2b2b, 0x3e5a3e, 0xd6d0c4, 0x222428][(this.rand() * 5) | 0], pants: 0x2b3442, head: this.rand() < 0.5 ? 0x2a2018 : null, pose: 'stand', rnd: this.rand });
+        const m = new this.T.Mesh(g, this.mat.bike);
+        m.castShadow = true;
+        this.scene.add(m);
+        this.walkers.push({ mesh: m, s: cover.c.s0 + 0.9 + this.rand() * 0.6, lat: (this.rand() * 2 - 1) * 22, v: (this.rand() < 0.5 ? -1 : 1) * (1.0 + this.rand() * 0.6), deck, ph: this.rand() * 6 });
+      }
+    }
+    if (!cover && this.walkers.length && loopDelta(player.s, this.walkCover?.s1 ?? 0, L) > 30) {
+      for (const w of this.walkers) this.scene.remove(w.mesh);
+      this.walkers = []; this.walkCover = null;
+    }
+    for (const w of this.walkers) {
+      w.lat += w.v * dt;
+      if (Math.abs(w.lat) > 24) w.v = -w.v;
+      t.pointAt(w.s, p);
+      w.mesh.position.set(p.x + p.rx * w.lat, w.deck + Math.abs(Math.sin(this.time * 5 + w.ph)) * 0.03, p.z + p.rz * w.lat);
+      w.mesh.rotation.y = Math.atan2(p.rx * Math.sign(w.v), p.rz * Math.sign(w.v));
+    }
+  }
+
   spawnBike(playerS) {
     const t = this.track, R = t.ramps, L = t.length;
     if (!R) return;
@@ -147,15 +205,19 @@ export class RampLife {
     // sur une sortie : il monte la bretelle ; sur une entrée : il la descend vers la porte… à contresens ? non :
     // il suit le sens de circulation sur la bande de droite
     const s = r.kind === 'X' ? wrap(r.j.s + 40 + this.rand() * 60, L) : wrap(r.j.s - 200 + this.rand() * 40, L);
-    const m = new this.T.Mesh(this.bikeGeom, this.mat.bike);
+    const h = this.hour ?? 14, rush = (h > 7 && h < 10) || (h > 16.5 && h < 20);
+    const scoot = rush && this.rand() < 0.55;
+    if (scoot && !this.scootGeom) this.scootGeom = this.makeScooter();
+    const m = new this.T.Mesh(scoot ? this.scootGeom : this.bikeGeom, this.mat.bike);
     m.castShadow = true;
     this.scene.add(m);
-    this.bikes.push({ r, s, v: 5.5 + this.rand() * 2, mesh: m, wob: this.rand() * 6 });
+    this.bikes.push({ r, s, v: (scoot ? 5.0 : 5.5) + this.rand() * 2, mesh: m, wob: this.rand() * 6 });
     return true;
   }
 
-  update(dt, player, traffic) {
+  update(dt, player, traffic, events) {
     this.time += dt;
+    if (((this._lcsT = (this._lcsT || 0) + 1) % 15) === 0) { this.updateLCS(player, events); this.updateTunnelSigns(player); }
     const t = this.track, R = t.ramps, L = t.length, p = this._p;
     if (!R) return;
     // feux : construits à l'approche, retirés derrière
@@ -173,8 +235,9 @@ export class RampLife {
       Lt.green.material = !red && !amber ? this.mat.greenOn : this.mat.off;
       Lt.amber.material = amber ? (this.mat.amberOn || (this.mat.amberOn = new this.T.MeshBasicMaterial({ color: 0xffb21a, toneMapped: false }))) : this.mat.off;
     }
-    // livreurs à vélo
-    this.nextBikeAt -= player.v * dt;
+    this.updateWalkers(dt, player);
+    // livreurs à vélo (trottinettes aux heures de pointe)
+    this.nextBikeAt -= player.v * dt * ((this.hour ?? 14) > 7 && (this.hour ?? 14) < 20 ? 1.6 : 1);
     if (this.nextBikeAt <= 0 && this.bikes.length < 2) this.nextBikeAt = this.spawnBike(player.s) ? 700 + this.rand() * 1200 : 120;
     for (let i = this.bikes.length - 1; i >= 0; i--) {
       const b = this.bikes[i];
@@ -190,6 +253,138 @@ export class RampLife {
     }
   }
 
+  // ---------- v24 : signalisation d'affectation de voies (croix rouges / flèches) ----------
+  // Portiques en amont d'un événement (350 m : flèche de rabattement sur les voies fermées,
+  // 150 m : croix rouge), et sous les couvertures de plus de 300 m des signaux au plafond
+  // (flèches vertes, croix rouge si une voie est fermée plus loin).
+  lcsMat(kind) {
+    this._lcs = this._lcs || {};
+    if (this._lcs[kind]) return this._lcs[kind];
+    const T = this.T, cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#050607'; c.fillRect(0, 0, 64, 64);
+    const dots = (draw) => { // rendu « LED » : tracé épais puis points
+      const m = document.createElement('canvas'); m.width = m.height = 16;
+      const mc = m.getContext('2d'); mc.lineCap = 'round'; mc.lineJoin = 'round'; draw(mc);
+      const d = mc.getImageData(0, 0, 16, 16).data;
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const i = (y * 16 + x) * 4;
+        if (d[i + 3] < 90) continue;
+        c.fillStyle = `rgb(${d[i]},${d[i + 1]},${d[i + 2]})`;
+        c.beginPath(); c.arc(x * 4 + 2, y * 4 + 2, 1.7, 0, Math.PI * 2); c.fill();
+      }
+    };
+    if (kind === 'x') dots((m) => { m.strokeStyle = '#ff2a1a'; m.lineWidth = 2.6; m.beginPath(); m.moveTo(3, 3); m.lineTo(13, 13); m.moveTo(13, 3); m.lineTo(3, 13); m.stroke(); });
+    else if (kind === 'down') dots((m) => { m.strokeStyle = '#33ff6a'; m.lineWidth = 2.4; m.beginPath(); m.moveTo(8, 2); m.lineTo(8, 13); m.moveTo(3.5, 8.5); m.lineTo(8, 13); m.lineTo(12.5, 8.5); m.stroke(); });
+    else dots((m) => { const sg = kind === 'right' ? 1 : -1; m.strokeStyle = '#ffd21a'; m.lineWidth = 2.4; m.beginPath(); m.moveTo(8 - sg * 5, 3); m.lineTo(8 + sg * 4, 12); m.moveTo(8 + sg * 4, 5.5); m.lineTo(8 + sg * 4, 12); m.lineTo(8 - sg * 2.5, 12); m.stroke(); });
+    const tex = new T.CanvasTexture(cv); tex.colorSpace = T.SRGBColorSpace;
+    return (this._lcs[kind] = new T.MeshBasicMaterial({ map: tex, toneMapped: false }));
+  }
+  buildGantry(s, states, ceiling = false) {
+    const T = this.T, t = this.track, p = this._p;
+    t.pointAt(s, p);
+    const g = new T.Group();
+    const at = (lat, y) => new T.Vector3(p.x + p.rx * lat, y, p.z + p.rz * lat);
+    const yaw = Math.atan2(p.tx, p.tz);
+    const Em = t.mainEdgeAt(s), yb = p.y + (ceiling ? 4.85 : 5.7);
+    if (!ceiling) {
+      for (const lat of [0, Em + 1.3]) { const post = new T.Mesh(new T.BoxGeometry(0.35, yb - p.y + 0.4, 0.35), this.mat.pole); post.position.copy(at(lat, p.y + (yb - p.y + 0.4) / 2)); post.rotation.y = yaw; g.add(post); }
+      const beam = new T.Mesh(new T.BoxGeometry(Em + 1.6, 0.5, 0.45), this.mat.pole);
+      beam.position.copy(at((Em + 1.3) / 2, yb + 0.15)); beam.rotation.y = yaw + Math.PI / 2; g.add(beam);
+    }
+    states.forEach((st, lane) => {
+      const lat = 1.3 + 3.5 * (lane + 0.5);
+      const housing = new T.Mesh(new T.BoxGeometry(1.0, 1.0, 0.3), this.mat.head);
+      housing.position.copy(at(lat, yb - 0.55)); housing.rotation.y = yaw; g.add(housing);
+      const face = new T.Mesh(new T.PlaneGeometry(0.86, 0.86), this.lcsMat(st));
+      face.position.copy(at(lat, yb - 0.55)).addScaledVector(new T.Vector3(-p.tx, 0, -p.tz), 0.16);
+      face.rotation.y = yaw + Math.PI; g.add(face);
+    });
+    this.scene.add(g);
+    return g;
+  }
+  updateLCS(player, events) {
+    const t = this.track, L = t.length;
+    const want = new Map();
+    for (const e of events?.active || []) {
+      const d = loopDelta(e.s0, player.s, L);
+      if (d < -50 || d > 1400 || !e.lanes?.length) continue;
+      const nl = t.lanesAt(e.s0);
+      const open = [...Array(nl).keys()].filter((k) => !e.lanes.includes(k));
+      for (const [ds, near] of [[350, false], [150, true]]) {
+        const s = wrap(e.s0 - ds, L);
+        const st = [...Array(t.lanesAt(s)).keys()].map((k) => {
+          if (!e.lanes.includes(k)) return 'down';
+          if (near) return 'x';
+          const toward = open.length ? (open.reduce((a, b) => (Math.abs(b - k) < Math.abs(a - k) ? b : a)) > k ? 'right' : 'left') : 'x';
+          return toward;
+        });
+        want.set(`${e.s0.toFixed(0)}:${ds}`, { s, st, ceiling: !!t.coverAt(s) });
+      }
+    }
+    // couvertures longues : signaux au plafond tous les 150 m
+    for (const c of t.covers) {
+      const len = wrap(c.s1 - c.s0, L);
+      if (len < 300) continue;
+      for (let x = 60; x < len - 30; x += 150) {
+        const s = wrap(c.s0 + x, L), d = loopDelta(s, player.s, L);
+        if (d < -40 || d > 700) continue;
+        const key = `cov:${s.toFixed(0)}`;
+        if (want.has(key)) continue;
+        const closed = (events?.active || []).find((e) => { const de = loopDelta(e.s0, s, L); return de > 0 && de < 600; });
+        want.set(key, { s, st: [...Array(t.lanesAt(s)).keys()].map((k) => (closed?.lanes?.includes(k) ? 'x' : 'down')), ceiling: true });
+      }
+    }
+    this.gantries = this.gantries || new Map();
+    for (const [k, gtr] of this.gantries) {
+      const w = want.get(k);
+      if (!w || w.st.join() !== gtr.sig) { this.scene.remove(gtr.g); this.gantries.delete(k); }
+    }
+    for (const [k, w] of want) if (!this.gantries.has(k)) this.gantries.set(k, { g: this.buildGantry(w.s, w.st, w.ceiling), sig: w.st.join() });
+  }
+
+  // v24 : panneau « ALLUMEZ VOS FEUX » (pictogramme de projecteur) avant les couvertures longues
+  feuxTexture() {
+    if (this._feux) return this._feux;
+    const T = this.T, cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 320;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#f4f4f2'; c.fillRect(0, 0, 256, 320);
+    c.fillStyle = '#1f4fa8'; c.fillRect(10, 10, 236, 236);
+    c.fillStyle = '#fff';
+    c.beginPath(); c.ellipse(96, 128, 40, 52, 0, -Math.PI / 2, Math.PI / 2); c.fill();
+    c.fillRect(80, 76, 16, 104);
+    c.strokeStyle = '#fff'; c.lineWidth = 9; c.lineCap = 'round';
+    for (let k = 0; k < 5; k++) { const y = 92 + k * 18; c.beginPath(); c.moveTo(150, y); c.lineTo(205, y + 10); c.stroke(); }
+    c.fillStyle = '#111'; c.font = 'bold 34px sans-serif'; c.textAlign = 'center';
+    c.fillText('ALLUMEZ', 128, 282); c.fillText('VOS FEUX', 128, 314);
+    const tex = new T.CanvasTexture(cv); tex.colorSpace = T.SRGBColorSpace;
+    return (this._feux = new T.MeshLambertMaterial({ map: tex }));
+  }
+  updateTunnelSigns(player) {
+    const t = this.track, L = t.length, p = this._p, R = t.ramps;
+    this.tSigns = this.tSigns || new Map();
+    for (const c of t.covers) {
+      const len = wrap(c.s1 - c.s0, L), s = wrap(c.s0 - 140, L), d = loopDelta(s, player.s, L);
+      const near = len > 240 && d > -60 && d < 800;
+      if (near && !this.tSigns.has(c)) {
+        t.pointAt(s, p);
+        const B = R ? R.barrier(s, p.y) : null;
+        const lat = B ? B.face + 0.75 : t.mainEdgeAt(s) + 1.3;
+        const g = new this.T.Group();
+        const pole = new this.T.Mesh(new this.T.CylinderGeometry(0.05, 0.05, 2.9, 6), this.mat.pole);
+        pole.position.set(p.x + p.rx * lat, p.y + 1.45, p.z + p.rz * lat);
+        const panel = new this.T.Mesh(new this.T.PlaneGeometry(1.0, 1.25), this.feuxTexture());
+        panel.position.set(p.x + p.rx * lat, p.y + 2.5, p.z + p.rz * lat);
+        panel.rotation.y = Math.atan2(p.tx, p.tz) + Math.PI;
+        g.add(pole, panel);
+        this.scene.add(g);
+        this.tSigns.set(c, g);
+      } else if (!near && this.tSigns.has(c)) { this.scene.remove(this.tSigns.get(c)); this.tSigns.delete(c); }
+    }
+  }
+
   // obstacles pour les collisions du joueur (cyclistes)
   obstacles() {
     return this.bikes.map((b) => ({ s: b.s, lat: b.lat ?? 0, len: 1.8, wid: 0.7, v: b.v, bike: true }));
@@ -200,6 +395,10 @@ export class RampLife {
     this.lights.clear();
     for (const b of this.bikes) this.scene.remove(b.mesh);
     this.bikes = [];
+    for (const w of this.walkers) this.scene.remove(w.mesh);
+    this.walkers = []; this.walkCover = null;
+    if (this.gantries) { for (const gtr of this.gantries.values()) this.scene.remove(gtr.g); this.gantries.clear(); }
+    if (this.tSigns) { for (const g of this.tSigns.values()) this.scene.remove(g); this.tSigns.clear(); }
     this.nextBikeAt = 400;
   }
 }

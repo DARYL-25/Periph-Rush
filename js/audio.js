@@ -154,7 +154,7 @@ export class GameAudio {
     this.env = { tunnel, wet, cockpit };
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    this.verbGain.gain.setTargetAtTime(tunnel ? 0.55 : 0.0, t, 0.3);
+    this.verbGain.gain.setTargetAtTime(tunnel ? 0.8 : 0.0, t, 0.25);   // v24 : écho plus marqué sous les couvertures
     this.dry.gain.setTargetAtTime(tunnel ? 0.85 : 1, t, 0.3);
   }
 
@@ -255,6 +255,7 @@ export class GameAudio {
       const top = this.vehType === 'moto2' ? 9000 : 5800, low = this.vehType === 'moto2' ? 3000 : 2000;
       let rpm = g === 1 ? 850 + x * (top - 1300) : low + x * (top - low - 400);
       if (kmh < 2) rpm = 850 + throttle * 700;
+      if (this.blipT > 0) { this.blipT -= dt; rpm += 1700 * Math.sin(Math.PI * Math.max(0, this.blipT) / 0.25); }
       this.rpm = (this.rpm || rpm) + (rpm - (this.rpm || rpm)) * Math.min(1, dt * (this.shiftT > 0 ? 10 : 6));
     }
     const rpm = this.rpm;
@@ -283,8 +284,11 @@ export class GameAudio {
     this.intakeG.gain.setTargetAtTime(load * (rpm / 7000) * 0.05 * (ck ? 1.4 : 0.6), t, 0.05);
     // roulement + vent
     const sp = Math.min(kmh / 90, 1.4);
-    this.rollGain.gain.setTargetAtTime(sp * 0.13 * (ck ? 1.2 : 1), t, 0.15);
-    this.rollFilter.frequency.setTargetAtTime(240 + sp * 520, t, 0.2);
+    // v24 : bruit de roulement selon le revêtement (enrobé neuf feutré, béton des ouvrages sonore)
+    const sk = { neuf: 0.6, enrobe: 1, beton: 1.55 }[this.surface || 'enrobe'] || 1;
+    const sf = { neuf: 0.8, enrobe: 1, beton: 1.45 }[this.surface || 'enrobe'] || 1;
+    this.rollGain.gain.setTargetAtTime(sp * 0.13 * (ck ? 1.2 : 1) * sk, t, 0.25);
+    this.rollFilter.frequency.setTargetAtTime((240 + sp * 520) * sf, t, 0.3);
     this.hissGain.gain.setTargetAtTime(sp * this.env.wet * 0.1, t, 0.2);
     // v23 : vent plus présent à haute vitesse, avec rafales, et qui monte dans l'aigu
     this.gustT = (this.gustT || 0) + dt;
@@ -292,6 +296,18 @@ export class GameAudio {
     const wk = Math.min(v / 45, 1.25);
     this.windGain.gain.setTargetAtTime(wk * wk * gust * (ck ? 0.09 : 0.2), t, 0.15);
     this.windFilter.frequency.setTargetAtTime(380 + wk * 700, t, 0.3);
+  }
+
+  // v24 : passage de rapport (déclic de boîte + coupure), rétrogradage avec coup de gaz
+  shift(kind = 'up') {
+    if (!this.ctx || !this.enabled) return;
+    if (kind === 'up') {
+      this.burst({ dur: 0.05, freq: 900, type: 'bandpass', q: 4, gain: 0.05 });
+      this.shiftT = 0.22;
+    } else if (kind === 'blip') {
+      this.blipT = 0.25;
+      this.burst({ dur: 0.18, freq: 260, type: 'bandpass', q: 1.5, gain: 0.08, sweep: 500 });
+    }
   }
 
   // v23 : choc de roue sur un joint / un tampon (amp 0..1)
@@ -354,7 +370,9 @@ export class GameAudio {
     const sq = Math.max(0, slip - 0.06) * 6 * Math.min(1, v / 8);
     let g = Math.min(0.09, sq * 0.09);
     if (abs && v > 2) g = Math.max(g, 0.05 * (0.5 + 0.5 * Math.sign(Math.sin(this.absT * 2 * Math.PI * 14))));
-    this.sqG.gain.setTargetAtTime(this.enabled ? g * (1 - 0.6 * this.env.wet) : 0, t, 0.03);
+    this.sqG.gain.setTargetAtTime(this.enabled ? g * (1 - 0.3 * this.env.wet) : 0, t, 0.03);
+    // v24 : freinage appuyé sur le mouillé : chuintement d'eau sous les pneus
+    if (abs && this.env.wet > 0.3 && v > 3) this.hissGain.gain.setTargetAtTime(0.12 * this.env.wet, t, 0.05);
     this.sqF.frequency.setTargetAtTime(950 + Math.min(v, 30) * 6, t, 0.05);
   }
 

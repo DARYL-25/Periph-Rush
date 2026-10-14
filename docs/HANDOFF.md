@@ -844,3 +844,30 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - **Cockpit** : mains gantées sur le volant, écran central GPS (prochaine sortie, distance, heure), aérateurs.
   **HUD** : destination autoroutière sous la sortie, bandeau « ↘ À DROITE » qui clignote à moins de 650 m.
 - Cache SW `periph-v23`, `?v=23`.
+
+## v24 — boîte de vitesses, freinage, trafic expressif, signalisation, météo riche, mode photo
+- **Caméra** : vibration à haute vitesse supprimée (seules les secousses amorties des joints / regards restent).
+- **Boîte** (`player.js`) : rapports `GE`, coupure d'accélération 0,2 s au passage, coup de tangage, son de
+  rapport + coup de gaz au rétrogradage (`audio.shift`). **Freinage d'urgence** : plongée ×1,6, feux stop
+  renforcés, warnings auto 6 s après un freinage fort (`updateHazards`), sifflement ABS sur le mouillé.
+- **Trafic** : appels de phares + klaxon quand on traîne à gauche (`n.flashT`, calque `flashF`, alerte HUD),
+  insertions agressives au klaxon en fin de bretelle, motards qui remercient du pied / de la main (+150 pts,
+  `feel.thank`), wheelings rares, épaves (voiture qui fume `smoky`, utilitaire surchargé bâché `pro_charge`,
+  voiture tous feux éteints la nuit `aurore_nl`), fourgons blancs `master_b` / `livr_blanc`, patrouilleur
+  (gyro orange), neige → vitesses et intervalles adaptés.
+- **Livrées** (`v22_build.py`, d'après photos, sans logos ni marques) : voiture PN grise (flèche bleue, POLICE,
+  drapeau, bande rouge arrière, carrés bleus), fourgon CRS gris (doubles diagonales bleues, écusson, « 4A » sur le
+  toit), utilitaire express blanc à portes vertes, fourgon de livraison ardoise. Glyphe « % » ajouté.
+- **Bus** : nouvelle carrosserie arrondie extrudée (bande vitrée, montants noirs, 3 portes, jupe + liseré,
+  passages de roue, modules de toit, rétros « antennes », girouettes LED).
+- **Bretelles et ponts** (`ambient.js`) : trottinettes électriques aux heures de pointe, piétons sur le pont de
+  la porte suivante ; **signalisation d'affectation de voies** (portiques flèches à 350 m / croix rouges à 150 m
+  avant un événement, signaux en plafond dans les couvertures > 300 m), panneau « ALLUMEZ VOS FEUX ».
+- **Tunnels** : bandeaux lumineux continus au plafond, sorties éclairées, réverbération plus forte.
+- **Revêtement** : bruit de roulement par surface (neuf / enrobé / béton des ouvrages).
+- **Météo** (`weather.js`) : neige rare l'hiver (ou forcée, `neige`), chaussée qui blanchit, adhérence réduite ;
+  courtes averses de grêle pendant la pluie ; brouillard de Seine le matin près du fleuve.
+- **Radio** : flash info à chaque nouvel événement, bulletins avec distance, porte, voie et longueur de file.
+- **Mode photo** (pause → 📷) : orbite au doigt / molette, capture partagée ou téléchargée.
+- Carburant non ajouté (pas de station réellement accessible confirmée sur le périph).
+- Cache SW `periph-v24`, `?v=24`.

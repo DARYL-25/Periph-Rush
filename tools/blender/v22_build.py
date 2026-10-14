@@ -76,37 +76,53 @@ def light_bar(x, length=1.10, depth=0.26, col=BLUE_LENS, z_extra=0.0):
 
 
 def pn_livery():
-    """livrée Police nationale 2020 sur caisse grise"""
-    xa, xr = K.AXF() - K.S['ARCH_R'] - 0.05, K.AXR() + K.S['ARCH_R'] + 0.05
+    """v24 : livrée Police nationale (relevé photo) — caisse grise, lettrage BLANC :
+    flèche bleue sur l'aile avant, POLICE sur la portière avant, petit drapeau tricolore,
+    grande vague rouge de la portière arrière à l'aile arrière, pointillés réfléchissants,
+    hayon POLICE + rangée de carrés bleus (blanc, rouge au bout) sur le bouclier."""
+    axf, axr, ar = K.AXF(), K.AXR(), K.S['ARCH_R']
     bx = K.S['DLO']['b_x']
-    # flèches : bleue vers l'avant, rouge vers l'arrière, pointe tournée vers l'écusson central
-    zb0, zb1 = 0.50, 0.70
-    blue = [(xa, zb0), (bx + 0.30, zb0), (bx + 0.12, (zb0 + zb1) / 2), (bx + 0.30, zb1), (xa + 0.05, zb1)]
-    red = [(xr - 0.05, zb1), (bx - 0.42, zb1), (bx - 0.24, (zb0 + zb1) / 2), (bx - 0.42, zb0), (xr, zb0)]
+    zt = 0.86                                    # ligne de lettrage
+    # flèche bleue (aile avant, pointe vers l'arrière) au-dessus du passage de roue
+    blue = [(axf + 0.42, zt + 0.12), (axf - 0.05, zt + 0.12), (axf - 0.30, zt - 0.02), (axf - 0.05, zt - 0.16), (axf + 0.30, zt - 0.16)]
     T.side_poly('PNArrowB', blue, PN_BLUE)
-    T.side_poly('PNArrowR', red, PN_RED)
-    # écusson (dessin générique : bouclier bleu marine, liseré blanc) entre les deux pointes
-    zc = (zb0 + zb1) / 2
-    shield = [(bx + 0.02, zc + 0.12), (bx - 0.14, zc + 0.12), (bx - 0.14, zc - 0.02), (bx - 0.06, zc - 0.13), (bx + 0.02, zc - 0.02)]
-    T.side_poly('PNShieldW', K.grow(shield, 0.018, 1.0), WHITE, offset=0.0065)
-    T.side_poly('PNShield', shield, NAVY, offset=0.0075)
-    # POLICE en grandes capitales bleu marine sur les portes, au-dessus des flèches
-    T.side_text('PNText', 'POLICE', bx - 0.06, 0.76, 0.17, NAVY, bold=True)
-    # pointillés rétroréfléchissants au-dessus des poignées
+    # POLICE blanc, portière avant
+    T.side_text('PNText', 'POLICE', (axf - 0.35 + bx) / 2 + 0.02, zt - 0.09, 0.19, WHITE, bold=True)
+    # drapeau tricolore (trois bandes obliques) juste devant le montant central
+    for k, col in enumerate((PN_BLUE, WHITE, PN_RED)):
+        x0 = bx + 0.02 - k * 0.07
+        T.side_poly(f'PNFlag{k}', [(x0, zt + 0.11), (x0 - 0.07, zt + 0.11), (x0 - 0.10, zt - 0.10), (x0 - 0.03, zt - 0.10)], col, offset=0.007)
+    # grande vague rouge : de la portière arrière jusqu'à l'aile et au bouclier arrière
+    xe = -K.S['L'] / 2
+    red = [(bx - 0.22, zt + 0.13), (xe + 0.30, zt + 0.13), (xe + 0.12, zt + 0.02), (xe + 0.18, 0.81), (bx - 0.55, 0.81)]
+    T.side_poly('PNRed', red, PN_RED, rnd=0.06)
+    # pointillés réfléchissants le long de la ceinture
     for sg in (1, -1):
-        x = xa - 0.05
+        x = axf + 0.2
         k = 0
-        while x > xr + 0.1:
-            z = K.belt(x) - 0.035
-            T.vcol(decal(f'PNDot{sg}_{k}', [(x, z - 0.012), (x - 0.06, z - 0.012), (x - 0.06, z + 0.012), (x, z + 0.012)], P_SIDE(sg), 'det', offset=0.006, step=0.06), 0xe8ecf2)
-            x -= 0.12
+        while x > axr - 0.1:
+            z = K.belt(x) - 0.03
+            T.vcol(decal(f'PNDot{sg}_{k}', [(x, z - 0.011), (x - 0.05, z - 0.011), (x - 0.05, z + 0.011), (x, z + 0.011)], P_SIDE(sg), 'det', offset=0.006, step=0.06), 0xe8ecf2)
+            x -= 0.11
             k += 1
-    # capot : POLICE lisible dans le rétroviseur des usagers devant, filet bleu-blanc-rouge
-    T.top_text('PNHood', 'POLICE', 1.60, 0.20, NAVY, read_from='front')
-    # hayon : POLICE + 17
-    T.rear_text('PNRear', 'POLICE', 0.86, 0.08, NAVY, bold=True, yc=-0.12)
-    T.rear_text('PNRear17', '17', 0.86, 0.08, NAVY, yc=0.50, bold=True)
-    # feux bleus à éclats dans la calandre et rampe LED de toit
+    # capot : POLICE (lisible dans le rétroviseur)
+    T.top_text('PNHood', 'POLICE', 1.60, 0.20, WHITE, read_from='front')
+    # hayon : POLICE blanc, drapeau, 17 ; bouclier : carrés bleus + blanc + rouge ; filets rouge/blanc près des feux
+    T.rear_text('PNRear', 'POLICE', 0.84, 0.085, WHITE, bold=True, yc=-0.05)
+    for k, col in enumerate((PN_BLUE, WHITE, PN_RED)):
+        y0 = -0.38 - k * 0.035
+        T.vcol(decal(f'PNRFlag{k}', [(y0, 0.93), (y0 - 0.035, 0.93), (y0 - 0.035, 0.84), (y0, 0.84)], P_REAR, 'det', offset=0.009, min_cos=0.3), col)
+    T.vcol(decal('PN17', [(0.62, 0.70), (0.48, 0.70), (0.48, 0.62), (0.62, 0.62)], P_REAR, 'det', offset=0.009, min_cos=0.3), 0x1d3f9a)
+    T.rear_text('PNRear17', '17', 0.635, 0.05, WHITE, yc=0.55)
+    for k in range(9):
+        y = -0.62 + k * 0.105
+        col = PN_BLUE if k < 7 else (WHITE if k == 7 else PN_RED)
+        T.vcol(decal(f'PNSq{k}', [(y + 0.07, 0.50), (y, 0.50), (y, 0.43), (y + 0.07, 0.43)], P_REAR, 'det', offset=0.009, min_cos=0.3), col)
+    for sg in (1, -1):
+        for k, col in enumerate((PN_RED, WHITE, PN_RED)):
+            y = sg * (0.42 + k * 0.05)
+            T.vcol(decal(f'PNTail{sg}{k}', [(y + 0.025, 1.02), (y - 0.025, 1.02), (y - 0.025, 0.97), (y + 0.025, 0.97)], P_REAR, 'det', offset=0.009, min_cos=0.3), col)
+    # feux bleus à éclats dans la calandre et rampe LED de toit (corps argent, caisson HP central)
     for sg in (1, -1):
         T.vcol(decal(f'GrilleBlue{sg}', ellipse(sg * 0.30, 0.70, 0.05, 0.022), P_FRONT, 'det', offset=0.01), BLUE_LENS)
     light_bar(-0.22, 1.12, 0.26)
@@ -169,16 +185,46 @@ def van_xr():
 
 
 def crs_livery():
+    """v24 : fourgon CRS actuel (relevé photo) — caisse gris anthracite, POLICE blanc + drapeau,
+    double bande bleue en oblique sur l'arrière des flancs et les portes arrière, rangée de
+    carrés bleus (puis blanc, rouge) en bas de caisse, écusson rouge et blanc, numéro de toit."""
     L = K.S['L'] * SX
     xf, xr = L / 2, -L / 2
-    # filet tricolore horizontal bas de caisse
-    T.side_poly('CrsB', [(xr + 0.2, 0.62), (xf - 0.75, 0.62), (xf - 0.75, 0.66), (xr + 0.2, 0.66)], 0x2b54c6)
-    T.side_poly('CrsW', [(xr + 0.2, 0.66), (xf - 0.75, 0.66), (xf - 0.75, 0.70), (xr + 0.2, 0.70)], WHITE)
-    T.side_poly('CrsR', [(xr + 0.2, 0.70), (xf - 0.75, 0.70), (xf - 0.75, 0.74), (xr + 0.2, 0.74)], RED)
-    T.side_text('CrsText', 'POLICE', -0.9, 1.05, 0.34, WHITE, bold=True)
-    T.side_text('CrsDoor', 'CRS', 1.42, 0.88, 0.13, WHITE, bold=True)
-    T.rear_text('CrsRear', 'POLICE', 1.50, 0.14, WHITE, bold=True)
-    T.rear_text('CrsRearN', 'CRS 7', 0.92, 0.07, WHITE)
+    B2 = 0x2b4fd0
+    # POLICE blanc sur le flanc (milieu) + drapeau tricolore
+    T.side_text('CrsText', 'POLICE', 0.05, 1.12, 0.26, WHITE, bold=True)
+    for k, col in enumerate((B2, WHITE, RED)):
+        x0 = -0.95 - k * 0.09
+        T.side_poly(f'CrsFlag{k}', [(x0, 1.40), (x0 - 0.09, 1.40), (x0 - 0.13, 1.10), (x0 - 0.04, 1.10)], col, offset=0.007)
+    # double bande bleue oblique (arrière des flancs)
+    for k in range(2):
+        x0 = -1.45 - k * 0.32
+        T.side_poly(f'CrsStripe{k}', [(x0, 1.05), (x0 - 0.16, 1.05), (x0 - 0.62, 0.55), (x0 - 0.46, 0.55)], B2, offset=0.007)
+    # carrés bleus en bas de caisse
+    n = 0
+    x = xf - 0.95
+    while x > xr + 0.25:
+        col = B2 if x > xr + 0.55 else (WHITE if x > xr + 0.40 else RED)
+        T.side_poly(f'CrsSq{n}', [(x, 0.60), (x - 0.09, 0.60), (x - 0.09, 0.51), (x, 0.51)], col, offset=0.007, step=0.08)
+        x -= 0.15
+        n += 1
+    T.side_text('CrsDoor', 'CRS', 1.42, 0.88, 0.12, WHITE, bold=True)
+    # face arrière : écusson générique rouge/blanc, POLICE + drapeau, double bande bleue, carrés
+    T.vcol(decal('CrsShieldW', [(0.62, 1.90), (0.36, 1.90), (0.36, 1.70), (0.49, 1.58), (0.62, 1.70)], P_REAR, 'det', offset=0.008, min_cos=0.3), WHITE)
+    T.vcol(decal('CrsShield', [(0.60, 1.88), (0.38, 1.88), (0.38, 1.71), (0.49, 1.61), (0.60, 1.71)], P_REAR, 'det', offset=0.010, min_cos=0.3), RED)
+    T.rear_text('CrsRearShield', 'CRS', 1.72, 0.06, WHITE, yc=0.49)
+    T.rear_text('CrsRear', 'POLICE', 1.40, 0.12, WHITE, bold=True, yc=0.12)
+    for k in range(2):
+        y0 = -0.10 - k * 0.22
+        T.vcol(decal(f'CrsRStripe{k}', [(y0, 1.15), (y0 - 0.12, 1.15), (y0 - 0.42, 0.62), (y0 - 0.30, 0.62)], P_REAR, 'det', offset=0.008, min_cos=0.3), B2)
+    for k in range(9):
+        y = 0.80 - k * 0.12
+        col = B2 if k < 7 else (WHITE if k == 7 else RED)
+        T.vcol(decal(f'CrsRSq{k}', [(y, 0.58), (y - 0.08, 0.58), (y - 0.08, 0.50), (y, 0.50)], P_REAR, 'det', offset=0.008, min_cos=0.3), col)
+    # numéro d'identification sur le toit (plaque blanche à l'arrière du pavillon)
+    zr = roof_z(xr + 0.5)
+    T.vcol(K.box('CrsRoofPlate', (xr + 0.5, 0.45, zr + 0.17), (0.04, 0.38, 0.3), 'det'), WHITE)
+    T.flat_text('CrsRoofNum', '4A', (xr + 0.47, 0.45, zr + 0.17), (0, -1, 0), (0, 0, 1), 0.2, 0x111214)
     T.top_text('CrsRoof', 'POLICE', -0.9, 0.42, WHITE, read_from='side')
     # grilles de protection sur les vitres latérales de cabine et la lunette arrière
     for sg in (1, -1):
@@ -253,18 +299,63 @@ def livr_bleu_livery():
 
 
 def livr_expr_livery():
-    """messagerie express : caisse blanche, bas de caisse et arrière bleu marine, diagonales bleu clair"""
+    """v24 : messagerie express « zéro émission » (relevé photo) — fourgon blanc, portes arrière vertes
+    à feuillage blanc, bas de caisse gris anthracite, lettrage vert (sans nom ni logo de marque)"""
     L = K.S['L'] * SX
     xf, xr = L / 2, -L / 2
-    dark, light = 0x1d2b6e, 0x3fa9f5
-    T.side_poly('LeDark', [(xr + 0.03, 0.40), (xf - 0.75, 0.40), (xf - 0.75, 0.86), (0.4, 0.86), (-0.2, 1.25), (xr + 0.03, 1.25)], dark)
-    for k, dx in enumerate((0.0, 0.32)):
-        T.side_poly(f'LeDiag{k}', [(0.62 + dx, 0.86), (0.78 + dx, 0.86), (0.18 + dx, 1.30), (0.02 + dx, 1.30)], light, offset=0.0075)
-    T.side_text('LeText', 'EXPRESS', -1.1, 0.95, 0.16, WHITE, bold=True, offset=0.0085)
-    T.side_text('LeText2', 'COLIS 24H', -0.4, 1.62, 0.11, dark)
-    for i in range(1):
-        T.vcol(decal('LeRearDark', [(0.95, 0.40), (-0.95, 0.40), (-0.95, 1.10), (0.95, 1.10)], P_REAR, 'det', offset=0.006, min_cos=0.3), dark)
-    T.rear_text('LeRear', 'EXPRESS', 0.70, 0.09, WHITE, bold=True)
+    green, dark, leaf = 0x3eae3a, 0x2f3236, 0x8fd16a
+    T.side_poly('LeSill', [(xr + 0.03, 0.36), (xf - 0.80, 0.36), (xf - 0.80, 0.56), (xr + 0.03, 0.56)], dark)
+    T.side_poly('LeTeal', [(xr + 0.03, 0.56), (xf - 0.80, 0.56), (xf - 0.80, 0.59), (xr + 0.03, 0.59)], 0x2fb59a, offset=0.0075)
+    T.side_text('LeText', 'LIVRAISON', -1.55, 1.92, 0.10, green, bold=True)
+    T.side_text('LeText2', 'ZERO EMISSION', -1.55, 1.74, 0.10, green, bold=True)
+    T.side_text('LeText3', '100% ELECTRIQUE', 1.20, 0.68, 0.05, 0x1e5bd0)
+    # feuillage (feuilles en ellipses) sur l'arrière des flancs
+    import math as _m
+    for sg in (1, -1):
+        for k in range(9):
+            cx, cz = xr + 0.25 + (k % 3) * 0.17, 1.15 + (k // 3) * 0.32 + (k % 2) * 0.08
+            a = 0.6 + k * 0.7
+            pts = [(cx + 0.09 * _m.cos(t) * _m.cos(a) - 0.04 * _m.sin(t) * _m.sin(a), cz + 0.09 * _m.cos(t) * _m.sin(a) + 0.04 * _m.sin(t) * _m.cos(a)) for t in [i2 * _m.pi / 6 for i2 in range(12)]]
+            T.vcol(decal(f'LeLeaf{sg}_{k}', pts if sg > 0 else pts[::-1], P_SIDE(sg), 'det', offset=0.007, step=0.05), leaf)
+    # portes arrière vertes, feuilles blanches, texte
+    T.vcol(decal('LeRearGreen', [(0.93, 0.62), (-0.93, 0.62), (-0.93, 2.05), (0.93, 2.05)], P_REAR, 'det', offset=0.006, min_cos=0.3), green)
+    T.rear_text('LeRear1', 'VOTRE VILLE LIVREE', 1.72, 0.06, WHITE, bold=True)
+    T.rear_text('LeRear2', 'A 100% EN VEHICULES', 1.60, 0.06, WHITE, bold=True)
+    T.rear_text('LeRear3', 'A FAIBLES EMISSIONS', 1.48, 0.06, WHITE, bold=True)
+    for k in range(7):
+        y, z = 0.75 - k * 0.24, 1.98 - (k % 2) * 0.1
+        a = 0.4 + k
+        pts = [(y + 0.08 * _m.cos(t) * _m.cos(a) - 0.035 * _m.sin(t) * _m.sin(a), z + 0.08 * _m.cos(t) * _m.sin(a) + 0.035 * _m.sin(t) * _m.cos(a)) for t in [i2 * _m.pi / 6 for i2 in range(12)]]
+        T.vcol(decal(f'LeRLeaf{k}', pts, P_REAR, 'det', offset=0.009, min_cos=0.3), WHITE)
+    T.vcol(decal('LeRearSill', [(0.95, 0.36), (-0.95, 0.36), (-0.95, 0.55), (0.95, 0.55)], P_REAR, 'det', offset=0.007, min_cos=0.3), dark)
+
+
+def plain_van_livery():
+    """v24 : fourgon blanc anonyme (location, artisans, livreurs sous-traitants) — bas de caisse et
+    baguette de protection noirs, comme les grands fourgons qu'on voit partout"""
+    L = K.S['L'] * (SX if K.S.get('_high') else 1)
+    xf, xr = L / 2, -L / 2
+    T.side_poly('PvSill', [(xr + 0.05, 0.36), (xf - 0.82, 0.36), (xf - 0.82, 0.52), (xr + 0.05, 0.52)], 0x1c1e21)
+    T.side_poly('PvRub', [(xr + 0.25, 0.92), (-0.25, 0.92), (-0.25, 0.97), (xr + 0.25, 0.97)], 0x1c1e21, offset=0.009)
+    T.vcol(decal('PvRearSill', [(0.95, 0.30), (-0.95, 0.30), (-0.95, 0.52), (0.95, 0.52)], P_REAR, 'det', offset=0.007, min_cos=0.3), 0x1c1e21)
+
+
+def overload_extra():
+    """v24 : camionnette surchargée — chargement sur la galerie (cartons, matelas, chaises)
+    sous une bâche bleue mal arrimée, sangles orange, porte-à-faux arrière"""
+    roof_rack(ladder=False)
+    x0 = -0.95
+    z = max(roof_z(x) for x in (0.2, -0.95, -2.1)) + 0.10
+    for k, (dx, w, h, col) in enumerate([(0.55, 0.9, 0.35, 0xa8835a), (-0.35, 0.8, 0.45, 0xb89a6a), (-1.15, 0.7, 0.3, 0x9a7a52)]):
+        T.vcol(K.box(f'LoadBox{k}', (x0 + dx, 0.05 * k, z + h / 2), (w, 1.25, h), 'det'), col)
+    T.vcol(K.box('Mattress', (x0 - 0.2, 0, z + 0.5), (2.2, 1.35, 0.18), 'det'), 0xe8e4d8)
+    # bâche bleue drapée (dépasse sur un côté, flotte)
+    tarp = K.box('Tarp', (x0 - 0.1, 0.12, z + 0.62), (2.6, 1.55, 0.06), 'det', rot=(0.12, 0.04, 0))
+    T.vcol(tarp, 0x1f5fd1)
+    flap = K.box('TarpFlap', (x0 - 1.0, 0.86, z + 0.35), (0.9, 0.04, 0.55), 'det', rot=(0.5, 0, 0.15))
+    T.vcol(flap, 0x1f5fd1)
+    for dx in (0.3, -0.5, -1.4):
+        T.vcol(K.box(f'Strap{dx}', (x0 + dx, 0, z + 0.66), (0.05, 1.62, 0.03), 'det'), 0xe07a12)
 
 
 def roof_rack(ladder=True):
@@ -345,15 +436,17 @@ def van_job(vid, paint, livery, high=True):
 
 BUILDS['police_pn'] = suv_job('police_pn', (0.50, 0.52, 0.54), pn_livery)
 BUILDS['smur_vl'] = suv_job('smur_vl', SAMU_BODY, smur_livery)
-BUILDS['crs_van'] = van_job('crs_van', (0.04, 0.06, 0.14), crs_livery)
+BUILDS['crs_van'] = van_job('crs_van', (0.13, 0.15, 0.18), crs_livery)
 BUILDS['samu_umh'] = van_job('samu_umh', SAMU_BODY, samu_livery)
-BUILDS['livr_bleu'] = van_job('livr_bleu', (0.035, 0.05, 0.085), livr_bleu_livery)
+BUILDS['livr_bleu'] = van_job('livr_bleu', (0.055, 0.075, 0.10), livr_bleu_livery)
 BUILDS['livr_expr'] = van_job('livr_expr', (0.90, 0.91, 0.92), livr_expr_livery)
 BUILDS['pro_plomb'] = van_job('pro_plomb', (0.90, 0.91, 0.92), pro_livery('PLOMBERIE', 'CHAUFFAGE - SANITAIRE', '01 45 00 00 00', 0x1b4fa8, 0xd0202e, rack=True), high=False)
 BUILDS['pro_elec'] = van_job('pro_elec', (0.90, 0.91, 0.92), pro_livery('ELECTRICITE', 'DEPANNAGE 7J/7', '01 42 00 00 00', 0xf08a12, 0x22252b, 0x22252b, rack=True), high=False)
 BUILDS['pro_btp'] = van_job('pro_btp', (0.95, 0.47, 0.06), pro_livery('TRAVAUX PUBLICS', 'VOIRIE - RESEAUX', None, 0x22252b, None, 0x22252b), high=True)
 BUILDS['pro_loc'] = van_job('pro_loc', (0.90, 0.91, 0.92), pro_livery('LOCATION', 'UTILITAIRES 12 M3', '0 800 00 00 00', 0x1f8a3a, 0xf4c20c), high=True)
 BUILDS['pro_demen'] = van_job('pro_demen', (0.90, 0.91, 0.92), pro_livery('DEMENAGEMENT', 'GARDE-MEUBLES', '01 40 00 00 00', 0x6a1f8a, None), high=True)
+BUILDS['master_b'] = van_job('master_b', (0.92, 0.93, 0.94), plain_van_livery)
+BUILDS['pro_charge'] = van_job('pro_charge', (0.62, 0.64, 0.66), overload_extra, high=False)
 BUILDS['auto_ecole'] = lambda: K.build(dict(F.MISTRAL, id='auto_ecole', paint=(0.85, 0.86, 0.87), extra=auto_ecole_extra), 'lo')
 
 

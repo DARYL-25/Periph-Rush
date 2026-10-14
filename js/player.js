@@ -77,7 +77,7 @@ export class Player {
     this.wheelSpin = 0;
     this.crashed = false;
     this.ramp = null; this.rampO = null; this.leftPeriph = false; this.exitT = 0;
-    this.health = 100; this.grip = 1; this.latAcc = 0; this.aquaT = 0; this.headBroken = false; this.scraping = 0;
+    this.health = 100; this.grip = 1; this.latAcc = 0; this.aquaT = 0; this.headBroken = false; this.scraping = 0; this.gear = 1; this.shiftT = 0; this.hazardT = 0; this._hardFrom = 0;
     this.camShake = 0;
     this.distance = 0;
     this.laps = 0;
@@ -103,13 +103,29 @@ export class Player {
     // r (vitesse de lacet), h (cap / route, + à droite), delta (braquage roues)
     const P = this.phys;
     const g = 9.81;
-    const mu = (P.mu) * (1 - 0.3 * (this.wet || 0));
+    const mu = (P.mu) * (1 - 0.3 * (this.wet || 0)) * (1 - 0.5 * (this.snow || 0));   // v24 : neige
     this.grip = mu / P.mu;
     const throttle = this.autoThrottle ? Math.max(inp.throttle, 1 - inp.brake) : inp.throttle;
     // — longitudinal : moteur (courbe), frein (ABS borné par l'adhérence), traînées —
     const vmax = this.vmax;
     let ax = 0;
-    if (throttle > 0) ax += this.accel * throttle * Math.max(0, 1 - Math.pow(this.v / vmax, 2.2)) * (this.health < 60 ? 0.6 + this.health / 150 : 1);
+    // v24 : boîte de vitesses — à la montée de rapport, coupure d'accélération (~0,2 s) et
+    // léger à-coup de caisse ; au freinage, rétrogradages successifs (coup de gaz audible)
+    if (!this.isMoto || this.spec?.moto !== 'scooter') {
+      const GE = this.isMoto ? [0, 30, 55, 80, 105, 130, 999] : [0, 22, 40, 60, 84, 115, 999];
+      const kmhNow = this.v * 3.6;
+      this.gear = this.gear || 1;
+      if (kmhNow > GE[this.gear] + 3 && this.gear < 6) {
+        this.gear++;
+        if (throttle > 0.3) { this.shiftT = 0.2; this.pitchV = (this.pitchV || 0) + 0.35; this.onShift?.('up', this.gear); }
+      } else if (this.gear > 1 && kmhNow < GE[this.gear - 1] - 6) {
+        this.gear--;
+        this.onShift?.(inp.brake > 0.2 ? 'blip' : 'down', this.gear);
+      }
+    }
+    this.shiftT = Math.max(0, (this.shiftT || 0) - dt);
+    const shiftCut = this.shiftT > 0 ? 0.15 : 1;
+    if (throttle > 0) ax += this.accel * throttle * shiftCut * Math.max(0, 1 - Math.pow(this.v / vmax, 2.2)) * (this.health < 60 ? 0.6 + this.health / 150 : 1);
     const brakeDemand = inp.brake > 0 ? this.brakeF * inp.brake : 0;
     this.abs = false;
     if (brakeDemand > 0) {
@@ -219,7 +235,8 @@ export class Player {
     }
     {
       const w = 7.5, z = 0.55;
-      const pT = clamp(-ax * P.pitchK, -0.05, 0.09);
+      // v24 : plongée franche au freinage d'urgence
+      const pT = clamp(-ax * P.pitchK * (inp.brake > 0.7 ? 1.6 : 1), -0.05, 0.12);
       this.pitchV = (this.pitchV || 0) + ((pT - this.pitch) * w * w - 2 * z * w * (this.pitchV || 0)) * dt;
       this.pitch += this.pitchV * dt;
     }
@@ -228,6 +245,34 @@ export class Player {
     this.place();
     this.updateFlash(dt);
     this.bundle.brake.visible = inp.brake > 0.05;
+    // v24 : feux stop plus vifs au freinage appuyé ; warnings automatiques après un freinage d'urgence
+    for (const q of this.bundle.brake.children || []) q.scale.setScalar(inp.brake > 0.7 ? 1.6 : 1);
+    if (inp.brake > 0.7 && this.v > 14) this._hardFrom = Math.max(this._hardFrom || 0, this.v);
+    if (this._hardFrom && this.v < this._hardFrom * 0.45 && this._hardFrom > 13) { this.hazardT = 6; this._hardFrom = 0; this.onHazard?.(); }
+    if (inp.brake < 0.1 && this.v > 10) this._hardFrom = 0;
+    this.hazardT = Math.max(0, (this.hazardT || 0) - dt);
+    this.updateHazards?.(dt);
+  }
+
+  // v24 : feux de détresse du joueur (4 clignotants orange sur la caisse)
+  updateHazards(dt) {
+    const T = this.T, b = this.bundle;
+    if (!b) return;
+    if (!b._haz) {
+      const ud = b.ud || {}, W = (ud.W || 1.8) / 2 - 0.12, L = (ud.L || 4.2) / 2 + 0.02, y = (ud.yBot || 0.4) + 0.42;
+      const mat = new T.MeshBasicMaterial({ color: 0xffa21a, toneMapped: false });
+      b._haz = [];
+      for (const [x, z] of [[W, L], [-W, L], [W, -L], [-W, -L]]) {
+        const q = new T.Mesh(new T.BoxGeometry(0.16, 0.08, 0.06), mat);
+        q.position.set(x, y, z);
+        q.visible = false;
+        b.group.add(q);
+        b._haz.push(q);
+      }
+    }
+    this._hzT = (this._hzT || 0) + dt;
+    const on = this.hazardT > 0 && (this._hzT % 0.8) < 0.42;
+    for (const q of b._haz) q.visible = on;
   }
 
   // ---------- bretelles ------------------------------------------------------

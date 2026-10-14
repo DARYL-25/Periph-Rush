@@ -224,7 +224,7 @@ export const CATALOG = {
     glass: { belt: 0.48, endX: 0.45, panel: true }, lights: 'oval', cols: [P.blancVan, P.blancVan, P.gris, P.bleu], w: 0 },
   // v23 : bus urbain (livrée blanche à bandeau vert jade) et bus de nuit (bleu nuit, bandeau bleu ciel), girouette à LED
   bus: { name: 'Bus', kind: 'bus', dims: [12.0, 2.55, 3.1], wb: 6.0, wr: 0.45,
-    cols: [0xe4e9e7], w: 1.2, day: true, livery: 'jade' },
+    cols: [0xd9dde0], w: 1.2, day: true, livery: 'jade' },
   bus_noct: { name: 'Bus de nuit', kind: 'bus', dims: [12.0, 2.55, 3.1], wb: 6.0, wr: 0.45,
     cols: [0x1f2c63], w: 0, night: true, livery: 'noct' },
   depanneuse: { name: 'Dépanneuse', kind: 'tow', dims: [6.5, 2.2, 2.6], wb: 3.6, wr: 0.37,
@@ -250,7 +250,7 @@ export const CATALOG = {
     cols: [0x8e9398], w: 0, emergency: 'police', beacon: { x: -0.22, y: 1.69, z: 0.36 } },
   // v21 : fourgon d'intervention / de balisage (livrée réglementaire, sans logo) — tools/blender/patrol_build.py
   patrouilleur: { name: 'Fourgon d\'intervention', kind: 'van', glbId: 'patrol_van', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
-    cols: [0xd5e81e], w: 0 },
+    cols: [0xd5e81e], w: 0.5, beacon: { x: 1.05, y: 2.34, z: 0.5 } },   // v24 : aussi en patrouille dans le trafic (gyrophares orange)
   // v22 : motard de la Police nationale (grande routière carénée blanche) ; patrouille en binôme en interfile
   police_moto: { glbId: 'm_police', name: 'Motard de police', kind: 'moto', dims: [2.3, 0.98, 1.55], wb: 1.50, wr: 0.32, moto: 'adv',
     cols: [0xf2f3f5], w: 0.18, emergency: 'police', beacon: { x: 0.86, y: 0.98, z: 0.24 } },
@@ -277,6 +277,16 @@ export const CATALOG = {
     cols: [0xe6e8ea], w: 1.0 },
   pro_demen: { name: 'Déménageur', kind: 'van', glbId: 'pro_demen', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
     cols: [0xe6e8ea], w: 0.5 },
+  // v24 : grands fourgons blancs anonymes (les plus nombreux), livreurs sous-traitants en fourgon blanc,
+  // camionnette surchargée (bâche), voiture sans phares la nuit
+  master_b: { name: 'Fourgon blanc', kind: 'van', glbId: 'master_b', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0xe9ebec], w: 2.4 },
+  livr_blanc: { name: 'Livreur (fourgon blanc)', kind: 'van', glbId: 'master_b', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0xe9ebec], w: 1.4, zz: true },
+  pro_charge: { name: 'Camionnette chargée', kind: 'van', glbId: 'pro_charge', dims: [5.00, 1.92, 2.6], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
+    cols: [0x9da2a6], w: 0.45 },
+  aurore_nl: { name: 'Aurore (sans phares)', kind: 'hatch', glbId: 'aurore', dims: [4.30, 1.80, 1.45], wb: 2.64, wr: 0.315, plateR: 0.56, plateF: 0.43, brakeY: 0.96,
+    cols: [0x5c6166, 0x1e2126, 0x25344d], w: 0.25, noLights: true },
   auto_ecole: { name: 'Auto-école', kind: 'hatch', glbId: 'auto_ecole', dims: [3.85, 1.70, 1.52], wb: 2.46, wr: 0.30, plateR: 0.56, plateF: 0.53, brakeY: 0.98,
     cols: [0xdadcdf], w: 0.7, slow: true },
   pompiers: { name: 'Pompiers', kind: 'box', dims: [6.6, 2.3, 2.95], wb: 3.7, wr: 0.42,
@@ -995,45 +1005,88 @@ export class VehicleFactory {
     return geom;
   }
 
-  // ---------- bus urbain ------------------------------------------------
+  // ---------- bus urbain (v24 : refonte) ---------------------------------
+  // Bus standard 12 m à plancher bas : caisse aux arêtes arrondies (profil extrudé biseauté),
+  // grand pare-brise bombé, bandeau vitré continu à montants noirs, 3 portes doubles vitrées
+  // côté trottoir, jupe gris anthracite, filet d'accent, girouettes à LED, rétroviseurs « en
+  // cornes », caissons de toit (climatisation / batteries), passages de roue sombres.
   busGeometry(m, noWheels = false, cheap = false) {
     const T = this.T;
     const [L, W, H] = m.dims;
-    const yBot = 0.3;
+    const yBot = 0.32, night = m.livery === 'noct';
     const paint = [], det = [], bright = [], lensF = [], lensR = [], glass = [];
-    const body = xform(new T.BoxGeometry(L, H - yBot - 0.1, W), { y: yBot + (H - yBot) / 2 });
-    paint.push(body);
-    glass.push(xform(new T.BoxGeometry(L * 0.96, H * 0.28, W + 0.02), { y: H * 0.62 }));
-    glass.push(xform(new T.BoxGeometry(0.06, H * 0.42, W * 0.9), { x: L / 2 + 0.01, y: H * 0.5 }));
     const box = (arr, w, h, d, tf, col) => {
       const g = xform(new T.BoxGeometry(w, h, d), tf);
       arr.push(arr === det ? colorize(T, g, col ?? 0x24262a) : g);
     };
-    const band = m.livery === 'noct' ? 0x4fb3e8 : 0x2f9a86;
-    box(det, L * 0.98, 0.22, 0.02, { y: H * 0.34, z: W / 2 + 0.005 }, band);
-    box(det, L * 0.98, 0.22, 0.02, { y: H * 0.34, z: -W / 2 - 0.005 }, band);
-    if (m.livery === 'jade') { // bas de caisse et face avant gris anthracite
-      box(det, L * 0.99, 0.32, W + 0.01, { y: yBot + 0.2 }, 0x3a4044);
+    // caisse : profil latéral arrondi extrudé sur la largeur
+    const sh = new T.Shape();
+    const bev = cheap ? 0.03 : 0.07;
+    // contour réduit du biseau (le biseau d'extrusion le ramène aux cotes extérieures)
+    const x0 = -L / 2 + bev, x1 = L / 2 - bev, yt = H - 0.12 - bev, rf = 0.42, rr = 0.28, rb = 0.12;
+    const yb0 = yBot + bev;
+    sh.moveTo(x0 + rb, yb0);
+    sh.lineTo(x1 - rb, yb0);
+    sh.quadraticCurveTo(x1, yb0, x1, yb0 + rb);
+    sh.lineTo(x1 - 0.05, yt - rf);
+    sh.quadraticCurveTo(x1 - 0.1, yt, x1 - 0.1 - rf, yt);
+    sh.lineTo(x0 + rr, yt);
+    sh.quadraticCurveTo(x0, yt, x0, yt - rr);
+    sh.lineTo(x0, yb0 + rb);
+    sh.quadraticCurveTo(x0, yb0, x0 + rb, yb0);
+    const body = new T.ExtrudeGeometry(sh, { depth: W - bev * 2, bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: cheap ? 1 : 3, curveSegments: cheap ? 3 : 8 });
+    body.translate(0, 0, -(W - bev * 2) / 2);
+    paint.push(body);
+    const ox0 = -L / 2, ox1 = L / 2;   // cotes extérieures
+    // bandeau vitré continu (côtés) + pare-brise + lunette arrière
+    const gy0 = 1.18, gy1 = H - 0.42;
+    glass.push(xform(new T.BoxGeometry(L - 0.9, gy1 - gy0, W + 0.025), { x: -0.1, y: (gy0 + gy1) / 2 }));
+    glass.push(xform(new T.BoxGeometry(0.06, H - 0.9, W - 0.24), { x: ox1 - 0.02, y: 0.62 + (H - 0.9) / 2, rz: -0.05 }));
+    glass.push(xform(new T.BoxGeometry(0.05, 0.9, W - 0.5), { x: ox0 - 0.04, y: gy1 - 0.55 }));
+    // montants noirs entre les baies
+    for (let x = ox0 + 0.9; x < ox1 - 1.2; x += 1.45) for (const sd of [-1, 1]) box(det, 0.14, gy1 - gy0 + 0.02, 0.02, { x, y: (gy0 + gy1) / 2, z: sd * (W / 2 + 0.016) }, 0x0d0f12);
+    // cadre noir autour du pare-brise
+    box(det, 0.04, 0.16, W - 0.1, { x: ox1 - 0.02, y: H - 0.33 }, 0x0d0f12);
+    // jupe anthracite + filet d'accent (turquoise le jour, bleu ciel la nuit)
+    box(det, L - 0.25, 0.42, W + 0.03, { y: yBot + 0.21 }, night ? 0x141b3c : 0x3a3f44);
+    box(det, L - 0.25, 0.07, W + 0.032, { y: yBot + 0.46 }, night ? 0x4fb3e8 : 0x1fb3a8);
+    if (night) box(det, L - 0.5, 0.18, W + 0.03, { y: gy0 - 0.2 }, 0x4fb3e8);
+    // portes doubles vitrées côté trottoir (avant, milieu, arrière)
+    for (const dx of [ox1 - 1.05, -0.4, ox0 + 2.6]) {
+      box(det, 1.3, H - 0.62, 0.02, { x: dx, y: yBot + (H - 0.62) / 2, z: W / 2 + 0.022 }, 0x15181c);
+      glass.push(xform(new T.BoxGeometry(0.55, H - 0.95, 0.02), { x: dx - 0.3, y: yBot + 0.2 + (H - 0.95) / 2, z: W / 2 + 0.035 }));
+      glass.push(xform(new T.BoxGeometry(0.55, H - 0.95, 0.02), { x: dx + 0.3, y: yBot + 0.2 + (H - 0.95) / 2, z: W / 2 + 0.035 }));
     }
-    // girouettes à LED (avant + flanc droit + arrière) : lentilles émissives la nuit
-    lensF.push(xform(new T.BoxGeometry(0.04, 0.24, W * 0.72), { x: L / 2 + 0.02, y: H - 0.32 }));
-    lensF.push(xform(new T.BoxGeometry(1.5, 0.2, 0.03), { x: L / 2 - 1.6, y: H - 0.3, z: W / 2 + 0.01 }));
-    lensF.push(xform(new T.BoxGeometry(0.04, 0.2, 0.5), { x: -L / 2 - 0.02, y: H - 0.35 }));
-    box(det, 0.05, 0.3, W * 0.78, { x: L / 2 + 0.005, y: H - 0.32 }, 0x101214);
-    box(det, L * 0.25, 0.18, 0.02, { x: L / 2 - L * 0.15, y: H * 0.88, z: W / 2 + 0.005 }, 0x14181c);
-    // portes
-    for (const dx of [L * 0.18, -L * 0.1, -L * 0.35]) {
-      box(det, 1.15, H * 0.52, 0.015, { x: dx, y: yBot + H * 0.3, z: W / 2 + 0.006 }, 0x3d4348);
+    // passages de roue sombres (côtés)
+    const axF = ox1 - 2.6, axR = ox0 + 3.4;
+    for (const ax of [axF, axR]) for (const sd of [-1, 1]) box(det, 1.25, 0.8, 0.03, { x: ax, y: m.wr + 0.05, z: sd * (W / 2 + 0.005) }, 0x08090a);
+    // caissons de toit (climatisation, batteries) et trappes
+    box(det, 2.6, 0.32, W - 0.5, { x: 0.8, y: H - 0.02 }, night ? 0x2a3560 : 0xc9cdd0);
+    box(det, 3.2, 0.28, W - 0.6, { x: -3.2, y: H - 0.04 }, night ? 0x2a3560 : 0xc9cdd0);
+    if (!cheap) box(det, 0.9, 0.08, 0.9, { x: 3.6, y: H - 0.08 }, 0x8b9196);
+    // rétroviseurs « en cornes » (bras qui avancent puis retombent devant le pare-brise)
+    for (const sd of [-1, 1]) {
+      box(det, 0.55, 0.05, 0.05, { x: ox1 + 0.18, y: H - 0.32, z: sd * (W / 2 - 0.05), ry: sd * 0.5 }, 0x111214);
+      box(det, 0.06, 0.35, 0.2, { x: ox1 + 0.38, y: H - 0.55, z: sd * (W / 2 + 0.14) }, 0x111214);
     }
+    // girouettes à LED (avant, flanc, arrière) — lentilles émissives la nuit
+    box(det, 0.05, 0.32, W * 0.8, { x: ox1 - 0.06, y: H - 0.32 }, 0x0b0c0e);
+    lensF.push(xform(new T.BoxGeometry(0.04, 0.22, W * 0.72), { x: ox1 - 0.03, y: H - 0.32 }));
+    lensF.push(xform(new T.BoxGeometry(1.6, 0.2, 0.03), { x: ox1 - 1.9, y: gy1 + 0.16, z: W / 2 + 0.02 }));
+    lensF.push(xform(new T.BoxGeometry(0.04, 0.2, 0.55), { x: ox0 - 0.05, y: H - 0.4 }));
+    // optiques avant (bandeau bas) et feux arrière verticaux
+    for (const sd of [-1, 1]) {
+      lensF.push(xform(new T.BoxGeometry(0.05, 0.16, 0.45), { x: ox1 + 0.005, y: 0.72, z: sd * (W / 2 - 0.35) }));
+      lensR.push(xform(new T.BoxGeometry(0.05, 0.75, 0.14), { x: ox0 - 0.02, y: 1.1, z: sd * (W / 2 - 0.16) }));
+    }
+    // face arrière : grille du compartiment moteur / batteries
+    box(det, 0.04, 0.55, W - 0.7, { x: ox0 - 0.02, y: 0.85 }, 0x1a1c1f);
+    box(det, 0.05, 0.18, W - 0.2, { x: ox1 + 0.01, y: 0.42 }, 0x1a1c1f);   // pare-chocs avant
     const wl = [];
-    for (const ax of [L / 2 - 1.4, -L / 2 + 1.6]) for (const side of [-1, 1]) wl.push({ x: ax, y: m.wr, z: side * (W / 2 - 0.18) });
+    for (const ax of [axF, axR]) for (const side of [-1, 1]) wl.push({ x: ax, y: m.wr, z: side * (W / 2 - 0.18) });
     const wheels = this.heavyWheels({ det, bright }, wl, m.wr, 0.32, noWheels, cheap);
-    for (const side of [-1, 1]) {
-      lensF.push(xform(new T.BoxGeometry(0.05, 0.14, 0.3), { x: L / 2 + 0.005, y: 0.6, z: side * (W / 2 - 0.3) }));
-      lensR.push(xform(new T.BoxGeometry(0.05, 0.25, 0.14), { x: -L / 2 - 0.005, y: 0.7, z: side * (W / 2 - 0.2) }));
-    }
     const geom = this.assemble({ paint, glass, det, bright, lensF, lensR });
-    geom.userData = { fx: L / 2 - 1.4, rx: -L / 2 + 1.6, wr: m.wr, W, L, H, yBot, wheels };
+    geom.userData = { fx: axF, rx: axR, wr: m.wr, W, L, H, yBot, wheels };
     return geom;
   }
 

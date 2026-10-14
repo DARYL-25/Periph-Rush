@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-180.png">
   <link rel="preload" href="assets/fonts/barlow-condensed-latin-900-italic.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=23">
+  <link rel="stylesheet" href="css/style.css?v=24">
   <script type="importmap">
     { "imports": { "three": "./vendor/three.module.min.js" } }
   </script>
@@ -192,6 +192,7 @@
           <option value="auto">Variable</option>
           <option value="soleil">Sec</option>
           <option value="pluie">Pluie</option>
+          <option value="neige">Neige</option>
         </select></label>
       <label class="row"><span>Heure de départ</span>
         <select id="set-hour">
@@ -232,9 +233,19 @@
       <h2 class="screen-h">PAUSE</h2>
       <div class="menu-buttons">
         <button class="btn primary" id="p-resume">REPRENDRE</button>
+        <button class="btn" id="p-photo">📷 MODE PHOTO</button>
         <button class="btn" id="p-restart">RECOMMENCER</button>
         <button class="btn" id="p-menu">MENU</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===================== Mode photo (v24) ===================== -->
+  <div id="photo" class="hidden">
+    <div id="photo-hint">Glissez pour tourner · pincez ou molette pour zoomer</div>
+    <div id="photo-bar">
+      <button class="btn" id="ph-exit">✕ REPRENDRE</button>
+      <button class="btn primary" id="ph-shot">📸 CAPTURER</button>
     </div>
   </div>
 
@@ -267,6 +278,6 @@
     <div id="loading-txt">Construction du périphérique…</div>
   </div>
 
-  <script type="module" src="js/main.js?v=23"></script>
+  <script type="module" src="js/main.js?v=24"></script>
 </body>
 </html>

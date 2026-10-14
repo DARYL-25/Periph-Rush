@@ -187,7 +187,15 @@ export class Ambience {
     this.clockSpeed = 20; // 1 s réelle = 20 s de jeu
     this.weatherMode = weather;
     this.rand = rand;
-    const rainy = weather === 'pluie' || (weather === 'auto' && rand() < 0.3);
+    // v24 : neige (rare, en hiver — ou forcée dans les réglages) ; grêle par épisodes courts
+    const month = new Date().getMonth();
+    const winter = month === 11 || month <= 1;
+    this.snowTarget = weather === 'neige' || (weather === 'auto' && winter && rand() < 0.1) ? 0.6 + rand() * 0.35 : 0;
+    this.snowAmt = this.snowTarget;
+    this.snowCover = this.snowTarget > 0 ? 0.7 : 0;
+    this.hailT = 0;
+    this.seineFog = 0;
+    const rainy = !this.snowTarget && (weather === 'pluie' || (weather === 'auto' && rand() < 0.3));
     this.rainTarget = rainy ? 0.6 + rand() * 0.4 : 0;
     this.rainAmt = this.rainTarget;
     this.wetAmt = rainy ? 1 : (weather === 'auto' && rand() < 0.15 ? 0.6 : 0); // chaussée encore humide
@@ -226,20 +234,23 @@ export class Ambience {
     base.sunX = Math.cos(Math.PI * clamp((hh - SUNRISE) / (SUNSET - SUNRISE), 0, 1));
     base.sunY = Math.max(0.06, e);
     // pluie
-    const r = this.rainAmt;
+    const r = Math.max(this.rainAmt, (this.snowAmt || 0) * 0.85);   // v24 : ciel couvert aussi quand il neige
     if (r > 0.001) {
       const wetP = e > 0.05 ? PRESETS.pluie : PRESETS.nuitPluie;
       const keep = { sunX: base.sunX, sunY: base.sunY };
       base = this.blendInto({}, base, wetP, clamp(r * 0.9, 0, 0.9));
       Object.assign(base, keep);
     }
-    if (this.fogAmt > 0.001) {
+    const fogNow = Math.max(this.fogAmt || 0, this.seineFog || 0, (this.snowAmt || 0) * 0.45);
+    if (fogNow > 0.001) {
       const keep = { sunX: base.sunX, sunY: base.sunY, lamps: base.lamps, head: base.head };
-      base = this.blendInto({}, base, PRESETS.brouillard, this.fogAmt * 0.85);
+      base = this.blendInto({}, base, PRESETS.brouillard, fogNow * 0.85);
       Object.assign(base, keep);
     }
-    base.rain = r;
-    base.wet = this.wetAmt;
+    base.rain = this.rainAmt;
+    base.wet = this.wetAmt * (1 - (this.snowCover || 0) * 0.6);
+    base.snow = this.snowAmt || 0;
+    base.snowCover = this.snowCover || 0;
     base.lamps = Math.max(smoothstep(0.14, -0.04, e), r > 0.5 && e < 0.4 ? 0.4 : 0, this.fogAmt * 0.6);
     base.head = e < 0.1 || r > 0.25 || this.fogAmt > 0.3 ? 1 : 0;
     base.windows = smoothstep(0.1, -0.1, e);
@@ -259,7 +270,18 @@ export class Ambience {
         const hh = this.hour;
         this.fogTarget = hh > 5 && hh < 9.5 && this.rand() < 0.3 ? 0.6 : 0;
       }
+      // grêle : courte averse de grêlons pendant une pluie (hors hiver neigeux)
+      if (this.rainAmt > 0.4 && this.hailT <= 0 && this.rand() < dt * 0.004) this.hailT = 45 + this.rand() * 60;
     } else this.rainTarget = this.weatherMode === 'pluie' ? 0.85 : 0;
+    if (this.weatherMode === 'neige') this.snowTarget = 0.85;
+    this.hailT = Math.max(0, (this.hailT || 0) - dt);
+    this.snowAmt = (this.snowAmt || 0) + ((this.snowTarget || 0) - (this.snowAmt || 0)) * Math.min(1, dt * 0.05);
+    // la neige tient au sol (lentement), fond quand elle cesse
+    this.snowCover = clamp((this.snowCover || 0) + (this.snowAmt > 0.2 ? dt * 0.01 * this.snowAmt : -dt * 0.004), 0, 1);
+    // brouillard matinal sur la Seine (aux franchissements, de l'aube à ~10 h)
+    const hh2 = this.hour;
+    const sf = this.nearSeine && hh2 > 5 && hh2 < 10.5 && (this.rainAmt || 0) < 0.3 ? 0.75 * smoothstep(10.5, 8.5, hh2) : 0;
+    this.seineFog = (this.seineFog || 0) + (sf - (this.seineFog || 0)) * Math.min(1, dt * 0.25);
     this.rainAmt += (this.rainTarget - this.rainAmt) * Math.min(1, dt * 0.05);
     this.fogAmt += (this.fogTarget - this.fogAmt) * Math.min(1, dt * 0.03);
     // la chaussée se mouille vite, sèche lentement
@@ -339,22 +361,34 @@ export class Ambience {
       H.roadMat.shininess = 6 + c.wet * 120;
       H.roadMat.specular.setScalar(0.06 + c.wet * 0.75);
       H.roadMat.color.setScalar(1 - c.wet * 0.42);
+      // v24 : chaussée qui blanchit sous la neige (traces plus sombres conservées par la texture)
+      const sc = c.snowCover || 0;
+      if (sc > 0.01) H.roadMat.color.lerp(this._snowC || (this._snowC = new T.Color(2.2, 2.25, 2.35)), sc * 0.75);
     }
+    if (H.paintMat) H.paintMat.opacity = 1 - (c.snowCover || 0) * 0.7;
     if (H.tunnelLightMat) H.tunnelLightMat.color.setHex(0xffb860); // sodium (relevé v12)
 
     // ciel suit la caméra
     if (playerPos) this.sky.position.set(playerPos.x, 0, playerPos.z);
 
     // pluie
-    const rainAmt = c.rain * (inTunnel ? 0 : 1);
-    this.rainMat.opacity = Math.min(1, rainAmt) * 0.55;
+    // v24 : flocons (lents, dérivent) ou grêlons (rapides, blancs) avec les mêmes particules
+    const snow = (c.snow || 0) > 0.05, hail = (this.hailT || 0) > 0;
+    const rainAmt = Math.max(c.rain, c.snow || 0, hail ? 0.8 : 0) * (inTunnel ? 0 : 1);
+    this.rainMat.opacity = Math.min(1, rainAmt) * (snow ? 0.9 : hail ? 0.8 : 0.55);
+    this.rainMat.color.setHex(snow || hail ? 0xf4f7fa : 0x9db4c8);
+    const vk = snow ? 0.09 : hail ? 1.5 : 1;
+    this.rain.scale?.set(1, 1, 1);
     if (rainAmt > 0.02 && this.camera) {
       const cp = this.camera.position;
+      this._t2 = (this._t2 || 0) + dt;
       for (let i = 0; i < this.rainCount; i++) {
         const s = this.rainSeeds[i];
-        s.y -= s.v * dt;
+        s.y -= s.v * vk * dt;
         if (s.y < 0) s.y += 16;
-        this._m4.makeTranslation(cp.x + s.x, cp.y + s.y - 6, cp.z + s.z);
+        const dx = snow ? Math.sin(this._t2 * 0.8 + i) * 0.6 : 0;
+        this._m4.makeTranslation(cp.x + s.x + dx, cp.y + s.y - 6, cp.z + s.z);
+        if (snow || hail) this._m4.scale(this._sc || (this._sc = new T.Vector3(3.2, 0.12, 3.2)));
         this.rain.setMatrixAt(i, this._m4);
       }
       this.rain.instanceMatrix.needsUpdate = true;
@@ -365,4 +399,5 @@ export class Ambience {
   get lampsOn() { return this.cur.lamps > 0.4; }
   get headlightsOn() { return this.cur.head > 0.5; }
   get wet() { return this.cur.wet; }
+  get snow() { return Math.max(this.cur.snow || 0, this.cur.snowCover || 0); }
 }

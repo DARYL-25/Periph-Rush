@@ -57,6 +57,7 @@ export class Feel {
     const kmh = p.kmh, cockpit = !!G.cockpit?.active;
     const k = clamp((kmh - 55) / 95, 0, 1);
 
+    this.updateThanks(dt);
     // ---- vitesse : vignettage + traînées (une image sur deux) ----
     this.vig.style.opacity = (0.12 + 0.6 * k * k).toFixed(3);
     if ((this.frame = (this.frame || 0) + 1) % 2 === 0) {
@@ -154,14 +155,12 @@ export class Feel {
     if (G.cockpit) G.cockpit.extraRain = this.spray * 1.6;
 
     // ---- caméra : micro-vibrations + secousses amorties ----
-    const vib = (0.0018 + 0.006 * k) * (p.v > 1 ? 1 : 0) * (cockpit ? 0.6 : 1);
-    const n1 = Math.sin(this.time * 61.3) * 0.6 + Math.sin(this.time * 37.1 + 1.3) * 0.4;
-    const n2 = Math.sin(this.time * 43.7 + 0.7);
+    // v24 : plus de tremblement lié à la vitesse (jugé irréaliste) — seules les secousses
+    // ponctuelles (joints, tampons, flaques) restent, amorties
     this.bumpV += (-this.bumpY * 520 - this.bumpV * 26) * dt;
     this.bumpY += this.bumpV * dt;
-    camera.position.y += n1 * vib + this.bumpY;
-    camera.rotateZ(n2 * vib * 0.35);
-    camera.rotateX(this.bumpY * 0.6);
+    camera.position.y += this.bumpY * 0.7;
+    camera.rotateX(this.bumpY * 0.4);
 
     // ---- frottements contre la DBA / dégâts visibles ----
     if (p.scraping && p.v > 3) {
@@ -195,6 +194,46 @@ export class Feel {
       }
     }
     if (p.headBroken && p.lightsOn && !p.flashT) p.headlight.intensity = 40;
+  }
+
+  // v24 : remerciement d'un motard (jambe tendue ou main levée) pendant ~1,3 s
+  thank(n, side) {
+    const T = this.g.T;
+    if (!this.legMesh) {
+      const mat = new T.MeshLambertMaterial({ color: 0x1b1d22 });
+      const g = new T.Group();
+      const leg = new T.Mesh(new T.CylinderGeometry(0.07, 0.055, 0.85, 7), mat);
+      leg.position.y = -0.42;
+      const boot = new T.Mesh(new T.BoxGeometry(0.11, 0.1, 0.26), new T.MeshLambertMaterial({ color: 0x0e0f11 }));
+      boot.position.set(0, -0.85, 0.06);
+      g.add(leg, boot);
+      const arm = new T.Group();
+      const a = new T.Mesh(new T.CylinderGeometry(0.05, 0.045, 0.62, 7), mat);
+      a.position.y = 0.31;
+      const hand = new T.Mesh(new T.SphereGeometry(0.06, 6, 5), mat);
+      hand.position.y = 0.64;
+      arm.add(a, hand);
+      this.legMesh = g; this.armMesh = arm;
+      this.g.scene.add(g, arm);
+    }
+    this.thanks = { n, side, t: 1.3, kind: Math.random() < 0.6 ? 'leg' : 'hand' };
+  }
+  updateThanks(dt) {
+    const th = this.thanks;
+    if (!this.legMesh) return;
+    this.legMesh.visible = this.armMesh.visible = false;
+    if (!th || th.t <= 0 || !th.n.bundle?.group) return;
+    th.t -= dt;
+    const g = th.n.bundle.group, e = Math.sin(Math.min(1, (1.3 - th.t) / 0.25) * Math.PI / 2) * Math.min(1, th.t / 0.3);
+    const o = th.kind === 'leg' ? this.legMesh : this.armMesh;
+    o.visible = true;
+    o.position.copy(g.position);
+    o.rotation.copy(g.rotation);
+    // côté vers le joueur : repère local de la moto (x latéral)
+    o.translateX(th.side * 0.32);
+    o.translateY(th.kind === 'leg' ? 0.62 : 1.25);
+    o.translateZ(th.kind === 'leg' ? -0.15 : 0.2);
+    o.rotateZ(-th.side * (th.kind === 'leg' ? 1.25 : 2.3) * e);
   }
 
   bump(amp, kind, p) {

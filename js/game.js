@@ -115,6 +115,9 @@ export class Game {
     this.player.autoThrottle = this.ui.prog.data.settings.autoThrottle;
     this.player.sens = this.ui.prog.data.settings.sensitivity ?? 1;
     this.player.input = this.ui.input;
+    // v24 : boîte de vitesses audible (passage, coup de gaz au rétrogradage) et warnings automatiques
+    this.player.onShift = (k) => this.audio.shift?.(k);
+    this.player.onHazard = () => this.ui.popup('⚠ FEUX DE DÉTRESSE', '');
     this.traffic.reset(this.player.s);
     this.ambIndex = 0;
     this.ambience.startDay(this.startHour(set), set.weather || 'auto');
@@ -195,7 +198,8 @@ export class Game {
     this.traffic.update(dt, this.player, this.events);
     this.events.hour = this.ambience.hour;
     this.traffic.hour = this.ambience.hour;
-    this.rampLife.update(dt, this.player, this.traffic);
+    this.rampLife.hour = this.ambience.hour;
+    this.rampLife.update(dt, this.player, this.traffic, this.events);
     this.events.update(dt, this.player, this.traffic);
     if (this.state === 'running') {
       const st = this.ui.prog.data.settings;
@@ -209,6 +213,9 @@ export class Game {
     this.ambience.update(rawDt, this.player.bundle.group.position, !!tunnel);
     this.applyNight();
     this.traffic.wet = this.ambience.wet;
+    this.traffic.snow = this.player.snow = this.ambience.snow;
+    this.ambience.nearSeine = !!this.track.onBridge(this.player.s) || !!this.track.onBridge(this.player.s + 250) || !!this.track.onBridge(this.player.s - 150);
+    if (this.ambience.hailT > 0 && !tunnel) { this.hailSndT = (this.hailSndT || 0) - rawDt; if (this.hailSndT <= 0) { this.hailSndT = 0.03 + Math.random() * 0.05; this.audio.burst?.({ dur: 0.03, freq: 3500 + Math.random() * 2500, type: 'bandpass', q: 3, gain: 0.04 + Math.random() * 0.05 }); } if (!this._hailMsg) { this._hailMsg = true; this.ui.popup('☄ AVERSE DE GRÊLE', 'fine'); } } else this._hailMsg = false;
     this.player.wet = this.ambience.wet;
     this.world.wetLevel = this.ambience.wet;
     this.traffic.dayFactor = this.dayFactor(this.ambience.hour ?? 14);
@@ -269,6 +276,7 @@ export class Game {
     } else {
       const jam = this.traffic.jamAhead(p.s);
       if (this.traffic.motoBehindPlayer) warning = '🏍 UNE MOTO VEUT PASSER — SERREZ À DROITE';
+      else if (this.traffic.flashBehindPlayer > 0) warning = '🔦 APPEL DE PHARES DERRIÈRE — RABATTEZ-VOUS À DROITE';
       else if (jam && jam.dist < 700) warning = `⚠ RALENTISSEMENT ${Math.round(jam.dist / 100) * 100} m`;
     }
     this.ui.updateHUD({
@@ -281,7 +289,7 @@ export class Game {
       porteDist: next.dist,
       warning,
       clock: this.ambience.clockText,
-      weather: this.ambience.rainAmt > 0.15 ? 'pluie' : (this.ambience.fogAmt > 0.3 ? 'brouillard' : (this.ambience.elevation < 0 ? 'nuit' : 'soleil')),
+      weather: this.ambience.hailT > 0 ? 'grele' : (this.ambience.snowAmt || 0) > 0.2 ? 'neige' : this.ambience.rainAmt > 0.15 ? 'pluie' : (this.ambience.fogAmt > 0.3 ? 'brouillard' : (this.ambience.elevation < 0 ? 'nuit' : 'soleil')),
       health: p.health,
       permis: this.rules.points,
       fines: this.rules.fines,
@@ -328,10 +336,19 @@ export class Game {
     } else a.siren(0, 1, 0, dt);
     // (v23 : joints, reprises et tampons → feel.js)
     this.cityAmbience(dt);
+    // v24 : revêtement sous les roues
+    {
+      const t = this.track;
+      const km = Math.floor(p.s / 900), h = Math.imul(km + 3, 2654435761) >>> 0;
+      a.surface = t.onViaduct(p.s) || t.onBridge(p.s) || t.coverAt(p.s) ? 'beton' : (h % 4 === 0 ? 'neuf' : 'enrobe');
+    }
     // radio : station choisie (info-trafic parlée ou musique générée)
     const st = this.radioKey();
     if (a.station !== st) a.setStation(st);
     if (st === 'info') {
+      const nEv = (this.events.active || []).length;
+      if (nEv > (this._nEv ?? 0) && this.radioT > 6) this.radioT = 4;   // flash info : nouvel événement
+      this._nEv = nEv;
       this.radioT = (this.radioT ?? 22) - dt;
       if (this.radioT <= 0) { this.radioT = 140 + Math.random() * 60; a.radio(this.radioText()); }
     }
@@ -354,17 +371,34 @@ export class Game {
     const short = (n) => n || 'la porte suivante';
     const lines = [`Périph Info, il est ${h} heures${m ? ' ' + m : ''}.`];
     const lv = this.traffic.level;
-    const jam = this.traffic.jams[0];
-    if (jam) {
+    // v24 : l'info trafic parle de ce qui se passe réellement devant vous
+    const ps = this.player.s;
+    const ahead = (x) => wrap(x - ps, L);
+    const km = (d) => (d < 1000 ? `${Math.round(d / 100) * 100} mètres` : `${(d / 1000).toFixed(1).replace('.', ',')} kilomètre${d >= 2000 ? 's' : ''}`);
+    const evs = (this.events.active || []).map((e) => ({ e, d: ahead(e.s0) })).filter((o) => o.d > 30 && o.d < 9000).sort((a, b) => a.d - b.d);
+    const jam = this.traffic.jams.map((j) => ({ j, d: ahead(j.s - j.len / 2) })).filter((o) => o.d < 8000).sort((a, b) => a.d - b.d)[0]?.j;
+    if (evs.length) {
+      const { e, d } = evs[0];
+      const where = short(t.nextPorte(e.s0).porte?.name);
+      const lane = e.lanes?.includes(0) ? 'la voie de gauche' : 'la voie de droite';
+      const what = { accident: 'un accident', travaux: 'des travaux', panne: 'un véhicule en panne', controle: 'un contrôle de police sur le bas-côté' }[e.type] || 'un incident';
+      lines.push(`Attention, à ${km(d)} devant vous, à hauteur de ${where}, ${what} ${e.type === 'travaux' ? 'neutralisent' : 'neutralise'} ${lane}.`);
+      const qj = this.traffic.jams.find((j) => j.ev === e);
+      if (qj && qj.len > 120) lines.push(`Ça bouchonne déjà sur ${km(qj.len)} en amont : ralentissez et serrez à ${e.lanes?.includes(0) ? 'droite' : 'gauche'}.`);
+      if (e.type === 'accident' && e.phase === 'depannage') lines.push('Les dépanneuses sont sur place.');
+      if (e.type === 'travaux' && (amb.hour >= 21.5 || amb.hour < 5.5)) lines.push('Travaux de nuit : le balisage est en place jusqu’à cinq heures.');
+    }
+    if (jam && !jam.ev) {
       const a = t.nextPorte(wrap(jam.s - jam.len / 2 - 200, L)).porte?.name;
       const b = t.nextPorte(wrap(jam.s + jam.len / 2, L)).porte?.name;
-      const km = Math.max(1, Math.round((jam.len + (lv === 2 ? 1500 : 0)) / 1000));
-      lines.push(`Sur le périphérique intérieur, ${lv === 2 ? 'bouchon' : lv === 3 ? 'ralentissements en accordéon' : 'ralentissement'} de ${km} kilomètre${km > 1 ? 's' : ''} entre ${short(a)} et ${short(b)}.`);
-    } else lines.push(['Le trafic est fluide sur l’ensemble du périphérique intérieur.', 'Circulation dense mais sans difficulté majeure sur le périphérique intérieur.', 'Le périphérique est saturé sur la quasi-totalité de l’anneau.', 'Trafic très dense sur le périphérique intérieur, avec des ralentissements en accordéon : gardez vos distances.'][lv]);
-    const ev = this.events.active?.[0];
-    if (ev) lines.push(ev.type === 'panne' ? `Un véhicule en panne gêne la circulation sur la voie de droite à hauteur de ${short(t.nextPorte(ev.s0).porte?.name)}.` : ev.type === 'controle' ? `Contrôle de police sur le bas-côté à hauteur de ${short(t.nextPorte(ev.s0).porte?.name)} : prudence.` : `${ev.type === 'travaux' ? 'Des travaux' : 'Un accident'} neutralise${ev.type === 'travaux' ? 'nt' : ''} une voie à hauteur de ${short(t.nextPorte(ev.s0).porte?.name)}.`);
+      const k2 = Math.max(1, Math.round((jam.len + (lv === 2 ? 1500 : 0)) / 1000));
+      lines.push(`Sur le périphérique intérieur, ${lv === 2 ? 'bouchon' : lv === 3 ? 'ralentissements en accordéon' : 'ralentissement'} de ${k2} kilomètre${k2 > 1 ? 's' : ''} entre ${short(a)} et ${short(b)}.`);
+    } else if (!evs.length) lines.push(['Le trafic est fluide sur l’ensemble du périphérique intérieur.', 'Circulation dense mais sans difficulté majeure sur le périphérique intérieur.', 'Le périphérique est saturé sur la quasi-totalité de l’anneau.', 'Trafic très dense sur le périphérique intérieur, avec des ralentissements en accordéon : gardez vos distances.'][lv]);
     if (lv === 2) lines.push('Rappel : la voie de gauche est réservée au covoiturage, aux taxis et aux bus.');
-    if (amb.rainAmt > 0.3) lines.push('Il pleut sur Paris, chaussée glissante : augmentez vos distances de sécurité.');
+    if ((amb.snowAmt || 0) > 0.2) lines.push('Il neige sur Paris : la chaussée est glissante, la circulation très ralentie. Roulez au pas et gardez vos distances.');
+    else if (amb.hailT > 0) lines.push('Une averse de grêle traverse la capitale : ralentissez.');
+    else if (amb.rainAmt > 0.3) lines.push('Il pleut sur Paris, chaussée glissante : augmentez vos distances de sécurité.');
+    else if ((amb.seineFog || 0) > 0.3) lines.push('Brouillard givrant sur les bords de Seine ce matin : allumez vos feux.');
     else if (amb.fogAmt > 0.3) lines.push('Brouillard sur l’est parisien, allumez vos feux.');
     lines.push('Bonne route avec Périph Info.');
     return lines.join(' ');
@@ -399,11 +433,27 @@ export class Game {
       if (!tunnel) a.distantSiren?.(Math.random() < 0.6 ? 'pompiers' : 'police');
     }
     a.cityBed?.(tunnel ? 0.4 : 1, this.ambience.hour ?? 14);
+    // v24 : épaves qui fument (nuage bleuté derrière l'échappement)
+    this.smokyT = (this.smokyT || 0) - dt;
+    if (this.smokyT <= 0) {
+      this.smokyT = 0.14;
+      for (const n of this.traffic.npcs) {
+        if (!n.smoky || !n.bundle?.group) continue;
+        const d = loopDelta(n.s, p.s, L);
+        if (d < -40 || d > 90) continue;
+        const q = {}; this.track.pointAt(n.s - n.len / 2 - 0.3, q);
+        this.emitSmoke(new this.T.Vector3(q.x + q.rx * n.lat, (n.y ?? q.y) + 0.35, q.z + q.rz * n.lat), 1, false);
+      }
+    }
     // deux-roues qui passe en trombe à côté (interfile) : souffle
     for (const n of this.traffic.npcs) {
       if (!n.moto || n.mode !== 'interfile') continue;
       const d = loopDelta(n.s, p.s, L);
-      if (Math.abs(d) < 1.5 && Math.abs(n.lat - p.lat) < 2.4 && n.v - p.v > 3 && !n._whoosh) { n._whoosh = true; a.whoosh?.(clamp((n.lat - p.lat) / 2, -1, 1)); }
+      if (Math.abs(d) < 1.5 && Math.abs(n.lat - p.lat) < 2.4 && n.v - p.v > 3 && !n._whoosh) {
+        n._whoosh = true; a.whoosh?.(clamp((n.lat - p.lat) / 2, -1, 1));
+        // v24 : vous lui avez laissé de la place → il remercie (pied tendu ou main levée)
+        if (Math.abs(n.lat - p.lat) > 1.3 && Math.random() < 0.7) { this.feel.thank(n, n.lat > p.lat ? -1 : 1); this.ui.popup('👋 LE MOTARD VOUS REMERCIE', 'combo'); this.score.points += 150; }
+      }
       if (d > 8) n._whoosh = false;
     }
   }
@@ -645,6 +695,9 @@ export class Game {
     this.ambience.update(rawDt, this.player.bundle.group.position, false);
     this.applyNight();
     this.traffic.wet = this.ambience.wet;
+    this.traffic.snow = this.player.snow = this.ambience.snow;
+    this.ambience.nearSeine = !!this.track.onBridge(this.player.s) || !!this.track.onBridge(this.player.s + 250) || !!this.track.onBridge(this.player.s - 150);
+    if (this.ambience.hailT > 0 && !tunnel) { this.hailSndT = (this.hailSndT || 0) - rawDt; if (this.hailSndT <= 0) { this.hailSndT = 0.03 + Math.random() * 0.05; this.audio.burst?.({ dur: 0.03, freq: 3500 + Math.random() * 2500, type: 'bandpass', q: 3, gain: 0.04 + Math.random() * 0.05 }); } if (!this._hailMsg) { this._hailMsg = true; this.ui.popup('☄ AVERSE DE GRÊLE', 'fine'); } } else this._hailMsg = false;
     this.updateSmoke(rawDt);
     // caméra au ras du trafic (sous les ponts)
     const p = {};

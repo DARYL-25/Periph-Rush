@@ -18,7 +18,7 @@ const CAR_W = CAR_IDS.map((id) => CATALOG[id].w);
 const MOTO_IDS = TRAFFIC_IDS.filter((id) => CATALOG[id].kind === 'moto');
 const MOTO_W = MOTO_IDS.map((id) => CATALOG[id].w);
 const SPORT_IDS = ['furia'];
-const HEAVY = ['bus', 'bus_noct', 'fourgon', 'livraison', 'depanneuse', 'municipal', 'camionnette', 'trafic', 'semi', 'semi_pv', 'semi_cit', 'semi_frigo', 'cargo', 'pro_btp', 'pro_loc', 'pro_demen'];
+const HEAVY = ['bus', 'bus_noct', 'fourgon', 'livraison', 'depanneuse', 'municipal', 'camionnette', 'trafic', 'semi', 'semi_pv', 'semi_cit', 'semi_frigo', 'cargo', 'pro_btp', 'pro_loc', 'pro_demen', 'pro_charge', 'master_b', 'patrouilleur'];
 const EMERG_IDS = ['police', 'police', 'police', 'samu', 'smur', 'pompiers', 'crs'];
 
 // niveaux de trafic : 0 fluide · 1 chargé · 3 dense (accordéon) · 2 heure de pointe (très bouché)
@@ -187,6 +187,9 @@ export class Traffic {
     return {
       zz, phone, phPh: this.rand() * 10,
       forgotHaz: plain && !phone && this.rand() < 0.012,
+      // v24 : épaves roulantes (fument) ; motards qui lèvent la roue avant (rare)
+      smoky: (plain || id === 'cargo' || id === 'pro_charge') && this.rand() < 0.02,
+      wheelieAt: m.kind === 'moto' && !m.emergency && this.rand() < 0.06 ? 200 + this.rand() * 900 : -1, wheelie: 0,
       style, b: style === 'tardif' ? 4.2 + this.rand() * 0.8 : style === 'erratique' ? 3.0 : 1.5 + this.rand() * 0.5,
       id, bundle: null, s, v: v0 * 0.9, v0,
       lane: 1, laneFrom: 1, laneTo: 1, laneT: 1, laneDur: persona.dur,
@@ -417,6 +420,7 @@ export class Traffic {
   update(dt, player, events) {
     this.time += dt;
     this.sfx.length = 0;
+    this.flashBehindPlayer = Math.max(0, (this.flashBehindPlayer || 0) - dt);
     const track = this.track;
     const L = track.length;
     const playerS = player.s;
@@ -554,7 +558,7 @@ export class Traffic {
       // (quelqu'un devant à moins de ~45 m) — personne ne freine sur une route dégagée
       const inPlatoon = n.mode !== 'lane' || (leader && gap < 45);
       const lim = Math.min(this.localLimit(n.s, laneForLim), n.mode === 'emerg' || !inPlatoon ? Infinity : this.baseLimit(n.s, n.mode === 'interfile' ? n.gapTo : n.laneTo));
-      let v0 = Math.min(n.v0 * (1 - 0.12 * wet), lim);
+      let v0 = Math.min(n.v0 * (1 - 0.12 * wet) * (1 - 0.45 * (this.snow || 0)), lim);   // v24 : neige : on roule au pas
       if (n.mode === 'interfile') v0 = Math.min(n.v0, Math.max(lim + MS(this.level === 2 ? 22 : 18), MS(this.level === 2 ? 28 : 25)));
       if (n.mode === 'emerg') v0 = n.v0;
       if (n.mode === 'exit' || n.mode === 'enter') v0 = Math.min(v0, this.rampSpeed(n));
@@ -581,7 +585,7 @@ export class Traffic {
       // de confort propre au conducteur, pas un coup de frein
       if (free < 0 && n.mode !== 'emerg' && !(n.brakeFlash > 0)) free = Math.max(free, -(n.b * (n.style === 'tardif' ? 0.9 : 0.55)) / A);
       let acc;
-      const Tg = CFG.IDM_T * n.persona.T * (1 + 0.35 * wet) * (n.style === 'tardif' ? 0.85 : 1);
+      const Tg = CFG.IDM_T * n.persona.T * (1 + 0.35 * wet + 0.8 * (this.snow || 0)) * (n.style === 'tardif' ? 0.85 : 1);
       if (leader) {
         const dv = n.v - leader.v;
         const s0 = this.level === 2 ? 1.6 : this.level === 3 ? 1.9 : CFG.IDM_S0;
@@ -621,6 +625,24 @@ export class Traffic {
         } else n.hornCd = 1 + this.rand() * 2;
       }
       if (n.mode === 'interfile' && leader === playerObs && gap < 14) this.motoBehindPlayer = true;
+
+      // v24 : roue arrière (rare, motard en voie, route dégagée devant)
+      if (n.wheelieAt > 0) {
+        n.wheelieAt -= n.v * dt;
+        if (n.wheelieAt <= 0) { n.wheelieT = 2.5 + this.rand() * 2; n.wheelieAt = 1500 + this.rand() * 3000; }
+      }
+      if (n.wheelieT > 0 && (!leader || gap > 30) && n.v > MS(25)) { n.wheelieT -= dt; n.wheelie += (0.32 - n.wheelie) * Math.min(1, dt * 3); }
+      else { n.wheelieT = 0; n.wheelie = Math.max(0, (n.wheelie || 0) - dt * 0.9); }
+      // v24 : collé derrière le joueur qui traîne à gauche → appel de phares (et parfois klaxon)
+      n.flashT = Math.max(0, (n.flashT || 0) - dt);
+      if (n.mode === 'lane' && leader === playerObs && gap < 16 && n.v0 > player.v + 2.5 && n.laneTo === 0 && player.lat < laneCenter(0) + 1.5) {
+        n.tailT = (n.tailT || 0) + dt;
+        if (n.tailT > 1.6 && !(n.flashCd > 0)) {
+          n.flashT = 0.7; n.flashCd = 4 + this.rand() * 4; this.flashBehindPlayer = 1.5;
+          if (this.rand() < 0.35 || n.zz) this.sfx.push({ type: 'horn', s: n.s, lat: n.lat });
+        }
+      } else n.tailT = 0;
+      if (n.flashCd > 0) n.flashCd -= dt;
 
       // — modes —
       if (n.mode === 'lane') this.updateLaneMode(n, leader, gap, playerObs, dt);
@@ -828,7 +850,12 @@ export class Traffic {
       const accept = (remain < 40 ? 0.2 : remain < 80 ? 0.35 : 0.55) * n.persona.accept;
       n.mergeReq = this.rightLane(n.s);
       const right = this.rightLane(n.s);
-      if (this.gapOK(n, right, playerObs, accept, true)) {
+      // v24 : en bout de voie d'accélération, ça force — klaxon si le joueur ne laisse pas la place
+      if (remain < 50 && !n._mergeHorn) {
+        const dp = loopDelta(playerObs.s, n.s, this.track.length);
+        if (Math.abs(dp) < 18 && Math.abs(playerObs.lat - laneCenter(right)) < 2) { n._mergeHorn = true; this.sfx.push({ type: 'horn', s: n.s, lat: n.lat }); }
+      }
+      if (this.gapOK(n, right, playerObs, accept * (remain < 30 ? 0.6 : 1), true)) {
         n.lane = n.laneFrom = n.laneTo = right; n.laneT = 1;
         n.merging = true; n.rampBlend = 0.999;
         n.laneDur = 1.4 + this.rand() * 0.9; // insertion franche
@@ -1114,8 +1141,10 @@ export class Traffic {
       g.position.set(p.x + p.rx * lat, (n.y ?? p.y) + (n.moto ? 0 : -Math.abs(n.roll) * 0.15), p.z + p.rz * lat);
       g.rotation.order = 'YXZ';
       // cap : + à gauche dans le repère du véhicule ; roulis de caisse / inclinaison de la moto
-      g.rotation.set(n.pitch, Math.atan2(p.tx, p.tz) - n.h, n.moto ? n.lean : n.roll);
+      g.rotation.set(n.pitch - (n.wheelie || 0), Math.atan2(p.tx, p.tz) - n.h, n.moto ? n.lean : n.roll);
+      if (n.wheelie > 0) g.position.y += Math.sin(n.wheelie) * (n.wb || 1.5) * 0.5;
       h.steer = -n.steer;
+      h.flash = n.flashT > 0;
       h.speed = n.v;
       h.brake.visible = n.acc < -0.9 || n.brakeFlash > 0 || n.v < 0.4;
       h.blink = n.hazardT > 0 ? 2 : n.blinker;

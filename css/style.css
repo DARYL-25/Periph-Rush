@@ -695,3 +695,10 @@ body.tilt-steer #steer { visibility: hidden; }
   #mirror { top: calc(var(--sat) + 8px); }
   #controls #aux-btns button { width: 48px; height: 48px; font-size: 20px; }
 }
+
+/* ---------- mode photo (v24) ---------- */
+#photo { position: fixed; inset: 0; z-index: 35; touch-action: none; }
+#photo-hint { position: absolute; top: calc(var(--sat, 0px) + 14px); left: 50%; transform: translateX(-50%);
+  background: rgba(10, 14, 22, 0.6); color: #fff; font-size: 13px; padding: 6px 12px; border-radius: 16px; white-space: nowrap; pointer-events: none; }
+#photo-bar { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); left: 50%; transform: translateX(-50%); display: flex; gap: 12px; }
+#photo-bar .btn { min-width: 150px; }

@@ -93,14 +93,14 @@ async function boot() {
     const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
     const FLEET = [['lutece', 'lutece_hi'], ['lutece_t', 'lutece'], ['mistral'], ['aurore'], ['concorde'], ['taxi'], ['riviera'], ['atlas'], ['odyssee'], ['cargo'], ['furia'],
       ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur'], ['police_pn'], ['crs_van'], ['w_heavy'], ['m_police'], ['patrol_van'],
-      ['smur_vl'], ['samu_umh'], ['livr_bleu'], ['livr_expr'], ['pro_plomb'], ['pro_elec'], ['pro_btp'], ['pro_loc'], ['pro_demen'], ['auto_ecole']];
+      ['smur_vl'], ['samu_umh'], ['livr_bleu'], ['livr_expr'], ['pro_plomb'], ['pro_elec'], ['pro_btp'], ['pro_loc'], ['pro_demen'], ['auto_ecole'], ['master_b'], ['pro_charge']];
     await Promise.all(FLEET.map(async ([id, file]) => {
       try { await factory.loadGLB(id, `assets/fleet/${file || id}.glb`, GLTFLoader); }
       catch (e) { console.warn('GLB ' + id + ' indisponible — repli procédural', e); }
     }));
     // LOD lointains (≈ 1/3 des triangles) pour le trafic dense
     const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia', 'm_maxi', 'm_scoot', 'm_road', 'm_trail', 'm_livreur', 'police_pn', 'crs_van', 'm_police', 'patrol_van',
-      'smur_vl', 'samu_umh', 'livr_bleu', 'livr_expr', 'pro_plomb', 'pro_elec', 'pro_btp', 'pro_loc', 'pro_demen', 'auto_ecole'];
+      'smur_vl', 'samu_umh', 'livr_bleu', 'livr_expr', 'pro_plomb', 'pro_elec', 'pro_btp', 'pro_loc', 'pro_demen', 'auto_ecole', 'master_b', 'pro_charge'];
     // la variante « lutece_t » du trafic partage les LOD de la Lutèce
     for (const [id, file] of [['lutece_t_far', 'lutece_far'], ['lutece_t_ufar', 'lutece_ufar']]) {
       try { await factory.loadGLB(id, `assets/fleet/${file}.glb`, GLTFLoader); } catch (e) { console.warn('LOD ' + id, e); }
@@ -219,6 +219,54 @@ async function boot() {
     ui.show('pause');
   });
   ui.on('resume', () => { state = 'running'; ui.showHUD(); });
+  // v24 : mode photo — caméra libre en orbite autour de la voiture, capture partageable
+  const photo = { yaw: 0.6, pitch: 0.25, dist: 9, drag: null, pinch: null };
+  ui.on('photo', () => {
+    if (state !== 'paused') return;
+    state = 'photo';
+    ui.show('photo');
+    game.cockpit?.setActive(false);
+    player.bundle.group.visible = true;
+    photo.yaw = 0.6; photo.pitch = 0.25; photo.dist = 8 + (player.len || 4) * 0.4;
+  });
+  ui.on('photoExit', () => { state = 'paused'; game.applyCamera(); ui.show('pause'); });
+  ui.on('photoShot', () => {
+    renderer.render(scene, camera);
+    renderer.domElement.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `periph-rush-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: "Périph' Rush" }); return; }
+      } catch (e) { /* partage annulé */ }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, 'image/jpeg', 0.92);
+    ui.popup?.('📸 PHOTO ENREGISTRÉE', 'combo');
+  });
+  {
+    const el = document.getElementById('photo');
+    const pts = new Map();
+    el.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointermove', (e) => {
+      const q = pts.get(e.pointerId);
+      if (!q) return;
+      if (pts.size === 1) { photo.yaw -= (e.clientX - q.x) * 0.008; photo.pitch = Math.max(-0.05, Math.min(1.35, photo.pitch + (e.clientY - q.y) * 0.006)); }
+      else if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        const d0 = Math.hypot(a.x - b.x, a.y - b.y);
+        q.x = e.clientX; q.y = e.clientY;
+        const [a2, b2] = [...pts.values()];
+        const d1 = Math.hypot(a2.x - b2.x, a2.y - b2.y);
+        photo.dist = Math.max(3, Math.min(40, photo.dist * (d0 / Math.max(1, d1))));
+        return;
+      }
+      q.x = e.clientX; q.y = e.clientY;
+    });
+    const up = (e) => pts.delete(e.pointerId);
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    el.addEventListener('wheel', (e) => { photo.dist = Math.max(3, Math.min(40, photo.dist * (1 + Math.sign(e.deltaY) * 0.1))); e.preventDefault(); }, { passive: false });
+  }
   ui.on('restart', () => {
     state = 'running';
     game.start(prog.data.selected, prog.selectedColor(prog.data.selected));
@@ -346,6 +394,13 @@ async function boot() {
       garageCam.position.set(Math.sin(attractT * 0.35) * r, 2.9, Math.cos(attractT * 0.35) * r);
       garageCam.lookAt(0, 0.55, 0);
       renderer.render(garageScene, garageCam);
+    } else if (state === 'photo') {
+      const c = player.bundle.group.position, yawCar = player.bundle.group.rotation.y;
+      const a = yawCar + photo.yaw, cp = Math.cos(photo.pitch);
+      camera.position.set(c.x + Math.sin(a) * cp * photo.dist, c.y + 0.8 + Math.sin(photo.pitch) * photo.dist, c.z + Math.cos(a) * cp * photo.dist);
+      camera.lookAt(c.x, c.y + 0.8, c.z);
+      camera.fov = 50; camera.updateProjectionMatrix();
+      drawScene();
     } else if (state === 'menu' || state === 'over' || state === 'paused') {
       if (state === 'menu') {
         attractT += rawDt;

@@ -139,6 +139,8 @@ export class Fleet {
       streakR: new Layer(T, scene, quad(0.45, 3.4).rotateX(-Math.PI / 2).rotateY(Math.PI), glowMat(0xff2a18, true, 0.5, streak), 512, { order: 2 }),
       streakF: new Layer(T, scene, quad(0.7, 5).rotateX(-Math.PI / 2), glowMat(0xfff0d0, true, 0.35, streak), 512, { order: 2 }),
       // v23 : lumineux de taxi parisien (vert : libre, rouge : occupé)
+      // v24 : appel de phares (éclat blanc sur les optiques avant)
+      flashF: new Layer(T, scene, quad(0.5, 0.28), glowMat(0xfff6e0, true, 0.95), 64, { order: 2 }),
       taxiG: new Layer(T, scene, new T.BoxGeometry(0.44, 0.13, 0.22), glowMat(0x2dff6a), 64),
       taxiR: new Layer(T, scene, new T.BoxGeometry(0.44, 0.13, 0.22), glowMat(0xff2a2a), 64),
       spray: new Layer(T, scene, quad(1.6, 1.0), new T.MeshBasicMaterial({ color: 0xc8d2da, map: softTexture(T), transparent: true, opacity: 0.32, depthWrite: false }), 256, { order: 3 }),
@@ -168,8 +170,14 @@ export class Fleet {
     const gb = f.bodyGeometry ? f.bodyGeometry(id) : null; // caisse sans roues (roues animées à part)
     const m = f.specOf(id), ud = g.userData;
     const rot = new T.Matrix4().makeRotationY(-Math.PI / 2);
+    // v24 : véhicule sans phares (la nuit) — lentilles avant jamais émissives
+    let mats = this.mats;
+    if (m.noLights) {
+      if (!this.matsDark) { const lf = this.mats[4].clone(); lf.emissiveIntensity = 0; lf.onBeforeCompile = this.mats[4].onBeforeCompile; lf.customProgramCacheKey = this.mats[4].customProgramCacheKey; this.matsDark = this.mats.slice(); this.matsDark[4] = lf; }
+      mats = this.matsDark;
+    }
     const mk = (geom, shadow) => {
-      const layer = new Layer(T, this.scene, geom, this.mats, 160, { shadow, color: true });
+      const layer = new Layer(T, this.scene, geom, mats, 160, { shadow, color: true });
       layer.mesh.matrixAutoUpdate = false;
       return layer;
     };
@@ -214,6 +222,7 @@ export class Fleet {
       streakR: moto ? [lm(0, 0.03, -L / 2 - 1.7)] : [-1, 1].map((sd) => lm(sd * (W / 2 - 0.42), 0.03, -L / 2 - 1.7)),
       streakF: moto ? [lm(0, 0.03, L / 2 + 2.4)] : [-1, 1].map((sd) => lm(sd * (W / 2 - 0.35), 0.03, L / 2 + 2.4)),
       taxi: m.taxi ? lm(0, H + 0.06, 0.15) : null,
+      headF: moto ? [lm(0, Math.max(0.9, H * 0.62), L / 2 + 0.05)] : [-1, 1].map((sd) => lm(sd * (W / 2 - 0.32), m.plateF != null ? m.plateF + 0.22 : ud.yBot + 0.45, L / 2 + 0.05)),
       spray: moto ? [lm(0, 0.45, -L / 2 - 0.5, 0)] : [lm(0, 0.5, -L / 2 - 0.6, 0, 1 + W * 0.25)],
     };
     this.buckets.set(id, b);
@@ -302,6 +311,7 @@ export class Fleet {
         if (h.blink === -1 || h.blink === 2) for (const q of b.blinkL) this.pushLocal(this.L.blink, base, q);
         if (h.blink === 1 || h.blink === 2) for (const q of b.blinkR) this.pushLocal(this.L.blink, base, q);
       }
+      if (h.flash) for (const q of b.headF) this.pushLocal(this.L.flashF, base, q);
       if (b.taxi) this.pushLocal(h.taxiFree ? this.L.taxiG : this.L.taxiR, base, b.taxi);
       if (h.beacon && b.beacon.length) {
         if (b.m.emergency) { if (h.sirenOn !== false) this.pushLocal(this.L.blue, base, b.beacon[flash]); }
@@ -309,7 +319,7 @@ export class Fleet {
       }
       if (wetLights && d2 < 180 * 180) {
         if (night || h.brake.visible) for (const q of b.streakR) this.pushLocal(this.L.streakR, base, q);
-        if (night) for (const q of b.streakF) this.pushLocal(this.L.streakF, base, q);
+        if (night && !b.m.noLights) for (const q of b.streakF) this.pushLocal(this.L.streakF, base, q);
         if (h.speed > 8 && d2 < 90 * 90) {
           // gerbe d'eau : plan face caméra derrière le véhicule
           this._v.setFromMatrixPosition(base);

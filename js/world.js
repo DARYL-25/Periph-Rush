@@ -355,6 +355,7 @@ export class World {
     return {
       roadMat: this.mats.road, buildingMats: this.mats.buildings,
       lampMat: this.mats.lamp, tunnelLightMat: this.mats.tunnelLight, lampGlowMat: this.mats.lampGlow,
+      paintMat: (this.mats.paint.transparent = true, this.mats.paint),
     };
   }
 
@@ -1245,6 +1246,8 @@ export class World {
       }
       else if (st.piers === 'arcade') { if (k % 3 !== 2) boxAt(B.gba, r, 0, p.y, 0.6 + mh, CEIL, 6.02, pierC, 3); else boxAt(B.gba, r, 0, p.y + CEIL - 1.3, 0.6 + mh, 1.3, 6.02, pierC, 3); }
       else if (!st.rail) { if (k % 4 !== 3) boxAt(B.gba, r, 0, p.y, 0.55 + mh, CEIL, 6.02, pierC, 3); }
+      // v24 : luminaires continus au plafond, au-dessus de chaque sens (le défilement se voit au pare-brise)
+      if (!st.rail) for (const lat of [-(E * 0.55 + 0.6), Rw * 0.55 + 0.6]) boxAt(B.tlight, r, lat, p.y + CEIL - 0.62, 0.32, 0.07, 3.2, sod);
       // issues de secours (portes vertes, pictogramme), niches incendie
       if (Math.round(d) % 84 < 6 && !this.ramps.at(d, p.y).some((o) => !o.parallel)) {
         for (const sg of [1, -1]) {
@@ -1252,6 +1255,7 @@ export class World {
           boxAt(B.metal, r, sg * w, p.y, 0.12, 2.2, 1.1, rgb(0x2f8f55));              // porte coupe-feu verte
           boxAt(B.metal, r, sg * (w - 0.03), p.y + 0.9, 0.08, 0.5, 0.5, rgb(0xf2f2f2));  // pictogramme
           boxAt(B.metal, r, sg * (w - 0.02), p.y + 2.4, 0.08, 0.3, 0.8, rgb(0x1f8a4c)); // bloc « sortie »
+          boxAt(B.tlight, r, sg * (w - 0.05), p.y + 2.75, 0.06, 0.12, 1.2, sod);        // v24 : bandeau lumineux de l'issue
         }
       }
       if (Math.round(d) % 126 < 6 && Math.round(d) % 84 >= 6 && !this.ramps.at(d, p.y).some((o) => !o.parallel)) {

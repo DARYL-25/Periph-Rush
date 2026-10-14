@@ -27,7 +27,7 @@ export class UI {
   // ---------- écrans ------------------------------------------------------
   show(id) {
     $('porte-sheet').classList.add('hidden');
-    for (const s of ['menu', 'garage', 'defis', 'reglages', 'pause', 'gameover']) {
+    for (const s of ['menu', 'garage', 'defis', 'reglages', 'pause', 'gameover', 'photo']) {
       $(s).classList.toggle('hidden', s !== id);
     }
     $('hud').classList.toggle('hidden', id !== null);
@@ -77,6 +77,9 @@ export class UI {
     $('p-resume').onclick = () => { this.audio.click(); tiltGesture(); this.emit('resume'); };
     $('p-restart').onclick = () => { this.audio.click(); tiltGesture(); this.emit('restart'); };
     $('p-menu').onclick = () => { this.audio.click(); this.emit('quitToMenu'); };
+    $('p-photo').onclick = () => { this.audio.click(); this.emit('photo'); };
+    $('ph-exit').onclick = () => { this.audio.click(); this.emit('photoExit'); };
+    $('ph-shot').onclick = () => { this.emit('photoShot'); };
     $('go-retry').onclick = () => { this.audio.click(); tiltGesture(); this.emit('restart'); };
     $('go-garage').onclick = () => { this.audio.click(); this.emit('garage'); };
     $('go-menu').onclick = () => { this.audio.click(); this.emit('quitToMenu'); };
@@ -120,7 +123,7 @@ export class UI {
       this.refreshSetup();
       if (ev === 'preview') this.queuePreview(); else this.emit(ev);
     };
-    $('pill-wx').onclick = cycle('weather', ['auto', 'soleil', 'pluie'], 'preview');
+    $('pill-wx').onclick = cycle('weather', ['auto', 'soleil', 'pluie', 'neige'], 'preview');
     $('pill-hour').onclick = cycle('startHour', ['auto', 'matin', 'midi', 'soir', 'nuit'], 'preview');
     $('pill-cam').onclick = cycle('camera', ['chase', 'cockpit'], 'camera');
     for (const b of document.querySelectorAll('#traffic-seg button')) {
@@ -226,7 +229,7 @@ export class UI {
     $('hud-mult').textContent = `×${state.mult.toFixed(1).replace('.', ',')}`;
     if (state.clock) {
       $('hud-time').textContent = state.clock;
-      $('hud-wx').textContent = { soleil: '☀', nuit: '☾', pluie: '☂', brouillard: '≋' }[state.weather] || '☀';
+      $('hud-wx').textContent = { soleil: '☀', nuit: '☾', pluie: '☂', brouillard: '≋', neige: '❄', grele: '☄' }[state.weather] || '☀';
     }
     if (state.permis != null) {
       $('hud-permis').textContent = `${state.permis} pts${state.fines ? ` · ${state.fines.toLocaleString('fr-FR')} €` : ''}`;
@@ -338,7 +341,7 @@ export class UI {
     for (const b of document.querySelectorAll('#traffic-seg button')) b.classList.toggle('sel', +b.dataset.lv === set.traffic);
     $('traffic-desc').textContent = ['Ça roule, place aux chronos', 'Quelques ralentissements', 'Saturé, arrêts, motos en interfile', 'Très chargé, coups de frein, ça repart'][set.traffic] || '';
     $('set-traffic').value = String(set.traffic);
-    $('pill-wx-v').textContent = { auto: 'Variable', soleil: 'Sec', pluie: 'Pluie' }[set.weather || 'auto'];
+    $('pill-wx-v').textContent = { auto: 'Variable', soleil: 'Sec', pluie: 'Pluie', neige: 'Neige' }[set.weather || 'auto'];
     $('pill-hour-v').textContent = { auto: 'Selon trafic', matin: 'Matin', midi: 'Midi', soir: 'Soir', nuit: 'Nuit' }[set.startHour || 'auto'];
     $('pill-cam-v').textContent = set.camera === 'cockpit' ? 'Cockpit' : 'Extérieure';
     this.drawRing(o.s);
