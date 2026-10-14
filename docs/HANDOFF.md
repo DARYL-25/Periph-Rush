@@ -879,3 +879,27 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - **Jumelles** (`police.js`) : la vitesse n'est relevée qu'entre 65 m et 12 m du pont (au lieu de 220 → 40 m) :
   on voit le policier et on a le temps de ralentir.
 - Cache SW `periph-v25`, `?v=25`.
+
+## v26 — grands repères reconnaissables, clignotants, angle mort, bilan, pare-brise vivant
+- **`js/skyline.js`** (nouveau) : tours et grands bâtiments modélisés à leur position réelle (emprises OSM quand
+  elles existent, sinon Wikipédia / Structurae), textures de façade procédurales + carte des fenêtres éclairées la
+  nuit, feux d'obstacle rouges : Tours Duo (V incliné, mosaïque argentée, terrasse de Duo 2), Tour Triangle,
+  Tribunal de Paris (socle + 3 gradins, terrasses plantées, aileron), Hyatt Regency Étoile (+ antenne) et Palais
+  des Congrès (façade inclinée), Mercuriales, Philharmonie (« oiseaux », lame), Jean-Bouin (résille), Adidas
+  Arena (bois, berceau), Montparnasse (lentille), La Défense (Grande Arche évidée, First, Hekla, Majunga…).
+  `SKYLINE_ZONES` retire les bâtiments OSM génériques à ces emplacements ; les anciens volumes empilés de
+  `scenery.addCustomBuildings` / silhouettes de `buildLandmarks` correspondants sont supprimés.
+- **Enseignes de toit** (`buildRooftopSigns`) : ~20 enseignes génériques (HÔTEL, PHARMACIE…) allumées la nuit.
+- **Fenêtres** : `world.windowFlicker` — chaque fenêtre s'allume / s'éteint à son rythme (≈ 45 s), uniform `uWinT`.
+- **Clignotants** (boutons ⬅ ➡, touches V / B) : `player.toggleBlink`, extinction auto après le changement de voie ;
+  `traffic.playerBlinker` (le suivant ralentit — `courtesyT` — ou refuse), `traffic.playerCutIn` (klaxon + appel de
+  phares si on se rabat sans clignotant). Tic-tac `audio.tick`.
+- **Angle mort** : `traffic.blindSpot` → témoins orange `#bsm-l/#bsm-r`. Rétroviseur HUD activé par défaut.
+- **Compteurs à aiguilles** (`#gauges`, réglage « Compteurs à aiguilles ») en vue extérieure : compte-tours / vitesse / rapport.
+- **Bilan de fin** (`#go-stats`) : temps, vitesses moyenne / maxi, dépassements, radars passés sans flash, % de clignotant.
+- **Trafic** : vagues d'accordéon aux heures de pointe (`jams` `wave`, remontent à 4,5 m/s) ; scooters de livraison
+  aux heures des repas ; semi-remorques nocturnes plus nombreux, ~46 % étrangers (plaques PL, RO, LT, P ajoutées).
+- **Dépanneuse** : sur un accident frais, `traffic.spawnTow` (interfile, gyrophare orange) → l'événement passe en
+  phase « dépannage » (véhicule chargé) puis la voie est rouverte (`events.notice` → popup + radio).
+- **Pare-brise (cockpit)** : filets d'eau latéraux, buée des matins froids (désembuage 45 s), insectes les soirs d'été.
+- Cache SW `periph-v26`, `?v=26`.

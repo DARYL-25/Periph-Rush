@@ -75,7 +75,9 @@ export class Traffic {
   acquire(id) {
     const m = CATALOG[id];
     const color = m.cols[(this.rand() * m.cols.length) | 0];
-    return this.fleet.add(id, { color });
+    const h = this.fleet.add(id, { color });
+    if (id === 'depanneuse') h.sirenOn = false;   // v26 : gyrophare seulement en intervention
+    return h;
   }
   release(h) { if (h) this.fleet.remove(h); }
 
@@ -147,13 +149,20 @@ export class Traffic {
   // ---------- apparition --------------------------------------------------
   pickId(isMoto) {
     const P = this.params();
-    if (isMoto) return pickWeighted(this.rand, MOTO_IDS, MOTO_W);
+    if (isMoto) {
+      // v26 : aux heures des repas, les scooters de livraison (gros caisson isotherme) pullulent
+      const hm = this.hour ?? 14;
+      if (((hm >= 11.5 && hm < 14) || (hm >= 19 && hm < 22.5)) && this.rand() < 0.38) return 'scooter_liv';
+      return pickWeighted(this.rand, MOTO_IDS, MOTO_W);
+    }
     if (this.rand() < P.speederFrac * 0.35) return pick(this.rand, SPORT_IDS);
     let id = pickWeighted(this.rand, CAR_IDS, CAR_W);
     const h = this.hour ?? 14, night = h >= 0.5 && h < 5.5;
     if (CATALOG[id].night && !night) id = pickWeighted(this.rand, CAR_IDS, CAR_W);
     if (CATALOG[id].night && !night) id = 'concorde';
     if (CATALOG[id].day && night) id = 'bus_noct';
+    // v26 : la nuit, les semi-remorques en transit (souvent étrangers) sont bien plus nombreux
+    if ((h >= 21.5 || h < 5.5) && this.rand() < 0.11) id = pick(this.rand, ['semi', 'semi', 'semi_frigo', 'semi_pv']);
     return id;
   }
 
@@ -346,6 +355,21 @@ export class Traffic {
     });
   }
 
+  // v26 : dépanneuse appelée sur un accident — remonte la file en interfile, gyrophare orange
+  spawnTow(playerS) {
+    const s = wrap(playerS - this.LV.winB * 0.8, this.track.length);
+    const npc = this.makeNPC('depanneuse', s, { mode: 'emerg', eligible: true });
+    npc.v0 = this.level === 2 ? MS(42) : MS(58);
+    npc.v = npc.v0 * 0.8;
+    npc.lat = npc.latT = interfileCenter(0);
+    npc.persona = PERSONAS.normal;
+    npc.tow = true;
+    npc.bundle = this.acquire('depanneuse');
+    npc.bundle.sirenOn = true;
+    this.npcs.push(npc);
+    return npc;
+  }
+
   gapMaxAt(s) {
     if (!this.track.lanesAt) return 1;
     return Math.min(this.track.lanesAt(s), this.track.lanesAt(s + 160)) < 3 ? 0 : 1;
@@ -393,7 +417,7 @@ export class Traffic {
     for (const j of this.jams) {
       const d = loopDelta(s, j.s, this.track.length);
       if (d > -j.len / 2 && d < j.len / 2) {
-        const ease = Math.sin(Math.min(j.age / 4, 1) * Math.PI / 2) * Math.min(1, Math.max(0, (j.life - j.age) / 6));
+        const ease = Math.sin(Math.min(Math.max(0, j.age) / 4, 1) * Math.PI / 2) * Math.min(1, Math.max(0, (j.life - j.age) / 6));
         const laneEase = 1 - (this.level === 2 ? 0.12 : 0.35) * Math.abs(Math.sin(j.age * 0.5 + lane * 1.8));
         let floor = MS(this.LV.jamMin + lane * (this.level === 2 ? 1.2 : 2.4));
         if (this.reserved && lane === 0) floor = MS(14);
@@ -440,6 +464,17 @@ export class Traffic {
       });
       this.nextJamAt = lerp(LV.jamEvery[0], LV.jamEvery[1], this.rand()) / (1 + this.lap * CFG.LAP_DENSITY_GAIN);
     }
+    // v26 : accordéon des heures de pointe — train de vagues d'arrêt / redémarrage qui remonte la file
+    // (≈ 16 km/h vers l'arrière) : on pile, on repart, on repile… sans cause visible
+    {
+      const h = this.hour ?? 14, rush = (h >= 7 && h < 10) || (h >= 16.5 && h < 20);
+      this.nextWaveAt = (this.nextWaveAt ?? 900) - Math.max(player.v, MS(6)) * dt;
+      if (this.level >= 1 && this.nextWaveAt <= 0) {
+        this.nextWaveAt = (rush ? 1300 : 3200) + this.rand() * (rush ? 1200 : 2500);
+        const s0 = wrap(playerS + 650 + this.rand() * 500, L), n = 3 + Math.floor(this.rand() * 3);
+        for (let k = 0; k < n; k++) this.jams.push({ s: wrap(s0 + k * (150 + this.rand() * 60), L), len: 45 + this.rand() * 25, sev: 0.88 + this.rand() * 0.1, age: -k * 0.5, life: 75 + this.rand() * 30, wave: true });
+      }
+    }
     // v23 : un accident (ou une panne qui mord sur la voie) crée une vraie file qui remonte en amont
     if (events && this.level >= 1) {
       for (const e of events.active || []) {
@@ -455,7 +490,7 @@ export class Traffic {
         j.len = Math.min(maxLen, j.len + dt * 5);
         j.s = wrap(j.ev.s0 + 30 - j.len / 2, L);
         if (!(events?.active || []).includes(j.ev) && j.life > j.age + 8) j.life = j.age + 8;
-      } else j.s = wrap(j.s - dt * 1.2, L);
+      } else j.s = wrap(j.s - dt * (j.wave ? 4.5 : 1.2), L);
     }
     this.jams = this.jams.filter((j) => j.age < j.life);
 
@@ -576,6 +611,7 @@ export class Traffic {
         if (n.panicAt < 0) { n.panicAt = 2500 + this.rand() * 5000; n.brakeFlash = 0.6 + this.rand() * 0.6; }
       }
       if (n.brakeFlash > 0) { n.brakeFlash -= dt; v0 = Math.min(v0, n.v * 0.7); }
+      if (n.courtesyT > 0) { n.courtesyT -= dt; v0 = Math.min(v0, n.v * 0.86); }   // v26 : laisse la place (clignotant du joueur)
 
       // — IDM —
       let free = Math.max(1 - Math.pow(n.v / Math.max(v0, 0.1), 4), -2);
@@ -674,7 +710,7 @@ export class Traffic {
       const n = this.npcs[i];
       const d = loopDelta(n.s, playerS, L);
       if (n.mode === 'chase' && !n.gone) continue;
-      if (n.gone || d > LV.winA + 60 || d < -LV.winB - 60) {
+      if (n.gone || (d > LV.winA + 60 && !(n.tow && d < 1800)) || d < -LV.winB - 60) {   // v26 : la dépanneuse reste simulée jusqu'à l'accident
         this.release(n.bundle);
         this.npcs.splice(i, 1);
       }
@@ -984,6 +1020,52 @@ export class Traffic {
       this.sfx.push({ type: n.moto ? 'mhorn' : 'horn', s: n.s, lat: n.lat });
     } else if (type === 'ignore' && this.rand() < 0.25) this.sfx.push({ type: n.moto ? 'mhorn' : 'horn', s: n.s, lat: n.lat });
     return type;
+  }
+
+  // v26 : véhicule dans l'angle mort (voie adjacente, de l'arrière de la caisse à ~12 m derrière)
+  blindSpot(player) {
+    const L = this.track.length;
+    let l = false, r = false;
+    for (const n of this.npcs) {
+      const d = loopDelta(n.s, player.s, L);
+      if (d < -13 || d > 1.2) continue;
+      const dl = n.lat - player.lat;
+      if (dl < -1.7 && dl > -5.4) l = true;
+      else if (dl > 1.7 && dl < 5.4) r = true;
+    }
+    return { l, r };
+  }
+  // v26 : le joueur met son clignotant — le conducteur qui arrive dans la voie visée le laisse passer… ou pas
+  playerBlinker(player, dir) {
+    const L = this.track.length, tl = player.lat + dir * CFG.LANE_WIDTH;
+    let best = null, bd = 1e9;
+    for (const n of this.npcs) {
+      if (n.mode !== 'lane') continue;
+      const d = loopDelta(player.s, n.s, L);           // > 0 : derrière le joueur
+      if (d < 2 || d > 38 || Math.abs(n.lat - tl) > 1.5) continue;
+      if (d < bd) { bd = d; best = n; }
+    }
+    if (!best) return null;
+    if (best.personaKey === 'presse' || this.rand() < 0.22) {
+      if (this.rand() < 0.5) { best.flashT = 0.6; this.sfx.push({ type: best.moto ? 'mhorn' : 'horn', s: best.s, lat: best.lat }); }
+      return 'refuse';
+    }
+    best.courtesyT = 3.5;
+    if (this.rand() < 0.3) best.flashT = 0.35;          // petit appel de phares : « passe »
+    return 'yield';
+  }
+  // v26 : le joueur se rabat sans clignotant juste devant quelqu'un : klaxon, appel de phares, coup de frein
+  playerCutIn(player, lane) {
+    const L = this.track.length, c = laneCenter(lane);
+    for (const n of this.npcs) {
+      if (n.mode !== 'lane' || Math.abs(n.lat - c) > 1.5) continue;
+      const d = loopDelta(player.s, n.s, L);
+      if (d < 2 || d > 16) continue;
+      n.flashT = 0.8; n.brakeFlash = 0.5;
+      this.sfx.push({ type: n.moto ? 'mhorn' : 'horn', s: n.s, lat: n.lat });
+      return true;
+    }
+    return false;
   }
 
   // meneur dans une voie donnée (devant n)

@@ -15,6 +15,7 @@ import { rng, wrap } from './utils.js';
 import { Batch, rgb, shade } from './geo.js';
 import { FACADES } from './textures.js';
 import { LANDMARK_ZONES } from './landmarks.js';
+import { SKYLINE_ZONES } from './skyline.js';
 
 const FAC = Object.fromEntries(FACADES.map((f, i) => [f.id, i]));
 export const LAT0 = 48.8590, LON0 = 2.3400;
@@ -160,7 +161,7 @@ export class Scenery {
     const nChunks = Math.ceil(track.length / chunkLen);
     this.dropped = 0;
     // v17 : emprises des monuments modélisés en détail (js/landmarks.js) : pas de bâtiment OSM générique dedans
-    const zones = LANDMARK_ZONES.map((zn) => ({ ...geoToLocal(zn.lat, zn.lon), r: zn.r }));
+    const zones = [...LANDMARK_ZONES, ...SKYLINE_ZONES].map((zn) => ({ ...geoToLocal(zn.lat, zn.lon), r: zn.r }));
     const inZone = (b) => { const c = b.kind === 'box' ? [b.cx, b.cz] : b.pts.reduce((a, q) => [a[0] + q[0] / b.pts.length, a[1] + q[1] / b.pts.length], [0, 0]); return zones.some((zn) => Math.hypot(c[0] - zn.x, c[1] - zn.z) < zn.r); };
     const put = (s, b) => {
       if (!b.custom && inZone(b)) return;
@@ -243,26 +244,12 @@ export class Scenery {
         put(pr.s, { kind: 'box', cx: x + dx, cz: z + dz, w, d, ang: (angDeg * Math.PI) / 180, h: y0 + h, y0, fac, dist: 99, s: pr.s, seed: 0.5, tint, custom: true });
       }
     };
-    // Tribunal de Paris (R. Piano, 160 m) : socle + 3 gradins vitrés en retrait
-    add(48.8972, 2.3140, [[118, 58, 0, 38], [96, 46, 38, 52, -6, 0], [80, 40, 90, 40, -10, 0], [66, 32, 130, 30, -14, 0]], FAC.office, 18, [1.55, 1.62, 1.7]);
-    // Hôtel Hyatt Regency Paris Étoile (Porte Maillot, 137 m) + Palais des Congrès
-    add(48.8797, 2.2832, [[46, 28, 0, 137]], FAC.office, 28);
-    add(48.8784, 2.2826, [[150, 92, 0, 30]], FAC.modern, 28);
-    // Philharmonie de Paris (Porte de Pantin) : volume « oiseaux » en aluminium
-    add(48.8918, 2.3935, [[120, 70, 0, 38], [60, 40, 38, 16, 10, 0]], FAC.modern, 20, [1.15, 1.2, 1.25]);
-    // Tours Duo (J. Nouvel, Paris 13) : deux tours de 180 m et 122 m
-    add(48.8286, 2.3790, [[26, 26, 0, 180, -12, 6]], FAC.office, 32, [1.2, 1.3, 1.4]);
-    add(48.8283, 2.3810, [[26, 26, 0, 122, 14, -6]], FAC.office, 32, [1.2, 1.3, 1.4]);
     // Accor Arena (Bercy) : pyramide végétalisée
     add(48.8386, 2.3787, [[150, 110, 0, 14], [120, 84, 14, 12, 0, 0], [92, 58, 26, 10, 0, 0]], FAC.industry, 0, [0.78, 0.92, 0.7]);
     // Parc des expositions de la Porte de Versailles : grands halls
-    add(48.8316, 2.2877, [[180, 120, 0, 24], [140, 80, 24, 6, 0, 0]], FAC.industry, 10, [0.95, 0.98, 1.02]);
-    // Adidas Arena (Porte de la Chapelle)
-    add(48.8996, 2.3615, [[110, 74, 0, 28]], FAC.modern, 0, [0.62, 0.66, 0.72]);
+    add(48.8316, 2.2889, [[150, 120, 0, 24], [120, 80, 24, 6, 0, 0]], FAC.industry, 10, [0.95, 0.98, 1.02]);
     // Cité des sciences et de l'industrie (La Villette)
     add(48.8951, 2.3880, [[230, 100, 0, 44]], FAC.office, 20, [1.1, 1.15, 1.2]);
-    // Tours Mercuriales (Bagnolet, ~ 90 m)
-    add(48.8637, 2.4170, [[30, 30, 0, 92, -32, 0], [30, 30, 0, 92, 32, 0]], FAC.office, 0);
     // v12 : ministère des Armées (Balard) — longues ailes de bureaux le long du BP (floutées sur Street View)
     add(48.8331, 2.2801, [[150, 22, 0, 26]], FAC.office, 30, [1.05, 1.08, 1.12]);
     add(48.8346, 2.2767, [[120, 22, 0, 26]], FAC.office, 30, [1.05, 1.08, 1.12]);
@@ -504,8 +491,7 @@ export function buildLandmarks(T, scene) {
       B.quad(B.v(...q[0], 0, 0, c), B.v(...q[1], 1, 0, c), B.v(...q[2], 1, 1, c), B.v(...q[3], 0, 1, c));
     }
   };
-  // Tour Montparnasse
-  { const { x, z } = at(48.8421, 2.3220); box(x, z, 50, 32, 0, 209, 0x2c3138, 0.5); }
+  // Tour Montparnasse : v26 → skyline.js
   // Sacré-Cœur sur la butte Montmartre
   {
     const { x, z } = at(48.8867, 2.3431);
@@ -517,14 +503,7 @@ export function buildLandmarks(T, scene) {
   }
   // Dôme des Invalides
   { const { x, z } = at(48.8551, 2.3126); box(x, z, 56, 56, 0, 30, 0xd9d4c8); frustum(x, z, 18, 14, 30, 14, 0xd9d4c8, 12); frustum(x, z, 14, 1.5, 44, 30, 0xc9a94a, 12); }
-  // La Défense : grappe de tours + Grande Arche
-  {
-    const { x, z } = at(48.8925, 2.2380), rand = rng(42);
-    const H = [231, 210, 187, 184, 178, 167, 161, 150, 140, 130, 120, 110];
-    H.forEach((h, i) => box(x + (rand() - 0.5) * 900, z + (rand() - 0.5) * 520, 40 + rand() * 25, 30 + rand() * 25, 0, h, [0x5b6b7d, 0x7a8b9c, 0x49586a, 0x8ea0b0, 0x3f4b58][i % 5], rand()));
-    const a = at(48.8925, 2.2359);
-    box(a.x, a.z - 45, 110, 10, 0, 110, 0xe4e7ea); box(a.x, a.z + 45, 110, 10, 0, 110, 0xe4e7ea); box(a.x, a.z, 110, 100, 100, 10, 0xe4e7ea);
-  }
+  // La Défense : v26 → skyline.js (Grande Arche + tours principales)
   // Roland-Garros (le Parc des Princes est modélisé à part : stadium.js)
   { const rg = at(48.8467, 2.2493); box(rg.x, rg.z, 110, 90, 0, 22, 0xb7553a); }
   // Arc de Triomphe : deux piles + linteau (axe vers la Défense ≈ 63° nord-ouest)

@@ -732,7 +732,26 @@ function drawMA(rand) {
   return { canvas: cv, text: `${serie} ${lat} ${pref}`, country: 'MA' };
 }
 
-const DRAW = { F: drawFR, D: drawDE, NL: drawNL, B: drawB, CH: drawCH, E: drawE, GB: drawGB, MA: drawMA };
+// ---------------------------------------------------------------
+// v26 : POLOGNE, ROUMANIE, LITUANIE, PORTUGAL — poids lourds de transit
+// (fond blanc, bande européenne, caractères noirs, formats réels)
+// ---------------------------------------------------------------
+const PL_DIST = ['WA', 'WE', 'PO', 'KR', 'GD', 'WR', 'LU', 'EL', 'PZ', 'SK', 'TK', 'DW', 'WGM', 'PGN', 'KNS', 'LBI'];
+function simpleEU(rand, code, txt) {
+  const cv = newCanvas(), ctx = cv.getContext('2d');
+  base(ctx, '#f7f8f9', '#e6e8ea', { c: '#1a1c1f', w: 2, i: 3.2 });
+  const x0 = euroBand(ctx, code, 'din') + 6;
+  ctx.strokeStyle = ctx.fillStyle = '#121316';
+  drawText(ctx, txt, x0, W - 12, H / 2, { ch: 76, cw: 44, sw: 9.5, gap: 5, space: 26, st: 'din' });
+  sheen(ctx);
+  return { canvas: cv, text: txt, country: code };
+}
+function drawPL(rand) { const d = pick(rand, PL_DIST); return simpleEU(rand, 'PL', `${d} ${Dn(rand, 7 - d.length - 1, false)}${L(rand, 'ACEFHJKLMNPRSTUVWXY')}`); }
+function drawRO(rand) { return simpleEU(rand, 'RO', `${pick(rand, ['B', 'CJ', 'TM', 'IS', 'BV', 'CT', 'AG', 'PH'])} ${Dn(rand, 2, false)} ${Ln(rand, 3, 'ABCDEFGHJKLMNPRSTUVWXYZ')}`); }
+function drawLT(rand) { return simpleEU(rand, 'LT', `${Ln(rand, 3, 'ABCDEFGHJKLMNPRSTUVZ')} ${Dn(rand, 3)}`); }
+function drawPT(rand) { return simpleEU(rand, 'P', `${Ln(rand, 2, 'ABCDEFGHJLMNPRSTUVXZ')}-${Dn(rand, 2)}-${Ln(rand, 2, 'ABCDEFGHJLMNPRSTUVXZ')}`); }
+
+const DRAW = { PL: drawPL, RO: drawRO, LT: drawLT, P: drawPT, F: drawFR, D: drawDE, NL: drawNL, B: drawB, CH: drawCH, E: drawE, GB: drawGB, MA: drawMA };
 
 function drawPlate(rand, country) {
   const c = country || (rand() < FOREIGN_RATE ? pickWeighted(rand, COUNTRIES, COUNTRY_W) : 'F');
@@ -742,7 +761,11 @@ function drawPlate(rand, country) {
 // Pool de plaques partagées. Un petit lot par pays ; le tirage pondéré
 // se fait à chaque attribution. Les plaques sont aussi regroupées dans
 // un atlas (une seule texture) pour le rendu instancié du trafic.
-const POOL_N = { F: 44, D: 6, B: 4, NL: 4, CH: 3, E: 3, GB: 3, MA: 2 };
+const POOL_N = { F: 44, D: 6, B: 4, NL: 4, CH: 3, E: 3, GB: 3, MA: 2, PL: 4, RO: 3, LT: 2, P: 2 };
+// v26 : poids lourds — près d'un sur deux immatriculé à l'étranger (transit européen)
+const HEAVY_FOREIGN = 0.46;
+const HEAVY_C = ['PL', 'RO', 'E', 'D', 'LT', 'P', 'NL', 'B'];
+const HEAVY_W = [30, 16, 14, 12, 9, 8, 6, 5];
 const ACOLS = 4, CW = 528, CH = 118;
 export class PlatePool {
   constructor(THREE, rand, scale = 1) {
@@ -763,9 +786,9 @@ export class PlatePool {
       }
     }
   }
-  get() {
+  get(heavy = false) {
     const r = this.rand;
-    const c = r() < FOREIGN_RATE ? pickWeighted(r, COUNTRIES, COUNTRY_W) : 'F';
+    const c = heavy ? (r() < HEAVY_FOREIGN ? pickWeighted(r, HEAVY_C, HEAVY_W) : 'F') : r() < FOREIGN_RATE ? pickWeighted(r, COUNTRIES, COUNTRY_W) : 'F';
     const list = this.by[c];
     return list[(r() * list.length) | 0];
   }

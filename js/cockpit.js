@@ -137,8 +137,72 @@ export class Cockpit {
     this.dropMat = M(0xffffff, { map: dtex, transparent: true, opacity: 0, depthWrite: false });
     this.drops = add(new T.PlaneGeometry(2.2, 1.0), this.dropMat, 0.15, 0.05, -1.05, -0.35);
     this.drops.renderOrder = 9;
+    // v26 : pare-brise vivant — filets d'eau poussés par le vent sur les côtés, buée des matins froids,
+    // moustiques écrasés des soirs d'été (nettoyés par les essuie-glaces)
+    {
+      const rc = document.createElement('canvas'); rc.width = 256; rc.height = 512;
+      const r2 = rc.getContext('2d');
+      for (let i = 0; i < 70; i++) {
+        const side = Math.random() < 0.5, x = side ? Math.random() * 46 : 256 - Math.random() * 46, y = Math.random() * 512, l = 20 + Math.random() * 70;
+        const g = r2.createLinearGradient(x, y, x + (side ? -6 : 6), y - l);
+        g.addColorStop(0, 'rgba(235,242,250,0.8)'); g.addColorStop(1, 'rgba(200,215,230,0)');
+        r2.strokeStyle = g; r2.lineWidth = 2 + Math.random() * 2.5; r2.lineCap = 'round';
+        r2.beginPath(); r2.moveTo(x, y); r2.quadraticCurveTo(x + (side ? -3 : 3), y - l / 2, x + (side ? -6 : 6), y - l); r2.stroke();
+        r2.fillStyle = 'rgba(240,246,252,0.85)'; r2.beginPath(); r2.arc(x, y, 2.6, 0, Math.PI * 2); r2.fill();
+      }
+      this.rivTex = new T.CanvasTexture(rc);
+      this.rivTex.wrapT = T.RepeatWrapping;
+      this.rivMat = M(0xffffff, { map: this.rivTex, transparent: true, opacity: 0, depthWrite: false });
+      this.riv = add(new T.PlaneGeometry(2.2, 1.0), this.rivMat, 0.15, 0.05, -1.04, -0.35);
+      this.riv.renderOrder = 9;
+      const fc = document.createElement('canvas'); fc.width = fc.height = 256;
+      const f2 = fc.getContext('2d');
+      const fg = f2.createRadialGradient(128, 90, 30, 128, 128, 190);
+      fg.addColorStop(0, 'rgba(225,230,235,0)'); fg.addColorStop(0.55, 'rgba(225,230,235,0.55)'); fg.addColorStop(1, 'rgba(232,236,240,0.95)');
+      f2.fillStyle = fg; f2.fillRect(0, 0, 256, 256);
+      this.fogMat = M(0xffffff, { map: new T.CanvasTexture(fc), transparent: true, opacity: 0, depthWrite: false });
+      this.fogPane = add(new T.PlaneGeometry(2.2, 1.0), this.fogMat, 0.15, 0.05, -1.03, -0.35);
+      this.fogPane.renderOrder = 10;
+      this.bugCv = document.createElement('canvas'); this.bugCv.width = this.bugCv.height = 256;
+      this.bugTex = new T.CanvasTexture(this.bugCv);
+      this.bugMat = M(0xffffff, { map: this.bugTex, transparent: true, opacity: 1, depthWrite: false });
+      this.bugPane = add(new T.PlaneGeometry(2.2, 1.0), this.bugMat, 0.15, 0.05, -1.035, -0.35);
+      this.bugPane.renderOrder = 9;
+      this.bugs = 0; this.fog = 0; this.rivY = 0;
+      const now = new Date(), mo = now.getMonth();
+      this.summer = mo >= 5 && mo <= 8;
+      this.cold = mo >= 10 || mo <= 2;
+    }
     this.frame = 0;
     this._p = {}; this._q = {};
+  }
+
+  // v26 : buée au démarrage d'un matin froid (désembuage en ~40 s) ; insectes les soirs d'été
+  resetScreen(hour) {
+    this.fog = this.cold && hour != null && hour < 10.5 && hour > 5 ? 0.85 : 0;
+    this.bugs = 0;
+    this.bugCv.getContext('2d').clearRect(0, 0, 256, 256);
+    this.bugTex.needsUpdate = true;
+  }
+  updateScreen(pl, dt, rain, hour) {
+    // filets d'eau : remontent sur les côtés avec la vitesse
+    this.rivMat.opacity = clamp(rain * 1.1, 0, 0.8) * clamp(pl.kmh / 40, 0.2, 1);
+    this.rivY += dt * (0.05 + pl.kmh / 260);
+    this.rivTex.offset.y = -this.rivY;
+    // buée
+    this.fog = Math.max(0, this.fog - dt / 45);
+    this.fogMat.opacity = this.fog * (0.7 + 0.3 * Math.sin(this.frame * 0.01));
+    // insectes (été, soir, à vive allure)
+    const h = hour ?? 14;
+    if (this.summer && h > 18.5 && h < 23.5 && pl.kmh > 55 && !this.tunnel && Math.random() < dt * 0.35 && this.bugs < 40) {
+      const c = this.bugCv.getContext('2d'), x = 30 + Math.random() * 196, y = 20 + Math.random() * 170;
+      c.fillStyle = 'rgba(40,34,20,0.85)'; c.beginPath(); c.arc(x, y, 1.4 + Math.random() * 1.6, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = `rgba(${150 + Math.random() * 60},${130 + Math.random() * 50},40,0.55)`; c.lineWidth = 1.4;
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x + (Math.random() - 0.5) * 8, y - 3 - Math.random() * 6); c.stroke();
+      this.bugs++; this.bugTex.needsUpdate = true;
+    }
+    // les essuie-glaces (pluie) effacent les insectes
+    if (rain > 0.2 && this.bugs > 0) { this.bugs = 0; this.bugCv.getContext('2d').clearRect(0, 0, 256, 256); this.bugTex.needsUpdate = true; }
   }
 
   setActive(on, paintHex) {
@@ -175,6 +239,7 @@ export class Cockpit {
     const rain = Math.min(1, (this.rain || 0) + (this.extraRain || 0));
     if ((this.frame & 15) === 1) this.drawScreen(pl);
     this.dropMat.opacity = clamp(rain * 0.9, 0, 0.75) * (0.6 + 0.4 * Math.abs(Math.sin(this.wipeT * 0.5)));
+    this.updateScreen(pl, dt, rain, this.hour);
     if (rain > 0.08) {
       this.wipeT += dt * (rain > 0.5 ? 3.6 : 2.2);
       const a = 0.05 + 1.25 * (0.5 - 0.5 * Math.cos(this.wipeT));

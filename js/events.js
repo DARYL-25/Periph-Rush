@@ -7,7 +7,7 @@
 // ============================================================
 
 import { CFG, MS, laneCenter, ROAD_OUTER } from './config.js';
-import { rng, clamp, wrap, mergeGeoms, colorize, xform, pick } from './utils.js';
+import { rng, clamp, wrap, mergeGeoms, colorize, xform, pick, loopDelta } from './utils.js';
 import { worksPanelTexture } from './signs.js';
 import { personGeometry, OUTFITS } from './people.js';
 
@@ -64,6 +64,35 @@ export class Events {
       this.spawn(player.s);
       const gap = CFG.EVENT_MIN_GAP + this.rand() * (CFG.EVENT_MAX_GAP - CFG.EVENT_MIN_GAP);
       this.nextAt = gap / this.lapBoost;
+    }
+    // v26 : intervention de la dépanneuse — appelée sur un accident frais, elle remonte la file en
+    // interfile (gyrophare orange), charge l'épave, puis la voie est rouverte
+    for (const e of this.active.slice()) {
+      if (e.type !== 'accident') continue;
+      if (!e.towTried && e.phase !== 'depannage' && traffic && traffic.level >= 1) {
+        const ahead = loopDelta(e.s0, player.s, L);
+        if (ahead > 350 && ahead < 900) {
+          e.towTried = true;
+          if (this.rand() < 0.6) e.tow = traffic.spawnTow(player.s);
+        }
+      }
+      if (e.tow) {
+        const d = loopDelta(e.s0, e.tow.s, L);
+        if (e.tow.gone) e.tow = null;
+        else if (d < 70) {
+          e.tow.gone = true;
+          const i = this.active.indexOf(e);
+          this.dispose(e); this.active.splice(i, 1);
+          const e2 = this.spawnAccident(e.s0, { phase: 'depannage', lane: e.lanes[0], towed: true });
+          if (e2) { e2.clearAt = this.time + 28 + this.rand() * 14; e2.towTried = true; }
+          this.notice = 'tow';
+        }
+      }
+      if (e.clearAt && this.time > e.clearAt) {
+        const i = this.active.indexOf(e);
+        if (i >= 0) { this.dispose(e); this.active.splice(i, 1); }
+        this.notice = 'reopen';
+      }
     }
     for (let i = this.active.length - 1; i >= 0; i--) {
       const e = this.active[i];
@@ -292,7 +321,7 @@ export class Events {
     const e = this.newEvent('accident', s0, s1, lanes);
     e.phase = phase;
     const cones = [], statics = [];
-    const towed = phase === 'depannage' && this.rand() < 0.6;
+    const towed = phase === 'depannage' && (opts.towed ?? this.rand() < 0.6);
     // véhicules accidentés (carrosseries enfoncées), feux de détresse
     const carB = this.factory.build(opts.ids?.[1] || pick(this.rand, ids), { forPlayer: true, color: opts.cols?.[1] ?? this.randColor() });
     carB._own = true;
@@ -364,6 +393,7 @@ export class Events {
     for (const dz of [150, 320]) this.roadSign(e, s0 - dz, true, 'ACCIDENT');
     this.finalize(e, cones, statics);
     this.world.setVMSAhead(wrap(s0 - 500, L), ['ACCIDENT', laneA >= 2 ? 'VOIE DE DROITE NEUTRALISEE' : 'VOIE DE GAUCHE NEUTRALISEE']);
+    return e;
   }
 
   // ---------- fourgon d'intervention (v21) ------------------------------------

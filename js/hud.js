@@ -58,6 +58,9 @@ export class UI {
     // klaxon (maintenu) et appel de phares (impulsion)
     hold('btn-horn', () => { this.input.horn = true; this.emit('horn', true); }, () => { this.input.horn = false; this.emit('horn', false); });
     hold('btn-flash', () => { this.emit('flash'); }, () => {});
+    // v26 : clignotants
+    hold('btn-bl', () => { this.emit('blink', -1); }, () => {});
+    hold('btn-br', () => { this.emit('blink', 1); }, () => {});
     $('btn-radio').addEventListener('click', () => this.cycleRadio());
     hold('btn-brake', () => { this.input.brake = 1; }, () => { this.input.brake = 0; });
     $('btn-pause').addEventListener('click', () => this.emit('pause'));
@@ -96,6 +99,7 @@ export class UI {
     $('set-camera').onchange = (e) => { this.prog.data.settings.camera = e.target.value; this.prog.save(); this.emit('camera'); };
     $('set-radio').onchange = (e) => { this.prog.data.settings.radio = e.target.value; this.prog.save(); this.refreshRadio(); this.emit('radio'); };
     $('set-mirror').onchange = (e) => { this.prog.data.settings.mirror = e.target.checked; this.prog.save(); this.emit('settings'); };
+    $('set-gauges').onchange = (e) => { this.prog.data.settings.gauges = e.target.checked; this.prog.save(); };
     $('set-radars').onchange = (e) => { this.prog.data.settings.radars = e.target.checked; this.prog.save(); this.emit('settings'); };
     $('set-jumelles').onchange = (e) => { this.prog.data.settings.jumelles = e.target.checked; this.prog.save(); this.emit('settings'); };
     $('set-steer').onchange = (e) => {
@@ -212,6 +216,8 @@ export class UI {
       if (e.code === 'Escape' || e.code === 'KeyP') this.emit('pause');
       if (e.code === 'KeyH') this.emit('horn', true);
       if (e.code === 'KeyF') this.emit('flash');
+      if (e.code === 'KeyV') this.emit('blink', -1);   // v26 : clignotant gauche
+      if (e.code === 'KeyB') this.emit('blink', 1);    //       clignotant droit
       if (e.code === 'KeyR') this.cycleRadio();
       upd();
     });
@@ -443,6 +449,7 @@ export class UI {
     $('set-camera').value = s.camera || 'chase';
     $('set-radio').value = UI.radioKey(s.radio);
     $('set-mirror').checked = !!s.mirror;
+    $('set-gauges').checked = s.gauges !== false;
     $('set-radars').checked = s.radars !== false;
     $('set-jumelles').checked = s.jumelles !== false;
     $('set-steer').value = s.steerMode || 'boutons';
@@ -527,6 +534,22 @@ export class UI {
     for (const r of extras.rewards) extra += `🏁 Défi réussi : ${r.label} (+${r.reward} 🪙)<br>`;
     for (const id of extras.unlocked) extra += `🔓 Nouveau véhicule débloqué : ${CATALOG[id].name} !<br>`;
     $('go-extra').innerHTML = extra;
+    // v26 : bilan de conduite
+    const st = result.stats;
+    if (st) {
+      const mm = Math.floor(st.time / 60), ss = Math.floor(st.time % 60);
+      const sig = st.laneCh ? Math.round((st.signalled / st.laneCh) * 100) : 100;
+      const cells = [
+        ['Temps au volant', `${mm} min ${String(ss).padStart(2, '0')}`],
+        ['Vitesse moyenne', `${Math.round(st.avg)} km/h`],
+        ['Vitesse maxi', `${Math.round(st.max)} km/h`],
+        ['Dépassements', fmtInt(st.overtakes)],
+        ['Radars passés sans flash', `${st.radars[0]} / ${st.radars[1]}`],
+        ['Clignotant mis', `${sig} % (${st.signalled}/${st.laneCh})`],
+      ];
+      if (st.cutIns) cells.push(['Queues-de-poisson', String(st.cutIns)]);
+      $('go-stats').innerHTML = '<div class="go-stats-t">BILAN DE CONDUITE</div>' + cells.map(([k, v]) => `<div class="go-stat"><span>${k}</span><b>${v}</b></div>`).join('');
+    } else $('go-stats').innerHTML = '';
     this.show('gameover');
   }
 

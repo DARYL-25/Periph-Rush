@@ -233,7 +233,8 @@ export class Fleet {
   add(id, { color }) {
     const T = this.T;
     const b = this.bucket(id);
-    const plate = this.plates.get();
+    // v26 : semi-remorques souvent immatriculées à l'étranger (transit)
+    const plate = this.plates.get(/^semi/.test(id));
     const group = new T.Object3D();
     const h = {
       id, spec: b.m, ud: b.ud, group, fleet: true,
@@ -315,7 +316,7 @@ export class Fleet {
       if (b.taxi) this.pushLocal(h.taxiFree ? this.L.taxiG : this.L.taxiR, base, b.taxi);
       if (h.beacon && b.beacon.length) {
         if (b.m.emergency) { if (h.sirenOn !== false) this.pushLocal(this.L.blue, base, b.beacon[flash]); }
-        else if (Math.floor((this.time + h.blinkPhase) * 2.5) % 2) this.pushLocal(this.L.orange, base, b.beacon[0]);
+        else if (h.sirenOn !== false && Math.floor((this.time + h.blinkPhase) * 2.5) % 2) { this.pushLocal(this.L.orange, base, b.beacon[0]); if (b.beacon[1]) this.pushLocal(this.L.orange, base, b.beacon[1]); }
       }
       if (wetLights && d2 < 180 * 180) {
         if (night || h.brake.visible) for (const q of b.streakR) this.pushLocal(this.L.streakR, base, q);

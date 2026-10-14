@@ -702,3 +702,38 @@ body.tilt-steer #steer { visibility: hidden; }
   background: rgba(10, 14, 22, 0.6); color: #fff; font-size: 13px; padding: 6px 12px; border-radius: 16px; white-space: nowrap; pointer-events: none; }
 #photo-bar { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); left: 50%; transform: translateX(-50%); display: flex; gap: 12px; }
 #photo-bar .btn { min-width: 150px; }
+
+/* ---------- v26 : clignotants, angle mort, compteurs à aiguilles ---------- */
+#steer { position: relative; }
+#blink-btns {
+  position: absolute; left: 0; bottom: calc(100% + 12px);
+  display: flex; gap: 10px; pointer-events: auto;
+}
+#controls #blink-btns button {
+  width: 54px; height: 40px; border-radius: 12px; padding: 0; font-size: 20px;
+  background: rgba(16, 24, 38, 0.6); color: #c9d2db;
+}
+#controls #blink-btns button.on { background: #ff9d1a; color: #1a1205; box-shadow: 0 0 14px rgba(255, 157, 26, 0.75); }
+#controls #blink-btns button.on.dim { background: rgba(255, 157, 26, 0.35); box-shadow: none; }
+.bsm {
+  position: absolute; top: 42%; width: 0; height: 0;
+  border-top: 18px solid transparent; border-bottom: 18px solid transparent;
+  opacity: 0; transition: opacity 0.15s; pointer-events: none;
+  filter: drop-shadow(0 0 8px rgba(255, 150, 20, 0.95));
+}
+#bsm-l { left: 10px; border-right: 26px solid #ff9a14; }
+#bsm-r { right: 10px; border-left: 26px solid #ff9a14; }
+.bsm.on { opacity: 1; animation: bsmPulse 0.5s ease-in-out infinite alternate; }
+@keyframes bsmPulse { from { transform: scale(1); } to { transform: scale(1.15); } }
+#gauges {
+  position: absolute; right: 8px; top: calc(var(--sat) + 150px);
+  width: 160px; height: 80px; pointer-events: none;
+}
+@media (orientation: landscape) {
+  #gauges { right: auto; top: auto; left: 192px; bottom: calc(var(--sab) + 8px); width: 170px; height: 85px; }
+}
+#go-stats { margin: 10px 0 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; text-align: left; font-size: 12.5px; }
+#go-stats .go-stats-t { grid-column: 1 / -1; font-weight: 900; letter-spacing: 1.4px; font-size: 11px; opacity: 0.7; }
+#go-stats .go-stat { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 2px 0; }
+#go-stats .go-stat b { font-weight: 800; color: #ffd12b; white-space: nowrap; }
+@media (orientation: landscape) and (max-height: 500px) { #go-stats { grid-template-columns: 1fr 1fr 1fr; font-size: 11.5px; } }

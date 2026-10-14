@@ -29,6 +29,7 @@ export class Rules {
     this.points = 12;
     this.fines = 0;
     this.tickets = [];
+    this.radarsPassed = 0; this.radarsFlashed = 0;   // v26 : bilan de fin de partie
     this.lastS = null;
     this.hovT = 0;
     this.blockT = 0;
@@ -57,11 +58,13 @@ export class Rules {
         if (!(a < 0 && b >= 0)) continue;
         if (r.kind === 'speed' && this.radarsOn !== false) {
           const kmh = player.v * 3.6;
+          this.radarsPassed++;
           const retenue = kmh - 5; // marge technique de 5 km/h sous 100 km/h
           if (retenue > CFG.SPEED_LIMIT_KMH) {
             const [eur, pts] = bareme(retenue - CFG.SPEED_LIMIT_KMH);
             this.ui.flashRadar?.();
             this.audio.flash?.();
+            this.radarsFlashed++;
             this.ticket(`📸 FLASHÉ À ${Math.round(kmh)} km/h`, eur, pts);
           }
         }

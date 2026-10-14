@@ -77,7 +77,7 @@ export class Player {
     this.wheelSpin = 0;
     this.crashed = false;
     this.ramp = null; this.rampO = null; this.leftPeriph = false; this.exitT = 0;
-    this.health = 100; this.grip = 1; this.latAcc = 0; this.aquaT = 0; this.headBroken = false; this.scraping = 0; this.gear = 1; this.shiftT = 0; this.hazardT = 0; this._hardFrom = 0;
+    this.health = 100; this.grip = 1; this.latAcc = 0; this.aquaT = 0; this.headBroken = false; this.scraping = 0; this.gear = 1; this.shiftT = 0; this.hazardT = 0; this._hardFrom = 0; this.blinkDir = 0; this.blinkT = 0; this.blinkId = 0; this._blinkDone = 0;
     this.camShake = 0;
     this.distance = 0;
     this.laps = 0;
@@ -251,7 +251,25 @@ export class Player {
     if (this._hardFrom && this.v < this._hardFrom * 0.45 && this._hardFrom > 13) { this.hazardT = 6; this._hardFrom = 0; this.onHazard?.(); }
     if (inp.brake < 0.1 && this.v > 10) this._hardFrom = 0;
     this.hazardT = Math.max(0, (this.hazardT || 0) - dt);
+    // v26 : clignotant — s'éteint seul une fois le changement de voie terminé (ou au bout de 14 s)
+    this.laneIdx = Math.floor((this.lat - CFG.INNER_EDGE) / CFG.LANE_WIDTH);
+    if (this.blinkDir) {
+      this.blinkT += dt;
+      const moved = (this.laneIdx - this._blinkLane0) * this.blinkDir > 0;
+      const centred = Math.abs(this.lat - laneCenter(Math.max(0, Math.min(CFG.LANES - 1, this.laneIdx)))) < 0.55;
+      this._blinkDone = moved && centred ? this._blinkDone + dt : 0;
+      if (this._blinkDone > 0.9 || this.blinkT > 14) this.blinkDir = 0;
+    }
     this.updateHazards?.(dt);
+  }
+
+  // v26 : clignotant (dir -1 gauche, 1 droite ; même sens à nouveau = arrêt)
+  toggleBlink(dir) {
+    if (this.blinkDir === dir) { this.blinkDir = 0; return 0; }
+    this.blinkDir = dir; this.blinkT = 0; this._blinkDone = 0;
+    this._blinkLane0 = Math.floor((this.lat - CFG.INNER_EDGE) / CFG.LANE_WIDTH);
+    this.blinkId++;
+    return dir;
   }
 
   // v24 : feux de détresse du joueur (4 clignotants orange sur la caisse)
@@ -271,8 +289,10 @@ export class Player {
       }
     }
     this._hzT = (this._hzT || 0) + dt;
-    const on = this.hazardT > 0 && (this._hzT % 0.8) < 0.42;
-    for (const q of b._haz) q.visible = on;
+    const ph = (this._hzT % 0.8) < 0.42;
+    this.blinkOn = (this.hazardT > 0 || this.blinkDir !== 0) && ph;
+    // feux de détresse : les 4 ; clignotant : côté choisi (+x local = gauche)
+    b._haz.forEach((q) => { q.visible = ph && (this.hazardT > 0 || (this.blinkDir !== 0 && Math.sign(q.position.x) === -this.blinkDir)); });
   }
 
   // ---------- bretelles ------------------------------------------------------

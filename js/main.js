@@ -280,6 +280,7 @@ async function boot() {
   ui.on('camera', () => game.applyCamera());
   ui.on('horn', (on) => game.playerHorn(on));
   ui.on('flash', () => game.playerFlash());
+  ui.on('blink', (d) => game.playerBlink(d));
   ui.on('radio', () => game.radioChanged?.());
   ui.on('settings', () => {
     player.autoThrottle = prog.data.settings.autoThrottle;
@@ -379,7 +380,7 @@ async function boot() {
       fleet.update(rawDt, camera);
       game.beforeRender(rawDt, camera, renderer);
       renderer.render(scene, camera);
-      if (state === 'running') mirror.render(!!prog.data.settings.mirror && game.state === 'running', scene, player, track);
+      if (state === 'running') mirror.render(!!prog.data.settings.mirror && game.state === 'running' && !game.cockpit?.active, scene, player, track);
       else mirror.el.classList.add('hidden');
     };
 

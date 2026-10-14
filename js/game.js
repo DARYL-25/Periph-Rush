@@ -118,6 +118,9 @@ export class Game {
     // v24 : boîte de vitesses audible (passage, coup de gaz au rétrogradage) et warnings automatiques
     this.player.onShift = (k) => this.audio.shift?.(k);
     this.player.onHazard = () => this.ui.popup('⚠ FEUX DE DÉTRESSE', '');
+    this.runId = (this.runId || 0) + 1;
+    this.stats = { time: 0, dist: 0, maxKmh: 0, overtakes: 0, laneCh: 0, signalled: 0, cutIns: 0 };
+    this._lastLane = null; this._sigDir = 0; this._sigT = 99;
     this.traffic.reset(this.player.s);
     this.ambIndex = 0;
     this.ambience.startDay(this.startHour(set), set.weather || 'auto');
@@ -222,6 +225,8 @@ export class Game {
     this.updateSmoke(rawDt);
     if (!this.cockpit) { this.cockpit = new Cockpit(this.T, this.scene, camera, this.player, this.track); this.applyCamera(); }
     this.cockpit.rain = this.ambience.rainAmt;
+    this.cockpit.hour = this.ambience.hour; this.cockpit.tunnel = !!tunnel;
+    if (this._screenReset !== this.runId) { this._screenReset = this.runId; this.cockpit.resetScreen?.(this.ambience.hour); }
     if (this.cockpit.active) { this.cockpit.gps = this.gpsInfo(); this.cockpit.clock = this.ambience.clockText; }
     if (this.cockpit.active) this.cockpit.updateCamera(camera, rawDt);
     else this.player.updateCamera(camera, rawDt);
@@ -231,6 +236,7 @@ export class Game {
       this.checkNearMisses();
       this.checkCollisions();
       this.updateHUD();
+      this.updateAids(rawDt, dt);
       this.audio.setEnv({ tunnel: !!tunnel, wet: this.ambience.wet, cockpit: !!this.cockpit?.active });
       this.audio.engine(this.player.v, this.player.vmax, Math.max(this.player.input.throttle, this.player.autoThrottle ? 0.6 : 0), rawDt);
       this.audio.rain(tunnel ? 0 : this.ambience.cur.rain);
@@ -246,6 +252,87 @@ export class Game {
     this.audio.playerHorn(on, this.player.isMoto);
     if (on) this.signalReact('horn');
   }
+  // v26 : clignotants du joueur
+  playerBlink(dir) {
+    if (this.state !== 'running') return;
+    const d = this.player.toggleBlink(dir);
+    if (!d) return;
+    const r = this.traffic.playerBlinker(this.player, d);
+    if (r === 'yield') this.ui.popup('👍 ON VOUS LAISSE PASSER', '');
+    else if (r === 'refuse') this.ui.popup('😤 IL NE VOUS LAISSE PAS', 'fine');
+  }
+  // v26 : aides et statistiques — boutons de clignotant, tic-tac, angle mort, queue-de-poisson, bilan
+  updateAids(rawDt, dt) {
+    const p = this.player, st = this.stats;
+    const $ = (id) => (this._el ??= {})[id] ?? (this._el[id] = document.getElementById(id));
+    for (const [id, d] of [['btn-bl', -1], ['btn-br', 1]]) {
+      const on = p.blinkDir === d || p.hazardT > 0;
+      $(id).classList.toggle('on', on);
+      $(id).classList.toggle('dim', on && !p.blinkOn);
+    }
+    const blinking = p.blinkDir !== 0 || p.hazardT > 0;
+    if (blinking && p.blinkOn !== this._blinkPh) this.audio.tick?.(p.blinkOn);
+    this._blinkPh = p.blinkOn;
+    const bs = this.traffic.blindSpot(p);
+    $('bsm-l').classList.toggle('on', bs.l);
+    $('bsm-r').classList.toggle('on', bs.r);
+    // changement de voie : avec ou sans clignotant ?
+    if (p.blinkDir) { this._sigDir = p.blinkDir; this._sigT = 0; } else this._sigT += dt;
+    const lane = p.laneIdx;
+    if (this._lastLane != null && lane !== this._lastLane && !p.ramp && lane >= 0 && lane < CFG.LANES && this._lastLane >= 0 && this._lastLane < CFG.LANES) {
+      const dir = Math.sign(lane - this._lastLane);
+      st.laneCh++;
+      const signalled = this._sigDir === dir && this._sigT < 2.5;
+      if (signalled) st.signalled++;
+      else if (this.traffic.playerCutIn(p, lane)) { st.cutIns++; this.ui.popup('😠 SANS CLIGNOTANT !', 'fine'); }
+    }
+    this._lastLane = lane;
+    // bilan
+    st.time += dt; st.dist += p.v * dt; st.maxKmh = Math.max(st.maxKmh, p.kmh || p.v * 3.6);
+    const L = this.track.length;
+    for (const n of this.traffic.npcs) {
+      const rel = loopDelta(n.s, p.s, L);
+      if (n._rel != null && n._rel > 0 && rel <= 0 && Math.abs(rel) < 30 && n.mode !== 'chase') st.overtakes++;
+      n._rel = rel;
+    }
+    // compteurs à aiguilles
+    this.drawGauges();
+  }
+  drawGauges() {
+    const on = this.ui.prog.data.settings.gauges !== false && !this.cockpit?.active;
+    const cv = (this._gcv ??= document.getElementById('gauges'));
+    cv.classList.toggle('hidden', !on);
+    if (!on) return;
+    if ((this._gFrame = (this._gFrame || 0) + 1) % 2) return;
+    const c = cv.getContext('2d'), p = this.player, W = cv.width, H = cv.height;
+    c.clearRect(0, 0, W, H);
+    const dial = (cx, cy, R, val, max, ticks, red, label, unit) => {
+      const a0 = Math.PI * 0.8, a1 = Math.PI * 2.2;
+      c.fillStyle = 'rgba(10,14,22,0.72)'; c.beginPath(); c.arc(cx, cy, R + 6, 0, Math.PI * 2); c.fill();
+      c.lineWidth = 2; c.strokeStyle = 'rgba(255,255,255,0.25)'; c.stroke();
+      for (let i = 0; i <= ticks; i++) {
+        const t = i / ticks, a = a0 + (a1 - a0) * t, big = i % 2 === 0;
+        c.strokeStyle = red != null && t >= red ? '#ff4a3a' : '#e8edf2'; c.lineWidth = big ? 2.4 : 1.2;
+        c.beginPath(); c.moveTo(cx + Math.cos(a) * R * (big ? 0.78 : 0.85), cy + Math.sin(a) * R * (big ? 0.78 : 0.85)); c.lineTo(cx + Math.cos(a) * R * 0.95, cy + Math.sin(a) * R * 0.95); c.stroke();
+        if (big && label) { c.fillStyle = '#cfd7df'; c.font = '700 10px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(label(i)), cx + Math.cos(a) * R * 0.6, cy + Math.sin(a) * R * 0.6); }
+      }
+      const t = Math.max(0, Math.min(1, val / max)), a = a0 + (a1 - a0) * t;
+      c.strokeStyle = '#ff5a2a'; c.lineWidth = 3; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(cx - Math.cos(a) * 8, cy - Math.sin(a) * 8); c.lineTo(cx + Math.cos(a) * R * 0.9, cy + Math.sin(a) * R * 0.9); c.stroke();
+      c.fillStyle = '#20262e'; c.beginPath(); c.arc(cx, cy, 6, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#9aa6b2'; c.font = '800 9px sans-serif'; c.fillText(unit, cx, cy + R * 0.45);
+    };
+    const GE = p.isMoto ? [0, 30, 55, 80, 105, 130, 175] : [0, 22, 40, 60, 84, 115, 160];
+    const g = Math.max(1, Math.min(6, p.gear || 1)), kmh = p.v * 3.6, x = Math.max(0, Math.min(1.05, (kmh - (g === 1 ? 0 : GE[g - 1] - 6)) / (GE[g] - (g === 1 ? 0 : GE[g - 1] - 6))));
+    const target = (g === 1 ? 850 : 1700) + x * (p.isMoto ? 6500 : 3900) + (p.input?.throttle || 0) * 250;
+    this._rpm = (this._rpm || 900) + (target - (this._rpm || 900)) * 0.35;
+    const rpm = p.shiftT > 0 ? this._rpm * 0.8 : this._rpm;
+    dial(75, 78, 62, rpm, p.isMoto ? 10000 : 7000, 14, 6 / 7, (i) => (p.isMoto ? Math.round(i / 1.4) : i / 2), '×1000 tr/min');
+    dial(225, 78, 62, p.v * 3.6, 140, 14, null, (i) => i * 10, 'km/h');
+    c.fillStyle = '#ffd12b'; c.font = '800 16px sans-serif'; c.textAlign = 'center';
+    c.fillText(p.isMoto ? '' : String(p.gear || 1), 75, 108);
+  }
+
   playerFlash() {
     if (this.state !== 'running') return;
     this.player.flashLights();
@@ -255,6 +342,7 @@ export class Game {
     const r = this.traffic.playerSignal(kind, this.player);
     if (r === 'brake') this.ui.popup('⚠ IL PILE !', 'fine');
     else if (r === 'block') this.ui.popup('😠 IL VOUS BLOQUE', 'fine');
+    else if (r === 'move') this.ui.popup('👍 IL SE RABAT', '');
   }
 
   // ---------- HUD -------------------------------------------------------------------
@@ -345,6 +433,12 @@ export class Game {
     // radio : station choisie (info-trafic parlée ou musique générée)
     const st = this.radioKey();
     if (a.station !== st) a.setStation(st);
+    // v26 : dépanneuse sur place / voie rouverte
+    if (this.events.notice) {
+      const k = this.events.notice; this.events.notice = null;
+      if (k === 'tow') this.ui.popup('🚛 DÉPANNEUSE SUR PLACE', '');
+      else { this.ui.popup('✅ VOIE ROUVERTE', ''); if (st === 'info') a.radio('Bonne nouvelle : l\'accident est dégagé, la voie est rouverte. La circulation reprend progressivement.'); }
+    }
     if (st === 'info') {
       const nEv = (this.events.active || []).length;
       if (nEv > (this._nEv ?? 0) && this.radioT > 6) this.radioT = 4;   // flash info : nouvel événement
@@ -619,7 +713,12 @@ export class Game {
     this.ui.showGameOver(result, 0.2, text + this.finesText(), extras, title);
     this.result = result;
   }
-  withFines(result) { result.fines = this.rules.fines; result.permis = this.rules.points; return result; }
+  withFines(result) { result.fines = this.rules.fines; result.permis = this.rules.points; result.stats = this.statsSummary(); return result; }
+  statsSummary() {
+    const st = this.stats || {}, r = this.rules;
+    return { time: st.time || 0, avg: st.time > 1 ? (st.dist / st.time) * 3.6 : 0, max: st.maxKmh || 0, overtakes: st.overtakes || 0,
+      radars: [Math.max(0, (r.radarsPassed || 0) - (r.radarsFlashed || 0)), r.radarsPassed || 0], laneCh: st.laneCh || 0, signalled: st.signalled || 0, cutIns: st.cutIns || 0 };
+  }
   finesText() {
     const r = this.rules;
     if (!r.tickets.length) return '';

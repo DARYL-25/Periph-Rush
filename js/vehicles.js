@@ -228,7 +228,7 @@ export const CATALOG = {
   bus_noct: { name: 'Bus de nuit', kind: 'bus', dims: [12.0, 2.55, 3.1], wb: 6.0, wr: 0.45,
     cols: [0x1f2c63], w: 0, night: true, livery: 'noct' },
   depanneuse: { name: 'Dépanneuse', kind: 'tow', dims: [6.5, 2.2, 2.6], wb: 3.6, wr: 0.37,
-    cols: [P.jaune, P.blancVan, P.orange], w: 0.5 },
+    cols: [P.jaune, P.blancVan, P.orange], w: 0.5, beacon: { x: 2.0, y: 2.7, z: 0.55 } },   // v26 : gyrophares orange (intervention)
   municipal: { name: 'Ville de Paris', kind: 'box', dims: [5.4, 2.05, 2.4], wb: 3.3, wr: 0.34,
     cols: [P.vertParis], w: 1, municipal: true },
   // v16 : variété du trafic (designs génériques)

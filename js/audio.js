@@ -531,6 +531,8 @@ export class GameAudio {
   }
 
   click() { this.burst({ dur: 0.08, freq: 1800, q: 4, gain: 0.15, dest: this.dry }); }
+  // v26 : relais du clignotant (tic / tac)
+  tick(on) { this.burst({ dur: 0.022, freq: on ? 2600 : 1900, q: 7, gain: 0.07, dest: this.dry }); }
   coin() {
     if (!this.ctx || !this.enabled) return;
     const ctx = this.ctx;

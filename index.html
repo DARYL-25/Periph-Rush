@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-180.png">
   <link rel="preload" href="assets/fonts/barlow-condensed-latin-900-italic.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=25">
+  <link rel="stylesheet" href="css/style.css?v=26">
   <script type="importmap">
     { "imports": { "three": "./vendor/three.module.min.js" } }
   </script>
@@ -51,10 +51,17 @@
     <button id="btn-cam" aria-label="Changer de vue">◉</button>
     <button id="btn-radio" aria-label="Changer de station">📻 <span id="radio-name">PÉRIPH INFO</span></button>
     <div id="mirror" class="hidden"></div>
+    <div id="bsm-l" class="bsm" aria-hidden="true"></div>
+    <div id="bsm-r" class="bsm" aria-hidden="true"></div>
+    <canvas id="gauges" width="300" height="150" class="hidden"></canvas>
     <div id="tilt-hint" class="hidden">Inclinez le téléphone pour diriger</div>
     <div id="radar-flash" class="hidden"></div>
     <div id="controls">
       <div id="steer">
+        <div id="blink-btns">
+          <button id="btn-bl" aria-label="Clignotant gauche">⬅</button>
+          <button id="btn-br" aria-label="Clignotant droit">➡</button>
+        </div>
         <button id="btn-left" aria-label="Gauche">◀</button>
         <button id="btn-right" aria-label="Droite">▶</button>
       </div>
@@ -215,6 +222,7 @@
           <option value="off">Éteinte</option>
         </select></label>
       <label class="row"><span>Rétroviseur</span><input type="checkbox" id="set-mirror"></label>
+      <label class="row"><span>Compteurs à aiguilles</span><input type="checkbox" id="set-gauges"></label>
       <label class="row"><span>Radars automatiques</span><input type="checkbox" id="set-radars"></label>
       <label class="row"><span>Contrôles de police aux jumelles</span><input type="checkbox" id="set-jumelles"></label>
       <label class="row"><span>Qualité graphique</span>
@@ -262,6 +270,7 @@
         <div class="go-cell"><label>Meilleur combo</label><div id="go-combo"></div></div>
         <div class="go-cell"><label>Pièces gagnées</label><div id="go-coins"></div></div>
       </div>
+      <div id="go-stats"></div>
       <div id="go-extra"></div>
       <div class="menu-buttons row2">
         <button class="btn primary" id="go-retry">REJOUER</button>
@@ -278,6 +287,6 @@
     <div id="loading-txt">Construction du périphérique…</div>
   </div>
 
-  <script type="module" src="js/main.js?v=25"></script>
+  <script type="module" src="js/main.js?v=26"></script>
 </body>
 </html>

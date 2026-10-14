@@ -24,6 +24,7 @@ import {
 } from './signs.js';
 import { Scenery, buildLandmarks, geoToLocal } from './scenery.js';
 import { buildDetailedLandmarks } from './landmarks.js';
+import { buildSkyline, buildRooftopSigns } from './skyline.js';
 import { buildParcDesPrinces } from './stadium.js';
 
 const ROW = 5;            // pas des rangées de construction (m)
@@ -278,6 +279,8 @@ export class World {
     this.landmarks = buildLandmarks(THREE, scene);
     this.detailed = buildDetailedLandmarks(THREE, scene, track, { parc: false });   // v17 : tour TF1, pavillon Habib-Bourguiba
     this.stadium = buildParcDesPrinces(THREE, scene, geoToLocal, track);             // v18 : Parc des Princes
+    this.skyline = buildSkyline(THREE, scene);                                          // v26 : tours et grands repères reconnaissables
+    this.roofSigns = buildRooftopSigns(THREE, scene, this.scenery, track);              // v26 : enseignes lumineuses sur les toits
     this._p = {};
   }
 
@@ -328,7 +331,7 @@ export class World {
       pool: new T.MeshBasicMaterial({ map: TX.glowTexture(T, '255,214,160'), transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }),
       tpool: new T.MeshBasicMaterial({ map: TX.glowTexture(T, '255,178,92'), transparent: true, opacity: 0.38, side: DS, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }),
       water: new T.MeshPhongMaterial({ color: 0x35505e, shininess: 90, specular: 0x7799aa, side: DS }),
-      bld: atlasify(new T.MeshLambertMaterial({ map: Bt.tex, emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, side: DS })),
+      bld: this.windowFlicker(atlasify(new T.MeshLambertMaterial({ map: Bt.tex, emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, side: DS }))),
       graf: new T.MeshLambertMaterial({ map: TX.graffitiAtlas(T), alphaTest: 0.35, side: DS, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }),
       trunk: new T.MeshLambertMaterial({ color: 0x5b4a3a }),
       canopy: new T.MeshLambertMaterial({ color: 0xffffff, map: TX.leavesTexture(T) }),
@@ -350,6 +353,25 @@ export class World {
       this.mats.signCache.set(tex, new this.T.MeshLambertMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.32, transparent: false, alphaTest: 0.5, side: this.T.FrontSide }));
     }
     return this.mats.signCache.get(tex);
+  }
+  // v26 : la nuit, les fenêtres s'allument et s'éteignent au fil du temps (chaque fenêtre a son rythme)
+  windowFlicker(mat) {
+    const prev = mat.onBeforeCompile;
+    this.winT = { value: 0 };
+    mat.onBeforeCompile = (sh, r) => {
+      prev(sh, r);
+      sh.uniforms.uWinT = this.winT;
+      sh.fragmentShader = sh.fragmentShader
+        .replace('varying vec4 vTile;', 'varying vec4 vTile;\nuniform float uWinT;\nfloat winHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }')
+        .replace('totalEmissiveRadiance *= atlasSample(emissiveMap, vEmissiveMapUv).rgb;',
+          `vec2 wc = floor(vEmissiveMapUv * vec2(6.0, 4.0));
+  float ph = winHash(wc + vTile.xy * 97.0);
+  float slot = floor(uWinT / 45.0 + ph);
+  float wOn = step(0.28, winHash(wc * 1.37 + slot * 7.13 + vTile.xy * 31.0));
+  totalEmissiveRadiance *= atlasSample(emissiveMap, vEmissiveMapUv).rgb * wOn;`);
+    };
+    mat.customProgramCacheKey = () => 'atlas-win';
+    return mat;
   }
   ambienceHooks() {
     return {
@@ -531,6 +553,10 @@ export class World {
     this.mats.puddle.visible = pw > 0.01;
     // la tour Eiffel s'illumine (doré) la nuit
     if (this.landmarks && this.landmarks.eiffelMat) this.landmarks.eiffelMat.emissiveIntensity = this.mats.lampGlow.opacity * 4.5;
+    // v26 : fenêtres des tours éclairées la nuit, feux d'obstacle
+    if (this.skyline) this.skyline.tick(1 / 60, Math.min(1, this.mats.lampGlow.opacity / 0.85));
+    if (this.winT) this.winT.value += 1 / 60;
+    if (this.roofSigns) this.roofSigns.tick(1 / 60, Math.min(1, this.mats.lampGlow.opacity / 0.85));
   }
 
   prebuild(playerS) {
@@ -1017,7 +1043,7 @@ export class World {
     this.railBand(B.bars, rows, (r) => crown(r) === 'grille', (r) => L(wallX(r) + 0.22), (r) => topY(r), 1.1, RAILC.grilleVerte, 2);
     this.railBand(B.chain, rows, (r) => crown(r) === 'grillage', (r) => L(wallX(r) + 0.6), () => 0, 2.0, rgb(0x46564b), 2.5);
     // graffitis en décalques (positions et pièces variées) : béton des tranchées et des couvertures
-    const TAGW = { beton: 22, beige: 30, dalles: 34, caissons: 26, fresque: 12 };
+    const TAGW = { beton: 30, beige: 36, dalles: 40, caissons: 32, fresque: 14 };   // v26 : un peu plus de tags
     this.decals(ctx, rows, side, (r) => (trench(r) && !slope(r) ? TAGW[SV(r).wall || 'beton'] || 0 : 0), (r) => L(wallX(r) - 0.04),
       (r) => Math.max(r.h, H(r)), (r) => (r.cover ? r.h + CEIL - 0.6 : topY(r)));
     // lierre retombant : partout où il a été relevé, ponctuellement ailleurs
