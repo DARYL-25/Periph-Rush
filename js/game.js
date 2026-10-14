@@ -252,7 +252,7 @@ export class Game {
       warning = this.rules.warning;
     } else if (ev) {
       const side = ev.lanes.includes(0) ? 'GAUCHE' : 'DROITE';
-      warning = `⚠ ${ev.type === 'travaux' ? 'TRAVAUX' : 'ACCIDENT'} ${Math.round(ev.dist / 10) * 10} m · VOIE ${side}`;
+      warning = `⚠ ${{ travaux: 'TRAVAUX', panne: 'VÉHICULE EN PANNE', controle: 'CONTRÔLE DE POLICE' }[ev.type] || 'ACCIDENT'} ${Math.round(ev.dist / 10) * 10} m · VOIE ${side}`;
     } else {
       const jam = this.traffic.jamAhead(p.s);
       if (this.traffic.motoBehindPlayer) warning = '🏍 UNE MOTO VEUT PASSER — SERREZ À DROITE';
@@ -353,7 +353,7 @@ export class Game {
       lines.push(`Sur le périphérique intérieur, ${lv === 2 ? 'bouchon' : lv === 3 ? 'ralentissements en accordéon' : 'ralentissement'} de ${km} kilomètre${km > 1 ? 's' : ''} entre ${short(a)} et ${short(b)}.`);
     } else lines.push(['Le trafic est fluide sur l’ensemble du périphérique intérieur.', 'Circulation dense mais sans difficulté majeure sur le périphérique intérieur.', 'Le périphérique est saturé sur la quasi-totalité de l’anneau.', 'Trafic très dense sur le périphérique intérieur, avec des ralentissements en accordéon : gardez vos distances.'][lv]);
     const ev = this.events.active?.[0];
-    if (ev) lines.push(`${ev.type === 'travaux' ? 'Des travaux' : 'Un accident'} neutralise${ev.type === 'travaux' ? 'nt' : ''} une voie à hauteur de ${short(t.nextPorte(ev.s0).porte?.name)}.`);
+    if (ev) lines.push(ev.type === 'panne' ? `Un véhicule en panne gêne la circulation sur la voie de droite à hauteur de ${short(t.nextPorte(ev.s0).porte?.name)}.` : ev.type === 'controle' ? `Contrôle de police sur le bas-côté à hauteur de ${short(t.nextPorte(ev.s0).porte?.name)} : prudence.` : `${ev.type === 'travaux' ? 'Des travaux' : 'Un accident'} neutralise${ev.type === 'travaux' ? 'nt' : ''} une voie à hauteur de ${short(t.nextPorte(ev.s0).porte?.name)}.`);
     if (lv === 2) lines.push('Rappel : la voie de gauche est réservée au covoiturage, aux taxis et aux bus.');
     if (amb.rainAmt > 0.3) lines.push('Il pleut sur Paris, chaussée glissante : augmentez vos distances de sécurité.');
     else if (amb.fogAmt > 0.3) lines.push('Brouillard sur l’est parisien, allumez vos feux.');

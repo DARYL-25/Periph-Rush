@@ -23,7 +23,7 @@ for vid in IDS:
             continue
         n = sum(len(p.vertices) - 2 for p in o.data.polygons)
         if n < 60:
-            if n < (60 if ULTRA else 24) and not any(k in o.name for k in ('Lamp', 'Tail', 'Head', 'Plate')):
+            if n < (60 if ULTRA else 24) and not any(k in o.name for k in ('Lamp', 'Tail', 'Head', 'Plate', 'LightBar', 'RackRail', 'LadderRail', 'AeSign', 'AeBand', 'CrsBull')):
                 bpy.data.objects.remove(o, do_unlink=True)
             continue
         bpy.context.view_layer.objects.active = o

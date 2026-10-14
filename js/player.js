@@ -244,7 +244,8 @@ export class Player {
         return;
       }
       this.rampO = o;
-      if (o.g < 0.35 || (o.g < 1.3 && this.lat < Em + o.mid)) { // revenu sur le périph avant le musoir
+      const noSep = t.ramps.sepOff(o, this.s, t.elevationAt(this.s)) == null;
+      if (o.g < 0.35 || (noSep && this.lat < Em + o.mid)) { // revenu sur le périph avant le musoir
         this.ramp = null; this.rampO = null;
       }
       if (this.ramp && this.ramp.kind === 'X') {
@@ -256,22 +257,30 @@ export class Player {
     // sur le périph : bascule vers une bretelle qui s'écarte encore peu
     for (const o of list) {
       if (o.parallel) continue;
-      if (o.g < 1.3 && this.lat > Em + o.mid + 0.2) { this.ramp = o.r; this.rampO = o; return; }
+      // v22 : zébras du musoir franchissables tant que la séparation physique n'a pas commencé
+      const noSep = o.g < 1.3 || t.ramps.sepOff(o, this.s, t.elevationAt(this.s)) == null;
+      if (noSep && this.lat > Em + o.mid + 0.2) { this.ramp = o.r; this.rampO = o; return; }
     }
   }
   latLimits() {
     const t = this.track, Em = t.mainEdgeAt(this.s);
     const half = (this.wid || 1.8) / 2 - 0.18;
+    const R = t.ramps;
+    const minMain = R ? R.mainMin(this.s, half) : CFG.LATERAL_MIN;
     if (this.ramp && this.rampO) {
       const o = this.rampO;
-      const max = Em + o.gap + o.w - half;
-      // tant que le musoir (séparation) n'a pas commencé, on peut revenir sur le périph
-      const min = o.g < 1.3 ? CFG.LATERAL_MIN : t.ramps.rampMin(o, this.s, this.track.elevationAt(this.s), half);
-      return { min, max };
+      const h = this.track.elevationAt(this.s);
+      // bord droit : dispositif de retenue réel si la bretelle est la plus à l'extérieur
+      const edge = Em + o.gap + o.w;
+      const B = R.barrier(this.s, h);
+      const max = edge >= B.R - 0.01 ? B.R + B.c - half : edge - half;
+      // tant que la séparation (musoir) n'a pas commencé, on peut revenir sur le périph
+      const min = R.sepOff(o, this.s, h) == null ? minMain : R.rampMin(o, this.s, h, half);
+      return { min, max: Math.max(max, min + 0.05) };
     }
-    // v17 : butée partagée avec le décor (séparation réelle : DBA en pied de talus ou mur à mi-interstice)
-    const max = t.ramps ? t.ramps.mainMax(this.s, half) : Em - 0.72;
-    return { min: CFG.LATERAL_MIN, max };
+    // v22 : butées partagées avec le décor (dispositifs de retenue réels, séparations de bretelles)
+    const max = R ? R.mainMax(this.s, half) : Em - 0.72;
+    return { min: minMain, max };
   }
   // hauteur de chaussée sous le joueur (bretelle en rampe)
   groundY(p) {

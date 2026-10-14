@@ -18,8 +18,8 @@ const CAR_W = CAR_IDS.map((id) => CATALOG[id].w);
 const MOTO_IDS = TRAFFIC_IDS.filter((id) => CATALOG[id].kind === 'moto');
 const MOTO_W = MOTO_IDS.map((id) => CATALOG[id].w);
 const SPORT_IDS = ['furia'];
-const HEAVY = ['bus', 'fourgon', 'livraison', 'depanneuse', 'municipal', 'camionnette', 'trafic', 'semi', 'cargo'];
-const EMERG_IDS = ['police', 'police', 'samu', 'pompiers', 'crs'];
+const HEAVY = ['bus', 'fourgon', 'livraison', 'depanneuse', 'municipal', 'camionnette', 'trafic', 'semi', 'semi_pv', 'semi_cit', 'semi_frigo', 'cargo', 'pro_btp', 'pro_loc', 'pro_demen'];
+const EMERG_IDS = ['police', 'police', 'police', 'samu', 'smur', 'pompiers', 'crs'];
 
 // niveaux de trafic : 0 fluide · 1 chargé · 3 dense (accordéon) · 2 heure de pointe (très bouché)
 // (l'indice 3 a été ajouté en v19 : l'ordre d'affichage est 0, 1, 3, 2)
@@ -39,6 +39,8 @@ const PERSONAS = {
   normal: { T: 1, v0: 1, lc: 1, accept: 1, dur: 2.7, aLat: 2.9 },
   presse: { T: 0.72, v0: 1.12, lc: 2.4, accept: 0.62, dur: 1.9, aLat: 4.0 },
   dimanche: { T: 1.55, v0: 0.85, lc: 0.35, accept: 1.45, dur: 3.4, aLat: 2.1 },
+  // v22 : livreurs pressés et chauffards — collent, déboîtent à gauche comme à droite, se rabattent sec
+  zigzag: { T: 0.5, v0: 1, lc: 7, accept: 0.36, dur: 1.25, aLat: 4.8 },
 };
 
 export class Traffic {
@@ -85,6 +87,7 @@ export class Traffic {
     return {
       density: (1 + lap * CFG.LAP_DENSITY_GAIN) * LV.countMul,
       speederFrac: clamp((this.busy ? 0.03 : 0.05) + lap * CFG.LAP_SPEEDER_GAIN, 0, 0.3),
+      chauffardFrac: clamp((this.busy ? 0.035 : 0.05) + lap * 0.015, 0, 0.12),
       motoFrac: clamp(LV.moto + lap * CFG.LAP_MOTO_GAIN, 0, 0.45),
       count: Math.min(Math.round(CFG.NPC_BASE_COUNT * LV.countMul * (1 + lap * CFG.LAP_DENSITY_GAIN) * q * day), Math.round(LV.cap * Math.max(this.quality, 0.75))),
     };
@@ -152,28 +155,34 @@ export class Traffic {
   makeNPC(id, s, extra = {}) {
     const m = CATALOG[id];
     const r = this.rand();
-    const personaKey = SPORT_IDS.includes(id) ? 'presse' : r < 0.18 ? 'presse' : r < 0.32 ? 'dimanche' : 'normal';
-    const persona = PERSONAS[personaKey];
+    // v22 : zigzagueurs — la plupart des fourgons de livraison, quelques chauffards en voiture
+    const zz = !extra.mode && m.kind !== 'moto' && !m.emergency && (m.zz ? this.rand() < 0.8
+      : !HEAVY.includes(id) && m.kind !== 'bus' && this.rand() < this.params().chauffardFrac);
+    const personaKey = zz || SPORT_IDS.includes(id) ? 'presse' : r < 0.18 ? 'presse' : r < 0.32 ? 'dimanche' : 'normal';
+    const persona = zz ? PERSONAS.zigzag : PERSONAS[personaKey];
     const heavy = HEAVY.includes(id);
     const sport = SPORT_IDS.includes(id) || (m.sport && this.rand() < 0.5);
     let v0;
-    if (sport || this.rand() < this.params().speederFrac) v0 = MS(82 + this.rand() * 32);
+    if (zz) v0 = m.zz ? MS(70 + this.rand() * 16) : MS(84 + this.rand() * 30);
+    else if (sport || this.rand() < this.params().speederFrac) v0 = MS(82 + this.rand() * 32);
     else if (heavy) v0 = MS(42 + this.rand() * 10);
     else v0 = MS(44 + this.rand() * 16);
+    if (m.slow) v0 = MS(40 + this.rand() * 8);   // auto-école : prudente
     v0 *= persona.v0;
     // style de freinage : la grande majorité anticipe et freine en douceur ; une minorité
     // freine tard et fort (plus fréquente chez les pressés) ; de rares conducteurs
     // « erratiques » donnent des coups de frein sans raison
     const rb = this.rand();
     const lateP = personaKey === 'presse' ? 0.38 : personaKey === 'dimanche' ? 0.06 : 0.16;
-    const style = rb < 0.035 ? 'erratique' : rb < 0.035 + lateP ? 'tardif' : 'doux';
+    const style = zz ? 'tardif' : m.slow ? 'doux' : rb < 0.035 ? 'erratique' : rb < 0.035 + lateP ? 'tardif' : 'doux';
     return {
+      zz,
       style, b: style === 'tardif' ? 4.2 + this.rand() * 0.8 : style === 'erratique' ? 3.0 : 1.5 + this.rand() * 0.5,
       id, bundle: null, s, v: v0 * 0.9, v0,
       lane: 1, laneFrom: 1, laneTo: 1, laneT: 1, laneDur: persona.dur,
       mode: 'lane', gap: 0, gapFrom: 0, gapTo: 0, gapT: 1,
       len: m.dims[0], wid: m.dims[1], heavy,
-      persona, personaKey, aggro: sport ? 0.85 : personaKey === 'presse' ? 0.75 : this.rand() * 0.55,
+      persona, personaKey, aggro: zz ? 0.97 : m.slow ? 0.1 : sport ? 0.85 : personaKey === 'presse' ? 0.75 : this.rand() * 0.55,
       eligible: !!(m.taxi || id === 'bus' || m.emergency || this.rand() < 0.28), // covoiturage, taxis, bus
       blinker: 0, hazardT: 0, brakeFlash: 0, panicAt: 1500 + this.rand() * 4000,
       yaw: 0, yieldOff: 0, passed: false,
@@ -207,6 +216,7 @@ export class Traffic {
     const nl = this.laneCount(s);
     let lane;
     if (interfile) lane = 0;
+    else if (npc.zz) lane = (this.rand() * 4) | 0;
     else if (npc.v0 > MS(70)) lane = this.rand() < 0.7 ? 0 : 1;
     else if (npc.heavy) lane = this.rand() < 0.65 ? 3 : 2;
     else lane = 1 + ((this.rand() * 3) | 0);
@@ -226,7 +236,18 @@ export class Traffic {
     npc.v = Math.min(npc.v, interfile ? Math.max(lim + MS(15), MS(22)) : lim);
     if (this.collides(npc, npc.lat)) return null;
     npc.bundle = this.acquire(id);
+    if (CATALOG[id].emergency) npc.bundle.sirenOn = false;   // motards en patrouille : feux éteints
     this.npcs.push(npc);
+    // v22 : les motards de la police patrouillent en binôme
+    if (id === 'police_moto' && interfile && !this._pairing) {
+      this._pairing = true;
+      const s2 = wrap(s - 14 - this.rand() * 8, this.track.length);
+      const n2 = this.makeNPC(id, s2);
+      Object.assign(n2, { mode: 'interfile', gap: npc.gap, gapFrom: npc.gap, gapTo: npc.gap, v: npc.v, v0: npc.v0, lane: 0, laneFrom: 0, laneTo: 0 });
+      n2.lat = n2.latT = this.computeLat(n2);
+      if (!this.collides(n2, n2.lat)) { n2.bundle = this.acquire(id); n2.bundle.sirenOn = false; this.npcs.push(n2); }
+      this._pairing = false;
+    }
     return npc;
   }
 
@@ -660,7 +681,7 @@ export class Traffic {
         if (this.gapOK(n, 1, playerObs, 0.8)) this.startLaneChange(n, 1);
       } else if (n.lane > right) {
         if (this.gapOK(n, n.lane - 1, playerObs, 0.6)) this.startLaneChange(n, n.lane - 1);
-      } else if (!(n.blockT > 0) && n.v > 3 && this.rand() < dt * (0.1 + n.aggro * 0.26) * n.persona.lc * (this.busy ? 0.5 : 1)) {
+      } else if (!(n.blockT > 0) && n.v > 3 && this.rand() < dt * (0.1 + n.aggro * 0.26) * n.persona.lc * (this.busy && !n.zz ? 0.5 : 1)) {
         // changements de confort seulement en roulant (jamais dans une file arrêtée)
         this.considerLaneChange(n, leader, gap, playerObs);
       }
@@ -788,6 +809,7 @@ export class Traffic {
 
   considerLaneChange(n, leader, gap, playerObs) {
     const right = this.rightLane(n.s);
+    if (n.zz) { this.zigzag(n, leader, gap, playerObs, right); return; }
     const wantFaster = leader && gap < 45 && leader.v < n.v0 * 0.82;
     const wantLeft = n.aggro > 0.7 && n.lane > 0;
     const wantRight = n.aggro < 0.3 && n.lane < right && this.rand() < 0.3;
@@ -821,6 +843,32 @@ export class Traffic {
         this.startLaneChange(n, target);
         return;
       }
+    }
+  }
+
+  // v22 : zigzagueur — dès qu'il est gêné, il déboîte du côté qui avance le mieux (à droite aussi),
+  // accepte des créneaux courts et se rabattra sec devant celui qu'il vient de dépasser
+  zigzag(n, leader, gap, playerObs, right) {
+    if (n.exitPlan) return;
+    const here = leader && gap < 80 ? Math.min(leader.v, n.v0) : n.v0;
+    if (!(leader && gap < 70 && leader.v < n.v0 * 0.95)) return;
+    let best = null;
+    for (const target of [n.lane - 1, n.lane + 1]) {
+      if (target < 0 || target > right) continue;
+      if (this.reserved && target === 0 && !n.eligible) continue;
+      if (this.laneClosedAt(n.s, target, 120)) continue;
+      const tl = this.laneLeader(n, target, playerObs);
+      const there = tl && tl.gap < 70 ? Math.min(tl.o.v, n.v0) : n.v0;
+      if (there - here < 0.3 && !(tl && tl.gap > gap + 12)) continue;
+      if (tl && tl.gap < Math.max(6, n.v * 0.7)) continue;
+      const score = there + (target < n.lane ? 0.4 : 0) + this.rand() * 0.8;
+      if (!best || score > best.score) best = { target, score };
+    }
+    if (best && this.gapOK(n, best.target, playerObs, n.persona.accept)) {
+      n.laneDur = n.persona.dur * (0.85 + this.rand() * 0.3);
+      this.startLaneChange(n, best.target);
+      n.signalT = this.rand() < 0.5 ? 0.05 : 0.25;   // clignotant au dernier moment… ou pas du tout
+      if (this.rand() < 0.35) n.blinker = 0;
     }
   }
 

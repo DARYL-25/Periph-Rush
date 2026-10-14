@@ -61,7 +61,7 @@ export const CATALOG = {
   odyssee: { name: 'Odyssée', kind: 'mono', dims: [4.55, 1.84, 1.68], wb: 2.80, wr: 0.32, plateR: 0.61, plateF: 0.52, brakeY: 1.08,
     cols: [P.argent, P.bleuNuit, P.beige, ...commonCols], w: 4 },
   cargo: { name: 'Cargo', kind: 'van', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
-    cols: [P.blancVan, P.blancVan, P.blancVan, P.grisF, P.jaune], w: 6 },
+    cols: [P.blancVan, P.blancVan, P.blancVan, P.grisF, P.jaune], w: 4.5 },
   furia: { name: 'Furia', kind: 'fastback', dims: [4.75, 1.88, 1.40], wb: 2.85, wr: 0.335, plateR: 0.56, plateF: 0.36, brakeY: 0.90, sport: 1,
     cols: [P.noir, P.argent, P.rougeVif, P.bleuNuit], w: 0.45 },
   clio4:  { name: 'Clio 4', kind: 'hatch', dims: [4.06, 1.73, 1.45], wb: 2.59, wr: 0.30,
@@ -232,21 +232,50 @@ export const CATALOG = {
   roadster: { glbId: 'm_road', name: 'Roadster', kind: 'moto', dims: [2.1, 0.8, 1.42], wb: 1.45, wr: 0.31, moto: 'naked',
     cols: [P.rougeVif, P.noir, P.grisF, P.bleu], w: 3 },
   semi: { name: 'Poids lourd', kind: 'semi', dims: [16.5, 2.55, 3.95], wb: 3.8, wr: 0.5,
-    cols: [P.blanc, P.bleuF, P.rouge, P.grisF, P.vertF, P.blancVan], w: 1.6 },
+    cols: [P.blanc, P.bleuF, P.rouge, P.grisF, P.vertF, P.blancVan], w: 1.2 },
+  // v22 : porte-voitures, citerne, frigorifique
+  semi_pv: { name: 'Porte-voitures', kind: 'semi', trailer: 'carrier', dims: [16.5, 2.55, 3.95], wb: 3.8, wr: 0.5,
+    cols: [P.blanc, P.rouge, P.bleuF], w: 0.4 },
+  semi_cit: { name: 'Citerne', kind: 'semi', trailer: 'tanker', dims: [14.5, 2.55, 3.6], wb: 3.8, wr: 0.5,
+    cols: [P.blanc, P.rouge, P.vertF], w: 0.3 },
+  semi_frigo: { name: 'Frigorifique', kind: 'semi', trailer: 'frigo', dims: [16.5, 2.55, 4.0], wb: 3.8, wr: 0.5,
+    cols: [P.blanc, P.bleuF, P.grisF], w: 0.5 },
   scooter_liv: { glbId: 'm_livreur', name: 'Scooter livraison', kind: 'moto', dims: [1.95, 0.72, 1.32], wb: 1.35, wr: 0.22, moto: 'scooter', topbox: true,
     cols: [P.noir, P.blanc, P.grisF, P.rouge], w: 2.6 },
-  // v19 : Police nationale (berline sérigraphiée) et CRS (fourgon) — tools/blender/police_build.py
-  police: { name: 'Police nationale', kind: 'sedan', glbId: 'police_pn', dims: [4.68, 1.82, 1.46], wb: 2.76, wr: 0.32, plateR: 0.61, plateF: 0.40, brakeY: 0.93,
-    cols: [0xf3f4f6], w: 0, emergency: 'police', beacon: { x: -0.15, y: 1.50, z: 0.3 } },
+  // v22 : Police nationale — SUV compact gris, livrée 2020 (flèches bleue / rouge, POLICE) — tools/blender/v22_build.py
+  police: { name: 'Police nationale', kind: 'suv', glbId: 'police_pn', dims: [4.54, 1.89, 1.64], wb: 2.74, wr: 0.36, plateR: 0.68, plateF: 0.55, brakeY: 1.10,
+    cols: [0x8e9398], w: 0, emergency: 'police', beacon: { x: -0.22, y: 1.69, z: 0.36 } },
   // v21 : fourgon d'intervention / de balisage (livrée réglementaire, sans logo) — tools/blender/patrol_build.py
   patrouilleur: { name: 'Fourgon d\'intervention', kind: 'van', glbId: 'patrol_van', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
     cols: [0xd5e81e], w: 0 },
-  police_moto: { glbId: 'm_police', name: 'Motard de police', kind: 'moto', dims: [2.25, 0.95, 1.5], wb: 1.53, wr: 0.33, moto: 'adv',
-    cols: [0xf2f3f5], w: 0, emergency: 'police', beacon: { x: 0.70, y: 1.02, z: 0.13 } },
-  crs: { name: 'CRS', kind: 'van', glbId: 'crs_van', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
-    cols: [0x1c2954], w: 0, emergency: 'police', beacon: { x: 0.95, y: 1.935, z: 0.33 } },
-  samu: { name: 'SAMU', kind: 'van', glbId: 'cargo', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
-    cols: [0xeef0f2], w: 0, emergency: 'samu' },
+  // v22 : motard de la Police nationale (grande routière carénée blanche) ; patrouille en binôme en interfile
+  police_moto: { glbId: 'm_police', name: 'Motard de police', kind: 'moto', dims: [2.3, 0.98, 1.55], wb: 1.50, wr: 0.32, moto: 'adv',
+    cols: [0xf2f3f5], w: 0.18, emergency: 'police', beacon: { x: 0.86, y: 0.98, z: 0.24 } },
+  // v22 : CRS — fourgon tôlé à toit haut bleu nuit, grilles, pare-buffle
+  crs: { name: 'CRS', kind: 'van', glbId: 'crs_van', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0x141d3d], w: 0, emergency: 'police', beacon: { x: 1.18, y: 2.29, z: 0.42 } },
+  // v22 : SAMU — ambulance (UMH) à toit haut et véhicule léger SMUR (livrée SMUR : jaune, damier jaune / vert)
+  samu: { name: 'SAMU', kind: 'van', glbId: 'samu_umh', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0xf0d21a], w: 0, emergency: 'samu', beacon: { x: 1.18, y: 2.29, z: 0.42 } },
+  smur: { name: 'SMUR', kind: 'suv', glbId: 'smur_vl', dims: [4.54, 1.89, 1.64], wb: 2.74, wr: 0.36, plateR: 0.68, plateF: 0.55, brakeY: 1.10,
+    cols: [0xf0d21a], w: 0, emergency: 'samu', beacon: { x: -0.22, y: 1.69, z: 0.36 } },
+  // v22 : livraison (fourgons rapides qui zigzaguent) et utilitaires de sociétés — sans nom ni logo de marque
+  livr_bleu: { name: 'Livraison (bleu nuit)', kind: 'van', glbId: 'livr_bleu', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0x172033], w: 2.2, zz: true },
+  livr_expr: { name: 'Messagerie express', kind: 'van', glbId: 'livr_expr', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0xe6e8ea], w: 1.6, zz: true },
+  pro_plomb: { name: 'Plombier', kind: 'van', glbId: 'pro_plomb', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
+    cols: [0xe6e8ea], w: 0.9 },
+  pro_elec: { name: 'Électricien', kind: 'van', glbId: 'pro_elec', dims: [5.00, 1.92, 1.95], wb: 3.10, wr: 0.33, plateR: 0.54, plateF: 0.55, brakeY: 1.00,
+    cols: [0xe6e8ea], w: 0.9 },
+  pro_btp: { name: 'Travaux publics', kind: 'van', glbId: 'pro_btp', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0xf07a12], w: 0.6 },
+  pro_loc: { name: 'Utilitaire de location', kind: 'van', glbId: 'pro_loc', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0xe6e8ea], w: 1.0 },
+  pro_demen: { name: 'Déménageur', kind: 'van', glbId: 'pro_demen', dims: [5.6, 1.92, 2.3], wb: 3.47, wr: 0.33, plateR: 0.5, plateF: 0.55, brakeY: 1.0,
+    cols: [0xe6e8ea], w: 0.5 },
+  auto_ecole: { name: 'Auto-école', kind: 'hatch', glbId: 'auto_ecole', dims: [3.85, 1.70, 1.52], wb: 2.46, wr: 0.30, plateR: 0.56, plateF: 0.53, brakeY: 0.98,
+    cols: [0xdadcdf], w: 0.7, slow: true },
   pompiers: { name: 'Pompiers', kind: 'box', dims: [6.6, 2.3, 2.95], wb: 3.7, wr: 0.42,
     cols: [0xb3121a], w: 0, emergency: 'pompiers', stripe: true, stripeCol: 0xe8eaed },
 };
@@ -920,9 +949,35 @@ export class VehicleFactory {
     box(paint, cabL * 0.8, 0.5, W * 0.9, { x: fx - cabL * 0.55, y: cabH + 0.2 }); // déflecteur
     // châssis + remorque
     box(det, L - 0.4, 0.3, W * 0.6, { x: 0, y: 0.95 }, 0x1d1f22);
-    const trL = L - cabL - 0.6, trH = H - 1.25;
-    box(det, trL, trH, W, { x: -L / 2 + trL / 2, y: 1.25 + trH / 2 }, 0xd9dcdf);
-    box(det, trL, 0.1, W + 0.02, { x: -L / 2 + trL / 2, y: 1.28 }, 0x6a7076);
+    const trL = L - cabL - 0.6, trH = H - 1.25, tx = -L / 2 + trL / 2;
+    if (m.trailer === 'carrier') {
+      // v22 : porte-voitures — deux plateaux ajourés chargés de voitures neuves (silhouettes simples)
+      for (const [y, cnt] of [[1.0, 4], [2.45, 4]]) {
+        box(det, trL, 0.08, W, { x: tx, y }, 0x3a3f45);
+        for (const sd of [-1, 1]) box(det, trL, 0.06, 0.06, { x: tx, y: y + 0.45, z: sd * (W / 2 - 0.03) }, 0x8a9096);
+        const cc = [0xe8eaed, 0x1e2126, 0x9aa0a6, 0xa3282e, 0x25344d, 0xc3c7cc];
+        for (let k = 0; k < cnt; k++) {
+          const cx = -L / 2 + 1.0 + k * (trL - 1.2) / cnt + 1.6;
+          const col = cc[(k * 3 + (y > 2 ? 1 : 0)) % cc.length];
+          box(det, 3.6, 0.55, W * 0.82, { x: cx, y: y + 0.38 }, col);
+          box(det, 1.9, 0.48, W * 0.74, { x: cx - 0.2, y: y + 0.88 }, col);
+          box(det, 1.92, 0.36, W * 0.76, { x: cx - 0.2, y: y + 0.86 }, 0x1a222c);
+        }
+      }
+      for (const dx of [0.2, trL / 2, trL - 0.2]) for (const sd of [-1, 1]) box(det, 0.12, 2.6, 0.12, { x: -L / 2 + dx, y: 2.05, z: sd * (W / 2 - 0.06) }, 0x3a3f45);
+    } else if (m.trailer === 'tanker') {
+      // citerne inox (carburant) : fût cylindrique, passerelle, losanges de danger
+      const tank = xform(new T.CylinderGeometry(1.15, 1.15, trL - 0.3, cheap ? 10 : 20), { x: tx, y: 2.3, rz: Math.PI / 2 });
+      bright.push(tank);
+      box(det, trL - 0.6, 0.06, 0.6, { x: tx, y: 3.48 }, 0x5a6066);
+      box(det, 0.04, 0.42, 0.42, { x: -L / 2 + 0.12, y: 2.0, rx: Math.PI / 4 }, 0xf08a12);
+      box(det, 0.5, 0.35, 0.03, { x: tx, y: 1.5, z: W / 2 }, 0xf08a12);
+      box(det, trL, 0.35, W, { x: tx, y: 1.2 }, 0x24262a);
+    } else {
+      box(det, trL, trH, W, { x: tx, y: 1.25 + trH / 2 }, m.trailer === 'frigo' ? 0xf1f3f4 : 0xd9dcdf);
+      box(det, trL, 0.1, W + 0.02, { x: tx, y: 1.28 }, 0x6a7076);
+      if (m.trailer === 'frigo') box(det, 0.35, 1.3, W * 0.8, { x: -L / 2 + trL + 0.18, y: 2.75 }, 0x2a2d31); // groupe froid
+    }
     // roues : 2 essieux tracteur, 3 essieux remorque
     const axles = [fx - 0.9, fx - cabL - 1.2, -L / 2 + 1.0, -L / 2 + 2.35, -L / 2 + 3.7];
     const wl = [];

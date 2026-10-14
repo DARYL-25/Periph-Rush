@@ -233,6 +233,8 @@ def rider(R, pal):
     cyl('Neck', sh, neck + up * 0.05, 0.055, 'det', jacket, verts=10)
     head = neck + up * 0.16 + Vector((0.03, 0, 0))
     sph('Helmet', head, 0.155, 'det', helmet, scale=(1.08, 0.92, 1.0), seg=18)
+    if pal.get('band'):   # bandeau de casque (police)
+        sph('HelmetBand', head + Vector((0, 0, 0.02)), 0.158, 'det', pal['band'], scale=(1.08, 0.93, 0.28), seg=18)
     # visière fumée + mentonnière
     sph('Visor', head + Vector((0.07, 0, 0.005)), 0.125, 'glass', scale=(0.75, 0.9, 0.55), seg=14)
     box('Chin', head + Vector((0.11, 0, -0.08)), (0.09, 0.18, 0.07), 'det', helmet, bevel=0.025)
@@ -283,6 +285,8 @@ def bars(D, head):
     for s in (1, -1):
         cyl('Grip', (gx - 0.02, s * (gh - 0.12), gz), (gx - 0.02, s * (gh + 0.01), gz), 0.019, 'det', 0x111214, verts=10)
         cyl('Lever', (gx, s * (gh - 0.14), gz + 0.01), (gx + 0.06, s * (gh - 0.02), gz + 0.0), 0.006, 'bright', verts=6)
+        if D.get('noMirrors'):
+            continue
         # rétroviseurs
         m0 = Vector((gx - 0.04, s * (gh - 0.1), gz))
         m1 = m0 + Vector((-0.04, s * 0.06, 0.24))
@@ -423,6 +427,51 @@ def build_trail(D):
     wheel('WheelR', -WB / 2, RR, D['tireR'], 'spoke', brake=False)
 
 
+def build_tour(D):
+    """v22 : grande routière de police carénée (design générique) : carénage intégral enveloppant,
+    haute bulle, valises intégrées, coffre radio arrière à mât lumineux, arceaux de protection"""
+    WB, RF, RR = D['WB'], D['RF'], D['RR']
+    head, axis = fork(D)
+    # garde-boue avant enveloppant
+    loft('FenderF', [(WB / 2 + 0.25, RF + 0.04, 0.02, 0.075, 2), (WB / 2 + 0.06, RF + 0.11, 0.03, 0.085, 2.2), (WB / 2 - 0.17, RF + 0.05, 0.02, 0.075, 2)], 'paint', n=10, sub=0)
+    # carénage avant : nez bas, flancs larges (protection des jambes), têtes de rétros intégrées
+    loft('Fairing', [(0.92, 0.86, 0.06, 0.10, 2.2), (0.86, 0.90, 0.17, 0.24, 2.6), (0.74, 0.92, 0.25, 0.36, 3.0),
+                     (0.58, 0.90, 0.30, 0.42, 3.2), (0.44, 0.84, 0.30, 0.40, 3.2), (0.32, 0.78, 0.24, 0.30, 3.0)], 'paint', n=18, sub=1)
+    # carénage inférieur (sabot + flancs moteur)
+    loft('LowerFairing', [(0.52, 0.52, 0.16, 0.30, 3), (0.30, 0.46, 0.18, 0.34, 3.2), (0.05, 0.46, 0.16, 0.30, 3), (-0.12, 0.50, 0.12, 0.2, 2.6)], 'paint', n=16, sub=1)
+    # optiques : bloc phare large + feux de croisement en amande
+    for s in (1, -1):
+        box('HeadLight', (0.905, s * 0.10, 0.92), (0.03, 0.13, 0.06), 'lensF', rot=(s * 0.25, 0.45, 0), bevel=0.012)
+    box('HeadCenter', (0.925, 0, 0.86), (0.03, 0.12, 0.05), 'lensF', rot=(0, 0.45, 0), bevel=0.01)
+    # haute bulle (pare-brise) inclinée
+    loft('Screen', [(0.80, 1.10, 0.008, 0.20, 2.6), (0.72, 1.26, 0.008, 0.22, 2.6), (0.62, 1.42, 0.008, 0.20, 2.4), (0.56, 1.50, 0.008, 0.16, 2.2)], 'glass', n=10, sub=0)
+    # rétroviseurs intégrés au carénage (avec clignotants)
+    for s in (1, -1):
+        box('MirrorPod', (0.60, s * 0.44, 1.02), (0.16, 0.12, 0.09), 'paint', bevel=0.03)
+        box('MirrorGlassT', (0.53, s * 0.45, 1.02), (0.01, 0.11, 0.075), 'bright')
+        box('Blink', (0.66, s * 0.48, 1.0), (0.05, 0.03, 0.025), 'lensF', bevel=0.008)
+    # réservoir / dessus de carrosserie
+    loft('Tank', [(0.36, 0.96, 0.08, 0.16, 2.4), (0.20, 1.00, 0.11, 0.21, 2.8), (0.02, 0.98, 0.11, 0.21, 2.8), (-0.12, 0.94, 0.08, 0.16, 2.4)], 'paint', n=16, sub=1)
+    # moteur visible sous le carénage + échappement
+    box('Engine', (0.12, 0, 0.40), (0.34, 0.30, 0.22), 'det', 0x2b2d31, bevel=0.03)
+    tube('Header', [(0.30, -0.08, 0.36), (0.22, -0.12, 0.24), (-0.05, -0.16, 0.24), (-0.32, -0.20, 0.36)], 0.028, 'bright')
+    cyl('Muffler', (-0.28, -0.22, 0.36), (-0.66, -0.24, 0.50), 0.065, 'bright', verts=12)
+    # arceaux de protection (avant, à hauteur des jambes, et arrière sous les valises)
+    for s in (1, -1):
+        tube('CrashBarF', [(0.50, s * 0.20, 0.82), (0.52, s * 0.42, 0.66), (0.42, s * 0.44, 0.42), (0.24, s * 0.30, 0.32)], 0.016, 'bright')
+        tube('CrashBarR', [(-0.30, s * 0.30, 0.48), (-0.40, s * 0.50, 0.48), (-0.82, s * 0.50, 0.46), (-0.90, s * 0.32, 0.44)], 0.015, 'bright')
+    for s in (1, -1):
+        cyl('Swingarm', (-0.12, s * 0.1, 0.48), (-WB / 2, s * 0.1, RR), 0.035, 'det', 0x2a2c30, verts=8)
+    # selle pilote / passager
+    loft('Seat', [(-0.10, 0.92, 0.04, 0.17, 2.8), (-0.32, 0.90, 0.05, 0.19, 3), (-0.52, 0.95, 0.05, 0.17, 3), (-0.70, 0.98, 0.04, 0.13, 2.6)], 'det', 0x141517, n=12, sub=1)
+    loft('Tail', [(-0.45, 0.84, 0.08, 0.17, 2.6), (-0.75, 0.88, 0.08, 0.16, 2.6), (-0.95, 0.90, 0.06, 0.12, 2.4)], 'paint', n=12, sub=1)
+    box('TailLight', (-0.97, 0, 0.88), (0.03, 0.18, 0.04), 'lensR', bevel=0.008)
+    plate_and_tail(-1.0, 0.60, 0.16)
+    bars(D, head)
+    wheel('WheelF', WB / 2, RF, D['tireF'], 'cast')
+    wheel('WheelR', -WB / 2, RR, D['tireR'], 'cast', brake=False)
+
+
 DESIGNS = {
     # maxi-scooter : selle basse, pieds en avant sur le plancher
     'm_maxi': dict(kind='maxi', WB=1.58, RF=0.30, RR=0.29, tireF=0.12, tireR=0.16, rake=26, forkL=0.66,
@@ -446,22 +495,39 @@ DESIGNS = {
                       R=dict(seat=(-0.2, 0.72), lean=0.1, grip=(0.40, 1.0, 0.33), foot=(0.2, 0.46, 0.15), knee=(1.0, 0.3, 0.7)),
                       pal=dict(jacket=0x1fa89c, pants=0x22252b, helmet=0x15161a)),
     # v20 : motard de la Police nationale (moto routière blanche, valises, feux bleus) — design générique
-    'm_police': dict(kind='trail', WB=1.53, RF=0.33, RR=0.33, tireF=0.12, tireR=0.17, rake=26, forkL=0.78,
-                     grip=(0.40, 1.16, 0.4), paint=(0.92, 0.93, 0.94), police=True,
-                     R=dict(seat=(-0.32, 0.86), lean=0.12, grip=(0.40, 1.16, 0.4), foot=(-0.04, 0.44, 0.2), knee=(1.0, 0.35, 0.4)),
-                     pal=dict(jacket=0x1b2547, pants=0x1b2547, helmet=0xf2f3f5)),
+    # v22 : motard de la Police nationale — grande routière carénée blanche (design générique)
+    'm_police': dict(kind='tour', WB=1.50, RF=0.32, RR=0.32, tireF=0.12, tireR=0.18, rake=26, forkL=0.74,
+                     grip=(0.36, 1.12, 0.36), paint=(0.92, 0.93, 0.94), police=True, noMirrors=True,
+                     R=dict(seat=(-0.30, 0.90), lean=0.06, grip=(0.36, 1.12, 0.36), foot=(0.02, 0.46, 0.22), knee=(1.0, 0.35, 0.5)),
+                     pal=dict(jacket=0x1b2547, pants=0x1b2547, helmet=0xf2f3f5, band=0x1f3f9a)),
 }
 
 
 def police_kit():
-    # valises latérales, top-case, feux bleus avant / arrière, bande bleue
+    """v22 : équipement et sérigraphie Police nationale (moto blanche, bandes bleues,
+    POLICE sur les valises et le carénage, feux bleus avant, coffre radio à mât lumineux)"""
+    import lettering as LT
+    BLUE, NAVY, LENS = 0x1f3f9a, 0x1a2550, 0x2a5cff
     for sd in (1, -1):
-        box(f'Pannier{sd}', (-0.58, sd * 0.31, 0.62), (0.52, 0.17, 0.36), 'det', 0xeef0f2, bevel=0.03)
-        box(f'PannierBand{sd}', (-0.58, sd * 0.397, 0.62), (0.5, 0.01, 0.07), 'det', 0x1e3a8a)
-        box(f'BlueF{sd}', (0.70, sd * 0.13, 1.02), (0.05, 0.07, 0.05), 'det', 0x2a5cff)
-    box('TopCase', (-0.78, 0, 0.98), (0.36, 0.38, 0.26), 'det', 0xeef0f2, bevel=0.03)
-    box('BlueR', (-0.80, 0, 1.16), (0.12, 0.2, 0.06), 'det', 0x2a5cff)
-    box('Screen', (0.56, 0, 1.24), (0.04, 0.42, 0.34), 'det', 0x9aa6b2, rot=(0, -0.35, 0))
+        box(f'Pannier{sd}', (-0.62, sd * 0.36, 0.64), (0.56, 0.20, 0.40), 'det', 0xeef0f2, bevel=0.04)
+        box(f'PannierBand{sd}', (-0.62, sd * 0.462, 0.56), (0.54, 0.008, 0.07), 'det', BLUE)
+        box(f'PannierRed{sd}', (-0.62, sd * 0.463, 0.61), (0.54, 0.008, 0.018), 'det', 0xd0202e)
+        LT.flat_text(f'PannierTxt{sd}', 'POLICE', (-0.62, sd * 0.468, 0.72), (-sd, 0, 0), (0, 0, 1), 0.075, NAVY)
+        # bandeau bleu + POLICE sur le flanc de carénage
+        box(f'FairBand{sd}', (0.62, sd * 0.425, 0.70), (0.34, 0.008, 0.05), 'det', BLUE)
+        LT.flat_text(f'FairTxt{sd}', 'POLICE', (0.60, sd * 0.43, 0.82), (-sd, 0, 0), (0, 0, 1), 0.06, NAVY)
+        # feux bleus à éclats encastrés dans le carénage (de part et d'autre du phare) et sur les arceaux
+        box(f'BlueF{sd}', (0.86, sd * 0.24, 0.98), (0.04, 0.07, 0.045), 'det', LENS)
+        box(f'BlueBar{sd}', (0.53, sd * 0.43, 0.58), (0.05, 0.04, 0.06), 'det', LENS)
+    # coffre radio arrière + mât à gyrophare bleu
+    box('TopCase', (-0.86, 0, 1.06), (0.36, 0.40, 0.30), 'det', 0xeef0f2, bevel=0.03)
+    box('TopBand', (-0.86, 0, 1.0), (0.37, 0.41, 0.05), 'det', BLUE)
+    cyl('Mast', (-0.92, 0, 1.2), (-0.92, 0, 1.46), 0.012, 'det', 0x2a2c30, verts=6)
+    box('MastLight', (-0.92, 0, 1.50), (0.09, 0.09, 0.08), 'det', LENS, bevel=0.01)
+    # antenne radio
+    cyl('Antenna', (-0.96, 0.15, 1.2), (-1.0, 0.16, 1.85), 0.005, 'det', 0x111214, verts=5)
+    # gilet / brassards réfléchissants du motard : bandes claires sur les bras et le dos
+    box('VestBack', (-0.36, 0, 1.30), (0.04, 0.34, 0.06), 'det', 0xd9dde2)
 
 
 def build(vid):
@@ -473,6 +539,8 @@ def build(vid):
         build_maxi(D, scoot=D['kind'] == 'scoot')
     elif D['kind'] == 'road':
         build_roadster(D)
+    elif D['kind'] == 'tour':
+        build_tour(D)
     else:
         build_trail(D)
     rider(D['R'], D['pal'])

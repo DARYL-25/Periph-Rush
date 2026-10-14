@@ -148,31 +148,64 @@ class Ramps {
   }
   // demi-épaisseur de la séparation (DBA / mur) entre chaussée et bretelle
   get SEPW() { return 0.25; }
-  // v17 : butée latérale droite du gabarit (centre véhicule de demi-largeur half) sur la chaussée
-  // principale — partagée par le joueur et le contrôle de gabarit (tools/clearscan.py)
+  // v22 : dispositif de retenue réellement construit en rive droite (cf. buildSide) au droit de s :
+  //   R : bord extérieur roulable (chaussée + bretelles accolées), face : nu du dispositif côté
+  //   chaussée, c : marge centre-véhicule (demi-largeur « gabarit » half = largeur/2 − 0,18) →
+  //   butée = R + c − half. DBA : talon à R+0,55, le pneu vient lécher le talon ;
+  //   glissière en W : lisse à R+0,70 (la carrosserie la touche) ; parapet de viaduc vertical R+0,60.
+  barrier(s, hMain = this.track.elevationAt(s), list = this.at(s, hMain)) {
+    const t = this.track, Em = t.mainEdgeAt(s);
+    let R = Em, RH = hMain;
+    for (const o of list) if (Em + o.gap + o.w >= R) { R = Em + o.gap + o.w; RH = o.hr; }
+    const cover = !!t.coverAt(s);
+    const via = !!t.onViaduct(s) && hMain > 2 && RH > 2;
+    const trench = RH < -0.35 || cover;
+    let kind = 'dba';
+    if (!trench && via) kind = 'parapet';
+    else if (!trench) {
+      const sv = t.survey ? t.survey.side(s, 1) : null;
+      const scr = sv ? (sv.screen || (sv.wall === 'talus' ? 'talus' : 'grilleVerte')) : null;
+      if (scr === 'glissiere') kind = 'glissiere';
+    }
+    const off = { dba: 0.55, glissiere: 0.70, parapet: 0.60 }[kind];
+    const c = { dba: 0.40, glissiere: 0.44, parapet: 0.34 }[kind];   // ≈ 5 cm de garde (tolérance du maillage par rangées de 5 m)
+    return { R, RH, kind, face: R + off, c };
+  }
+  // v22 : butée latérale droite du gabarit sur la chaussée principale — partagée par le joueur, les
+  // événements et le contrôle de gabarit (tools/clearscan.py). Plus de mur invisible : on roule sur
+  // la bande dérasée / BAU jusqu'au dispositif de retenue réel, ou jusqu'à la séparation d'une
+  // bretelle divergente (DBA en pied de talus ou mur) ; le musoir peint (zébras) est franchissable.
   mainMax(s, half, hMain = this.track.elevationAt(s)) {
     const Em = this.track.mainEdgeAt(s);
-    const base = Em + this.parallelWidth(s, hMain) - 0.72;
     const list = this.at(s, hMain);
-    let ext = base, cap = Infinity;
+    const B = this.barrier(s, hMain, list);
+    let lim = B.R + B.c - half;
     for (const o of list) {
-      if (o.parallel) continue;
-      if (o.g < 1.3) { ext = Math.max(ext, Em + o.gap + o.w - half); continue; }
-      // la séparation la plus proche gouverne (DBA/mur), bande d'arrêt du musoir limitée à 1 m
+      if (o.parallel || o.g < 1.3) continue;
       const sep = this.sepOff(o, s, hMain, list);
       if (sep == null) continue;
-      const face = this.talusSep(o, s, hMain, list) ? sep : sep - this.SEPW;
-      cap = Math.min(cap, Em + face - 0.12 - half);
+      // DBA de pied de talus (talon à sep) ou mur vertical épais (nu à sep − SEPW)
+      const c = this.talusSep(o, s, hMain, list) ? sep - 0.15 : sep - this.SEPW - 0.35;
+      lim = Math.min(lim, Em + c - half);
     }
-    if (cap < Infinity) ext = Math.max(ext, Math.min(cap, base + 1.0));
-    return Math.max(base, Math.min(ext, cap));
+    return Math.max(lim, Em - 0.72);
+  }
+  // v22 : butée gauche (DBA du TPC, éventuellement élargi) : talon de la DBA à mh + 0,31
+  medianHalfAt(s) {
+    let k = 0;
+    const sv = this.track.survey;
+    if (sv) for (const ds of [-36, -24, -12, 0, 12, 24, 36]) k += sv.wideMedian(s + ds) ? 1 : 0;
+    return 0.8 * smoothstep(0, 1, k / 7);
+  }
+  mainMin(s, half) {
+    return this.medianHalfAt(s) + 0.31 + 0.27 + half;   // pneu ~ 15 cm du talon (supports de panneaux sur le TPC)
   }
   // butée gauche sur une bretelle séparée (joueur engagé sur la bretelle)
   rampMin(o, s, hMain, half) {
     const Em = this.track.mainEdgeAt(s);
     const sep = this.sepOff(o, s, hMain);
     if (sep == null) return -Infinity;
-    // bande dérasée côté musoir limitée à 0,6 m : on ne roule pas dans l'interstice
+    // bande dérasée côté musoir limitée à 0,6 m : on ne roule pas dans l'interstice (remblais, murs)
     return Em + (this.talusSep(o, s, hMain) ? o.gap - 0.35 : Math.max(sep + this.SEPW, o.gap - 0.6)) + 0.12 + half;
   }
   // bord extérieur de tout ce qui est roulable à droite (chaussée + bretelles) — r.R des rangées
@@ -564,6 +597,7 @@ export class World {
     this.buildPaint(ctx);
     this.buildMedian(ctx);
     for (const side of [1, -1]) this.buildSide(ctx, side);
+    this.buildShoulder(ctx);
     this.buildRampStructures(ctx);
     this.buildCovers(ctx);
     this.buildViaductUnderside(ctx);
@@ -638,7 +672,8 @@ export class World {
         const E = side > 0 ? r.Em : r.Lft;
         const ids = [];
         const pts = cols.map(([x, k]) => (x < E - 0.25 ? [x, k] : [E, 0.97]));
-        pts.push([E, 0.97], [E + (r.viaduct ? 1.0 : 1.3), 0.86]);
+        // v22 : bande dérasée / BAU : enrobé plus mat, salissures et gravillons accumulés au pied du dispositif
+        pts.push([E, 0.97], [E + 0.3, 0.9], [E + 0.5, 0.74], [E + (r.viaduct ? 1.0 : 1.3), 0.7]);
         for (const [x, k] of pts) {
           const lat = side * x;
           const p = P(r, lat, r.h);
@@ -1002,6 +1037,46 @@ export class World {
       }
       if (prev) for (let k = 0; k < ids.length - 1; k++) B.ground.quad(prev[k], prev[k + 1], ids[k + 1], ids[k]);
       prev = ids;
+    }
+  }
+
+  // ---------- v22 : bande d'arrêt d'urgence / bande dérasée de droite ----------
+  // Ce qu'on y voit vraiment : débris de pneus éclatés, enjoliveurs, bouteilles et cartons,
+  // morceaux de pare-chocs, gravillons ; catadioptres sur la DBA ; tous les ~ 2 km un refuge
+  // marqué par une bordure jaune. Purement visuel (rien qui bloque la roue).
+  buildShoulder(ctx) {
+    const { rows, B } = ctx;
+    const rand = rng(ctx.idx * 7727 + 911);   // tirage propre : ne décale pas le reste du décor
+    const tire = rgb(0x18191b), plast = [rgb(0x2a2c30), rgb(0x6c7076), rgb(0xb8bcc2), rgb(0x8a1f1a), rgb(0x2d4f8a)];
+    const card = rgb(0x9a7b52), bottle = [rgb(0x2f6b3a), rgb(0xd8e4ea), rgb(0x6b3a1e)];
+    const refl = rgb(0xf0f0ea), reflA = rgb(0xe8a01a);
+    for (const side of [1, -1]) {
+      for (const r of rows) {
+        const E = side > 0 ? r.R : r.Lft, H = side > 0 ? r.RH : r.LH;
+        const via = r.viaduct && H > 2;
+        const L = (v) => side * v;
+        // catadioptres sur la DBA / le parapet tous les 10 m (blancs, orange en sortie)
+        if (Math.round(r.s) % 10 === 0) {
+          const off = via ? 0.6 : 0.55 + 0.21;
+          boxAt(B.metal, r, L(E + off - 0.02), H + 0.62, 0.03, 0.06, 0.12, r.ramps.some((o) => !o.parallel) ? reflA : refl);
+        }
+        const u = rand();
+        if (u > 0.38) continue;
+        const lat = E + 0.08 + rand() * 0.4, yaw = rand() * Math.PI;
+        if (u < 0.12) {          // lambeau de bande de roulement (pneu de poids lourd éclaté)
+          const l = 0.35 + rand() * 0.9;
+          boxAt(B.metal, r, L(lat), H + 0.005, 0.12 + rand() * 0.1, 0.025, l, tire, 1, yaw);
+          if (rand() < 0.5) boxAt(B.metal, r, L(lat + 0.1), H + 0.005, 0.08, 0.02, l * 0.5, tire, 1, yaw + 0.6);
+        } else if (u < 0.2) {    // éclat de pare-chocs / enjoliveur
+          if (rand() < 0.5) { const q = P(r, L(lat), H + 0.01); cylinder(B.metal, q[0], q[1], q[2], 0.18, 0.18, 0.02, 10, plast[2]); }
+          else boxAt(B.metal, r, L(lat), H + 0.005, 0.25 + rand() * 0.3, 0.03, 0.12 + rand() * 0.2, plast[(rand() * plast.length) | 0], 1, yaw);
+        } else if (u < 0.3) {    // bouteilles, canettes
+          const n = 1 + ((rand() * 3) | 0);
+          for (let k = 0; k < n; k++) boxAt(B.metal, r, L(lat + (rand() - 0.5) * 0.3), H + 0.005, 0.07, 0.07, 0.24, bottle[(rand() * bottle.length) | 0], 1, rand() * Math.PI);
+        } else {                 // carton aplati, sac plastique
+          boxAt(B.metal, r, L(lat), H + 0.005, 0.3 + rand() * 0.3, 0.012, 0.3 + rand() * 0.4, rand() < 0.6 ? card : plast[2], 1, yaw);
+        }
+      }
     }
   }
 

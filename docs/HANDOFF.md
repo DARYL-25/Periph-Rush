@@ -789,3 +789,34 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
   carré noir) ; panneaux de rive qui ne tiennent pas entre DBA et mur : en potence au-dessus de l'accotement
   (gabarit 5 m) à ciel ouvert, réduits sous couverture — jamais dans le mur.
 - Cache SW `periph-v21`, `?v=21`.
+
+## v22 — services d'urgence et de police revus, livreurs et utilitaires, chauffards, BAU sans murs invisibles
+- **Livrées** (`tools/blender/v22_build.py` + `lettering.py`, police bâton 5×7 projetée sur la caisse, couleurs en
+  sommets) — caisses originales du parc, aucun logo ni nom de marque :
+  - `police_pn` : SUV compact gris à pavillon fuyant (nouvelle caisse `SUV`, 4,54 m), livrée Police nationale 2020 :
+    flèche bleue (avant) et rouge (arrière) encadrant un écusson générique, POLICE bleu marine sur les portes et le
+    capot, pointillés rétroréfléchissants au-dessus des poignées, POLICE + 17 au hayon, rampe LED bleue, feux bleus
+    dans la calandre ;
+  - `crs_van` : fourgon tôlé à toit haut bleu nuit, POLICE blanc, filet tricolore, CRS, grilles de vitres, grille de
+    pare-brise relevée, pare-buffle, rampe + haut-parleurs ;
+  - `samu_umh` (ambulance) et `smur_vl` (véhicule léger) : livrée SMUR (arrêté du 13 avril 2026) — caisse jaune,
+    damier jaune / vert, SAMU 75 / SMUR en bleu, logogramme 15, chevrons jaune / rouge, SAMU 75 sur le toit ;
+  - `m_police` (`moto_build.py`, type `tour`) : grande routière carénée blanche, bulle haute, valises et coffre radio
+    à mât lumineux, bandes bleues, POLICE, feux bleus ; motard en blouson bleu nuit, casque blanc à bandeau bleu.
+    Les motards patrouillent aussi en binôme dans l'interfile (feux éteints, `police_moto` w 0,18) ;
+  - `livr_bleu` (bleu nuit, filet bleu ciel) et `livr_expr` (blanc / bleu marine, diagonales bleu clair) : fourgons
+    de livraison ; `pro_plomb`, `pro_elec` (galerie + échelle), `pro_btp`, `pro_loc`, `pro_demen` : utilitaires de
+    sociétés au lettrage générique ; `auto_ecole` (enseigne de toit, disque A) qui roule prudemment (`slow`).
+  - poids lourds procéduraux : `semi_pv` (porte-voitures chargé), `semi_cit` (citerne), `semi_frigo`.
+- **Zigzagueurs** (`traffic.js`, persona `zigzag`, `n.zz`) : ~80 % des fourgons de livraison (`m.zz`, 70–86 km/h)
+  et `chauffardFrac` des voitures (3,5–5 %, +1,5 pt/tour, 84–114 km/h) ; temps de sécurité 0,5 s, changements de voie
+  en 1,25 s, dépassent à gauche comme à droite (`Traffic.zigzag`), clignotant tardif ou absent.
+- **Rive droite / BAU** (`world.js`, `Ramps.barrier/mainMax/mainMin`) : la butée du joueur suit le dispositif de
+  retenue réellement construit (talon de DBA à R+0,55, lisse de glissière R+0,70, parapet de viaduc R+0,60, ~5 cm de
+  garde) au lieu de « bord de chaussée − 0,72 » ; à gauche, talon de la DBA du TPC (+ largeur du TPC élargi) au lieu de
+  2,02 m fixes ; musoirs peints (zébras) franchissables tant que la séparation physique n'a pas commencé ; séparation
+  bretelle/chaussée = mur réel. `tools/clearscan.py` utilise les mêmes butées (aucune intrusion nouvelle). Décor :
+  enrobé plus sale au pied des DBA, débris (lambeaux de pneus, enjoliveurs, bouteilles, cartons), catadioptres
+  (orange en zone de bretelle). Événements `panne` (véhicule collé à la DBA, triangle, occupants en gilet, parfois
+  dépanneuse) et `controle` (voiture interceptée + police, agents).
+- Cache SW `periph-v22`, `?v=22`.

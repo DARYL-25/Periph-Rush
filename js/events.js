@@ -36,7 +36,7 @@ export class Events {
   get slowZones() {
     // ralentissement : approche du balisage + curiosité au droit d'un accident
     return this.active.filter((e) => e.opened).map((e) => ({
-      s0: wrap(e.s0 - 220, this.track.length), s1: e.s1, v: e.type === 'accident' ? MS(e.phase === 'frais' ? 17 : 22) : MS(28),
+      s0: wrap(e.s0 - 220, this.track.length), s1: e.s1, v: e.type === 'accident' ? MS(e.phase === 'frais' ? 17 : 22) : e.type === 'panne' || e.type === 'controle' ? MS(36) : MS(28),
     }));
   }
   // sens extérieur : on ralentit aussi pour regarder (bouchon de curiosité)
@@ -131,8 +131,11 @@ export class Events {
     // travaux surtout la nuit (fermetures 22 h 30 – 5 h) ; accidents à toute heure, plus fréquents en trafic dense
     const h = this.hour ?? 14, night = h >= 21.5 || h < 5.5;
     const pW = night ? 0.7 : 0.18;
-    const type = this.rand() < pW ? 'travaux' : 'accident';
-    if (type === 'travaux') this.spawnRoadworks(s0);
+    const u = this.rand();
+    // v22 : pannes et contrôles routiers sur la bande dérasée de droite (fréquents de jour)
+    const pP = night ? 0.12 : 0.34;
+    if (u < pP) this.spawnShoulder(s0);
+    else if (u < pP + (1 - pP) * pW) this.spawnRoadworks(s0);
     else this.spawnAccident(s0);
   }
 
@@ -198,6 +201,72 @@ export class Events {
     this.world.setVMSAhead(wrap(s0 - 500, L), ['TRAVAUX', right ? 'VOIE DE DROITE NEUTRALISEE' : 'VOIE DE GAUCHE NEUTRALISEE']);
   }
 
+  // ---------- v22 : véhicule arrêté sur la bande dérasée / BAU de droite --------
+  //  • « panne » : véhicule en détresse à cheval sur la bande dérasée, feux de détresse,
+  //    triangle 30 m en amont, occupants en gilet derrière / contre la DBA, parfois la
+  //    dépanneuse déjà arrivée devant, plateau baissé ;
+  //  • « contrôle » : voiture interceptée suivie de la voiture de police (gyrophares),
+  //    un policier à la portière, un autre qui surveille le trafic.
+  // La voie de droite est neutralisée au droit (le périph n'a presque jamais de vraie BAU).
+  spawnShoulder(s0) {
+    const L = this.track.length, R = this.track.ramps;
+    const kind = this.rand() < 0.55 ? 'panne' : 'controle';
+    const sV = wrap(s0 + 60, L);
+    const B = R ? R.barrier(sV) : { face: ROAD_OUTER - 0.3, R: ROAD_OUTER - 0.9 };
+    const ids = ['lutece', 'mistral', 'aurore', 'concorde', 'riviera', 'atlas', 'odyssee', 'cargo', 'pro_plomb', 'livr_expr', 'auto_ecole'];
+    const id = pick(this.rand, ids);
+    const car = this.factory.build(id, { forPlayer: true, color: this.randColor() });
+    car._own = true;
+    const W = car.ud.W;
+    // collé à la DBA (roues droites sur le talon), donc mordant sur la voie de droite
+    const latV = B.face - 0.12 - W / 2;
+    const len = 90 + this.rand() * 30;
+    const e = this.newEvent(kind === 'panne' ? 'panne' : 'controle', s0, wrap(s0 + len, L), [3]);
+    const cones = [], statics = [];
+    this.placeVehicle(e, car, sV, latV, -0.025);
+    this.hazards(e, car);
+    if (kind === 'panne') {
+      // triangle de présignalisation 30 m en amont, contre la DBA
+      this.warnTriangle(cones, e, wrap(sV - 30, L), B.face - 0.35);
+      const nP = 1 + ((this.rand() * 2) | 0);
+      for (let k = 0; k < nP; k++) {
+        this.addPerson(e, { ...OUTFITS.driver, pose: k === 0 ? 'phone' : pick(this.rand, ['arms', 'stand']) }, sV - 6 - k * 1.6, B.face - 0.25, Math.PI * (0.3 + this.rand() * 0.4));
+      }
+      if (this.rand() < 0.45) {   // dépanneuse arrivée devant, gyrophare orange
+        const tow = this.factory.build('depanneuse', { color: 0xd9b430 });
+        this.placeVehicle(e, tow, wrap(sV + 10, L), B.face - 0.12 - tow.ud.W / 2, -0.02);
+        this.hazards(e, tow);
+        if (tow.beacon) e.strobes.push(tow.beacon);
+        this.addPerson(e, { ...OUTFITS.depanneur, pose: 'point' }, sV + 4, latV - W / 2 - 0.5, -Math.PI / 2);
+      }
+    } else {
+      const pol = this.factory.build(this.rand() < 0.75 ? 'police' : 'crs', {});
+      this.placeVehicle(e, pol, wrap(sV - 9, L), B.face - 0.12 - pol.ud.W / 2 - 0.25, -0.03);
+      this.blueLights(e, pol);
+      this.hazards(e, pol);
+      this.addPerson(e, { ...OUTFITS.policeVest, pose: 'stand' }, sV + 0.6, latV - W / 2 - 0.45, -Math.PI / 2);
+      this.addPerson(e, { ...OUTFITS.policeVest, pose: 'wave' }, sV - 16, latV - 0.6, Math.PI);
+      this.warnTriangle(cones, e, wrap(sV - 34, L), B.face - 0.35);
+    }
+    // quelques cônes en biseau devant le véhicule le plus en amont
+    for (let k = 0; k < 4; k++) this.addCone(cones, e, sV - (kind === 'panne' ? 20 : 26) + k * 4, B.face - 0.3 - k * 0.45);
+    this.finalize(e, cones, statics);
+  }
+
+  // triangle de présignalisation rouge (réfléchissant) posé au sol
+  warnTriangle(cones, e, s, lat) {
+    const T = this.T, p = this._p;
+    this.track.pointAt(s, p);
+    const g = new T.CylinderGeometry(0.26, 0.26, 0.03, 3, 1, true);
+    g.rotateX(Math.PI / 2);
+    g.rotateY(Math.atan2(p.tx, p.tz));
+    const n = g.getAttribute('position').count, col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { col[i * 3] = 0.9; col[i * 3 + 1] = 0.08; col[i * 3 + 2] = 0.06; }
+    g.setAttribute('color', new T.BufferAttribute(col, 3));
+    xform(g, { x: p.x + p.rx * lat, y: p.y + 0.24, z: p.z + p.rz * lat });
+    cones.push(g);
+  }
+
   // ---------- accident (v20) ------------------------------------------------
   // Scène selon l'ancienneté de l'accident :
   //  • « frais » : véhicules immobilisés de travers, feux de détresse, débris,
@@ -241,7 +310,7 @@ export class Events {
     this.debris(e, statics, sAcc + 3, laneCenter(laneA), 5 + this.rand() * 4);
     // automobilistes en gilet, à l'abri le long de la glissière la plus proche
     const nearRight = laneA >= 2;
-    const latSafe = nearRight ? this.track.ramps?.mainMax ? this.track.ramps.mainMax(sAcc, 0.3) - 0.1 : ROAD_OUTER - 0.4 : CFG.LATERAL_MIN - 0.55;
+    const latSafe = nearRight ? (this.track.ramps?.barrier ? this.track.ramps.barrier(sAcc).face - 0.32 : ROAD_OUTER - 0.4) : (this.track.ramps ? this.track.ramps.medianHalfAt(sAcc) + 0.62 : CFG.LATERAL_MIN - 0.55);
     const nP = 2 + ((this.rand() * 2) | 0);
     for (let k = 0; k < nP; k++) {
       this.addPerson(e, { ...OUTFITS.driver, pose: k === 0 ? 'phone' : pick(this.rand, ['stand', 'arms', 'stand']) }, sAcc + 4 + k * 2.2, latSafe + (this.rand() - 0.5) * 0.25, Math.PI * (0.4 + this.rand() * 1.2));

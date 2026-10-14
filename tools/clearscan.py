@@ -34,13 +34,13 @@ async ([c0, c1]) => {
     t.pointAt(s, p);
     const Em = t.mainEdgeAt(s), list = W.ramps.at(s, p.y), half = 0.78;
     const max = W.ramps.mainMax(s, 0.68, p.y);
-    const cs = [];
+    const cs = [], Bq = W.ramps.barrier(s, p.y);
     for (const o of list) {
       if (o.parallel || o.g < 0.35) continue;
       const mn = W.ramps.rampMin(o, s, p.y, 0.68);
-      cs.push({ a: Number.isFinite(mn) ? mn - 0.78 : Em + o.gap * 0.5 + 0.3, b: Em + o.gap + o.w - 0.2, y: o.hr, ramp: 1 });
+      cs.push({ a: Number.isFinite(mn) ? mn - 0.78 : Em + o.gap * 0.5 + 0.3, b: Em + o.gap + o.w >= Bq.R - 0.01 ? Bq.R + Bq.c - 0.68 + 0.78 : Em + o.gap + o.w - 0.2, y: o.hr, ramp: 1 });
     }
-    cs.unshift({ a: CFG.LATERAL_MIN - half, b: max + half, y: p.y, ramp: 0 });
+    cs.unshift({ a: W.ramps.mainMin(s, 0.68) - half, b: max + half, y: p.y, ramp: 0 });
     cs.forEach((c) => { c.Em = Em; c.rp = list.map((o) => (o.parallel ? 'P' : o.r.kind) + o.gap.toFixed(1) + '/' + o.w.toFixed(1)).join(' '); });
     return cs;
   };

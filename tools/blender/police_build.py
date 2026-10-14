@@ -163,6 +163,8 @@ def show_vcols():
 
 
 if __name__ == '__main__':
+    if '--legacy' not in sys.argv:
+        sys.exit('v22 : police_pn et crs_van sont désormais construits par tools/blender/v22_build.py (--legacy pour forcer)')
     for vid, spec in SPECS.items():
         K.build(spec, 'lo')
         if '--render' in sys.argv:

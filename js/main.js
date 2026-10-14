@@ -92,13 +92,15 @@ async function boot() {
   {
     const { GLTFLoader } = await import('../vendor/GLTFLoader.js');
     const FLEET = [['lutece', 'lutece_hi'], ['lutece_t', 'lutece'], ['mistral'], ['aurore'], ['concorde'], ['taxi'], ['riviera'], ['atlas'], ['odyssee'], ['cargo'], ['furia'],
-      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur'], ['police_pn'], ['crs_van'], ['w_heavy'], ['m_police'], ['patrol_van']];
+      ['m_maxi'], ['m_scoot'], ['m_road'], ['m_trail'], ['m_livreur'], ['police_pn'], ['crs_van'], ['w_heavy'], ['m_police'], ['patrol_van'],
+      ['smur_vl'], ['samu_umh'], ['livr_bleu'], ['livr_expr'], ['pro_plomb'], ['pro_elec'], ['pro_btp'], ['pro_loc'], ['pro_demen'], ['auto_ecole']];
     await Promise.all(FLEET.map(async ([id, file]) => {
       try { await factory.loadGLB(id, `assets/fleet/${file || id}.glb`, GLTFLoader); }
       catch (e) { console.warn('GLB ' + id + ' indisponible — repli procédural', e); }
     }));
     // LOD lointains (≈ 1/3 des triangles) pour le trafic dense
-    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia', 'm_maxi', 'm_scoot', 'm_road', 'm_trail', 'm_livreur', 'police_pn', 'crs_van', 'm_police'];
+    const FAR = ['lutece', 'mistral', 'aurore', 'concorde', 'taxi', 'riviera', 'atlas', 'odyssee', 'cargo', 'furia', 'm_maxi', 'm_scoot', 'm_road', 'm_trail', 'm_livreur', 'police_pn', 'crs_van', 'm_police', 'patrol_van',
+      'smur_vl', 'samu_umh', 'livr_bleu', 'livr_expr', 'pro_plomb', 'pro_elec', 'pro_btp', 'pro_loc', 'pro_demen', 'auto_ecole'];
     // la variante « lutece_t » du trafic partage les LOD de la Lutèce
     for (const [id, file] of [['lutece_t_far', 'lutece_far'], ['lutece_t_ufar', 'lutece_ufar']]) {
       try { await factory.loadGLB(id, `assets/fleet/${file}.glb`, GLTFLoader); } catch (e) { console.warn('LOD ' + id, e); }

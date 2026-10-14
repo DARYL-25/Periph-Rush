@@ -4,7 +4,7 @@
 // Les requêtes matchent en ignoreSearch (les ?v=N de index.html).
 // ============================================================
 
-const CACHE = 'periph-v21';
+const CACHE = 'periph-v22';
 const ASSETS = [
   '.',
   'index.html',
@@ -24,6 +24,7 @@ const ASSETS = [
   'assets/fleet/lutece_ufar.glb', 'assets/fleet/mistral_ufar.glb', 'assets/fleet/aurore_ufar.glb', 'assets/fleet/concorde_ufar.glb', 'assets/fleet/taxi_ufar.glb', 'assets/fleet/riviera_ufar.glb', 'assets/fleet/atlas_ufar.glb', 'assets/fleet/odyssee_ufar.glb', 'assets/fleet/cargo_ufar.glb', 'assets/fleet/furia_ufar.glb',
   'assets/fleet/m_maxi.glb', 'assets/fleet/m_maxi_far.glb', 'assets/fleet/m_maxi_ufar.glb', 'assets/fleet/m_scoot.glb', 'assets/fleet/m_scoot_far.glb', 'assets/fleet/m_scoot_ufar.glb', 'assets/fleet/m_road.glb', 'assets/fleet/m_road_far.glb', 'assets/fleet/m_road_ufar.glb', 'assets/fleet/m_trail.glb', 'assets/fleet/m_trail_far.glb', 'assets/fleet/m_trail_ufar.glb', 'assets/fleet/m_livreur.glb', 'assets/fleet/m_livreur_far.glb', 'assets/fleet/m_livreur_ufar.glb',
   'assets/fleet/police_pn.glb', 'assets/fleet/police_pn_far.glb', 'assets/fleet/police_pn_ufar.glb', 'assets/fleet/crs_van.glb', 'assets/fleet/crs_van_far.glb', 'assets/fleet/crs_van_ufar.glb', 'assets/fleet/w_heavy.glb', 'assets/fleet/m_police.glb', 'assets/fleet/m_police_far.glb', 'assets/fleet/m_police_ufar.glb', 'assets/fleet/patrol_van.glb',
+  'assets/fleet/smur_vl.glb', 'assets/fleet/smur_vl_far.glb', 'assets/fleet/smur_vl_ufar.glb', 'assets/fleet/samu_umh.glb', 'assets/fleet/samu_umh_far.glb', 'assets/fleet/samu_umh_ufar.glb', 'assets/fleet/livr_bleu.glb', 'assets/fleet/livr_bleu_far.glb', 'assets/fleet/livr_bleu_ufar.glb', 'assets/fleet/livr_expr.glb', 'assets/fleet/livr_expr_far.glb', 'assets/fleet/livr_expr_ufar.glb', 'assets/fleet/pro_plomb.glb', 'assets/fleet/pro_plomb_far.glb', 'assets/fleet/pro_plomb_ufar.glb', 'assets/fleet/pro_elec.glb', 'assets/fleet/pro_elec_far.glb', 'assets/fleet/pro_elec_ufar.glb', 'assets/fleet/pro_btp.glb', 'assets/fleet/pro_btp_far.glb', 'assets/fleet/pro_btp_ufar.glb', 'assets/fleet/pro_loc.glb', 'assets/fleet/pro_loc_far.glb', 'assets/fleet/pro_loc_ufar.glb', 'assets/fleet/pro_demen.glb', 'assets/fleet/pro_demen_far.glb', 'assets/fleet/pro_demen_ufar.glb', 'assets/fleet/auto_ecole.glb', 'assets/fleet/auto_ecole_far.glb', 'assets/fleet/auto_ecole_ufar.glb', 'assets/fleet/patrol_van_far.glb', 'assets/fleet/patrol_van_ufar.glb',
   'assets/fonts/barlow-condensed-latin-600-normal.woff2', 'assets/fonts/barlow-condensed-latin-700-normal.woff2', 'assets/fonts/barlow-condensed-latin-800-italic.woff2', 'assets/fonts/barlow-condensed-latin-900-italic.woff2',
 ];
 
