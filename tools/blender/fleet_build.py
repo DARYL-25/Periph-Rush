@@ -316,7 +316,7 @@ P_CARGO = dict(id='cargo', L=5.00, W=1.92, H=1.95, WB=3.10, ovF=0.92, WR=0.33, z
                seams=[[(-0.10, 1.75), (-0.10, 0.36)], [(-1.20, 1.75), (-1.20, 0.36)], [(-1.20, 1.10), (-0.10, 1.10)]])
 CARGO = make_spec(P_CARGO, lambda: front_kit(0.98, 1.92, lamp='rect', grille='bars', inner=0.36),
                   lambda: rear_kit(1.0, 1.92, lamp='tall', zplate=0.48, band=False), rimStyle='cover', boxy=0.85, rub_z=0.55,
-                  blackMirrors=True, handleMat='det', spoiler=False, EXHAUST=[(-2.40, 0.50, 0.32)], noseTaper=0.93, tailTaper=0.98)
+                  blackMirrors=True, handleMat='det', spoiler=False, noRearGlass=True, EXHAUST=[(-2.40, 0.50, 0.32)], noseTaper=0.93, tailTaper=0.98)
 
 # ============================================================
 # 9. FURIA — berline sportive fastback (4,75 m), rare et rapide

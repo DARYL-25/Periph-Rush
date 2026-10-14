@@ -170,8 +170,11 @@ def high_roof(sx=SX, zk=ZK):
         o.data.update()
 
 
+VAN_REAR_GLASS = ('crs_van', 'samu_umh')   # v25 : les autres fourgons ont des portes arrière tôlées
+
+
 def van_base(vid, paint, high=True):
-    spec = dict(F.CARGO, id=vid, paint=paint)
+    spec = dict(F.CARGO, id=vid, paint=paint, noRearGlass=vid not in VAN_REAR_GLASS)
     K.build(spec, 'lo')
     if high:
         high_roof()

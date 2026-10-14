@@ -485,8 +485,15 @@ def glazing():
     if S.get('rearVertical'):
         rgp = [(roof_half(RG[1]) - 0.06, top(RG[1]) - 0.08), (-roof_half(RG[1]) + 0.06, top(RG[1]) - 0.08),
                (-roof_half(RG[1]) + 0.02, belt(RG[0]) + 0.05), (roof_half(RG[1]) - 0.02, belt(RG[0]) + 0.05)]
-    decal('RgFrame', grow(rgp, 0.02), proj, 'det', offset=0.003, rnd=0.05)
-    decal('RearGlass', rgp, proj, 'glass', offset=0.0055, rnd=0.05)
+    if S.get('noRearGlass'):
+        # v25 : fourgon tôlé — portes arrière pleines (joint central + poignée), pas de vitre
+        zt, zb = top(RG[1]) - 0.06, bottom(0) + 0.30
+        decal('RearDoorSeam', [(0.006, zb), (-0.006, zb), (-0.006, zt), (0.006, zt)], P_REAR, 'det', offset=0.004, step=0.05, min_cos=0.3)
+        zh = belt(RG[0]) - 0.05
+        decal('RearHandle', [(-0.03, zh - 0.025), (-0.21, zh - 0.025), (-0.21, zh + 0.025), (-0.03, zh + 0.025)], P_REAR, 'det', offset=0.008, min_cos=0.3)
+    else:
+        decal('RgFrame', grow(rgp, 0.02), proj, 'det', offset=0.003, rnd=0.05)
+        decal('RearGlass', rgp, proj, 'glass', offset=0.0055, rnd=0.05)
     hx = S['L'] / 2 - S.get('hoodSeamBack', 0.09)
     decal('HoodSeam', strip([(hx, -plan(hx) * 0.75), (hx, plan(hx) * 0.75)], 0.006), P_TOP, 'det', offset=0.0015)
 

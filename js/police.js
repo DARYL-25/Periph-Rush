@@ -118,8 +118,8 @@ export class Police {
     const site = this.site;
     if (site) {
       const d = loopDelta(site.s, player.s, L); // > 0 : pont devant
-      // mesure laser depuis le pont : sur l'approche, entre 220 m et 40 m
-      if (site.armed && d < 220 && d > 40 && !player.ramp) site.maxKmh = Math.max(site.maxKmh, player.kmh);
+      // v25 : mesure laser seulement de près (65 m → 12 m), le joueur a le temps de voir le policier et de ralentir
+      if (site.armed && d < 65 && d > 12 && !player.ramp) site.maxKmh = Math.max(site.maxKmh, player.kmh);
       if (site.armed && d < 0) {
         site.armed = false;
         site.flagged = site.maxKmh > CFG.SPEED_LIMIT_KMH + TOL_KMH;

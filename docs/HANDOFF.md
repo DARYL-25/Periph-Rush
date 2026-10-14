@@ -871,3 +871,11 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
 - **Mode photo** (pause → 📷) : orbite au doigt / molette, capture partagée ou téléchargée.
 - Carburant non ajouté (pas de station réellement accessible confirmée sur le périph).
 - Cache SW `periph-v24`, `?v=24`.
+
+## v25 — fourgons tôlés, contrôle aux jumelles plus juste
+- **Fourgons** : option de spec `noRearGlass` (`vkit.glazing`) → portes arrière pleines avec joint central et
+  poignée. Activée pour `cargo` et tous les fourgons de `v22_build.py` sauf `crs_van` et `samu_umh`
+  (`VAN_REAR_GLASS`). GLB + `_far` / `_ufar` régénérés.
+- **Jumelles** (`police.js`) : la vitesse n'est relevée qu'entre 65 m et 12 m du pont (au lieu de 220 → 40 m) :
+  on voit le policier et on a le temps de ralentir.
+- Cache SW `periph-v25`, `?v=25`.
