@@ -13,6 +13,7 @@ import { Police } from './police.js';
 import { Cockpit } from './cockpit.js';
 import { Feel } from './feel.js';
 import { RampLife } from './ambient.js';
+import { Wildlife } from './wildlife.js';
 
 export class Game {
   constructor({ THREE, scene, track, world, traffic, events, player, ambience, score, ui, audio }) {
@@ -28,6 +29,7 @@ export class Game {
     // v23 : sensations de conduite, vie des bretelles (feux d'accès, livreurs à vélo)
     this.feel = new Feel(this);
     this.rampLife = new RampLife(THREE, scene, track);
+    this.wildlife = new Wildlife(THREE, scene, track);   // v27 : pigeons, feuilles, sacs plastique
     traffic.rampLife = this.rampLife;
     world.eventsRef = events;
     player.onLap = (lap) => this.onLap(lap);
@@ -98,6 +100,7 @@ export class Game {
     this.police.reset();
     this.feel.reset();
     this.rampLife.reset();
+    this.wildlife.reset();
     const set = this.ui.prog.data.settings;
     this.traffic.level = set.traffic ?? 1;
     this.world.trafficLevel = this.traffic.level;
@@ -204,6 +207,7 @@ export class Game {
     this.rampLife.hour = this.ambience.hour;
     this.rampLife.update(dt, this.player, this.traffic, this.events);
     this.events.update(dt, this.player, this.traffic);
+    this.wildlife.update(dt, this.player, this.traffic, this.ambience);
     if (this.state === 'running') {
       const st = this.ui.prog.data.settings;
       this.rules.radarsOn = st.radars !== false;
@@ -231,6 +235,12 @@ export class Game {
     if (this.cockpit.active) this.cockpit.updateCamera(camera, rawDt);
     else this.player.updateCamera(camera, rawDt);
     this.feel.update(rawDt, camera);
+    // v27 : éclat du soleil renvoyé par les tours vitrées (matin / soir)
+    if (this.world.skyline?.glint) {
+      const A = this.ambience;
+      const k = this.world.skyline.glint(camera, A.sun.position, A.sunTarget.position, A.elevation ?? 1, Math.min(1, (A.rainAmt || 0) + (A.fogAmt || 0) + (this.track.inTunnel(this.player.s) ? 1 : 0)));
+      this.feel.towerGlare = k; this.feel.towerGlarePos = this.world.skyline.screen;
+    }
 
     if (this.state === 'running') {
       this.checkNearMisses();
@@ -273,9 +283,12 @@ export class Game {
     const blinking = p.blinkDir !== 0 || p.hazardT > 0;
     if (blinking && p.blinkOn !== this._blinkPh) this.audio.tick?.(p.blinkOn);
     this._blinkPh = p.blinkOn;
-    const bs = this.traffic.blindSpot(p);
-    $('bsm-l').classList.toggle('on', bs.l);
-    $('bsm-r').classList.toggle('on', bs.r);
+    // v27 : priorité à droite aux entrées — rappel discret quand une voiture entre à votre hauteur
+    this._prioCd = Math.max(0, (this._prioCd || 0) - dt);
+    if (!this._prioCd && p.laneIdx >= this.traffic.rightLane(p.s) && this.traffic.entrantNear(p)) {
+      this._prioCd = 25;
+      this.ui.popup('↖ PRIORITÉ À DROITE : LAISSEZ ENTRER', '');
+    }
     // changement de voie : avec ou sans clignotant ?
     if (p.blinkDir) { this._sigDir = p.blinkDir; this._sigT = 0; } else this._sigT += dt;
     const lane = p.laneIdx;
@@ -284,7 +297,7 @@ export class Game {
       st.laneCh++;
       const signalled = this._sigDir === dir && this._sigT < 2.5;
       if (signalled) st.signalled++;
-      else if (this.traffic.playerCutIn(p, lane)) { st.cutIns++; this.ui.popup('😠 SANS CLIGNOTANT !', 'fine'); }
+      else if (this.traffic.playerCutIn(p, lane)) st.cutIns++;   // v27 : plus de message à l'écran
     }
     this._lastLane = lane;
     // bilan
@@ -433,6 +446,10 @@ export class Game {
     // radio : station choisie (info-trafic parlée ou musique générée)
     const st = this.radioKey();
     if (a.station !== st) a.setStation(st);
+    // v27 : réception coupée dans les tunnels (couvertures longues)
+    const tun = !!this.track.inTunnel(p.s);
+    a.radioTunnel?.(tun, st !== 'off');
+    if (tun) this.radioT = Math.max(this.radioT ?? 0, 3);   // pas de bulletin sous terre
     // v26 : dépanneuse sur place / voie rouverte
     if (this.events.notice) {
       const k = this.events.notice; this.events.notice = null;
@@ -571,7 +588,6 @@ export class Game {
         if (combo > 1) this.ui.popup(`COMBO ×${combo}`, 'combo');
         this.ui.haptic(12);
         this.audio.nearMiss();
-        this.player.camShake = Math.min(this.player.camShake + 0.05, 0.14);
         if (this.hornCooldown <= 0 && Math.random() < 0.3) {
           this.audio.horn(false);
           this.hornCooldown = 4;
@@ -634,7 +650,7 @@ export class Game {
     this.score.penalty(600 + dmg * 20);
     p.deform(this.impactFor(kind, sev), sev * 0.7);
     if (kind === 'front' || kind === 'cone') { p.headBroken = p.headBroken || sev > 0.2; if (p.lightsOn) p.headlight.intensity = 40; }
-    p.camShake = 0.18 + sev * 0.3;
+    p.camShake = 0.06 + sev * 0.12;   // v27 : secousse seulement au choc, brève
     const pos = p.bundle.group.position.clone(); pos.y += 0.6;
     this.emitSmoke(pos, 6, true);
     // rebond : on s'écarte de l'obstacle et on perd de la vitesse
@@ -693,7 +709,7 @@ export class Game {
     pos.y += 0.7;
     this.emitSmoke(pos, severity > 0.5 ? 10 : 4, false);
     this.emitSmoke(pos, 8, true);
-    this.player.camShake = 0.25 + severity * 0.5;
+    this.player.camShake = 0.1 + severity * 0.2;
     // ralenti cinématique
     this.slowmoT = 1.15;
     this.timescale = 0.22;

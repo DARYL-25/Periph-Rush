@@ -573,7 +573,37 @@ export class GameAudio {
       return true;
     } catch (e) { return false; }
   }
-  stopRadio() { if (window.speechSynthesis) speechSynthesis.cancel(); this.setStation('off'); }
+  stopRadio() { if (window.speechSynthesis) speechSynthesis.cancel(); this.setStation('off'); if (this._crk && this.ctx) { this._crk.gain.cancelScheduledValues(this.ctx.currentTime); this._crk.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05); } this._rTun = false; }
+
+  // v27 : la radio grésille puis coupe dans les tunnels, revient en sortie (avec un dernier grésillement)
+  radioTunnel(on, active = true) {
+    if (!this.ctx || !this.enabled) return;
+    if (on === this._rTun) return;
+    this._rTun = on;
+    const ctx = this.ctx, t = ctx.currentTime;
+    if (!this._crk) {
+      const b = ctx.createBuffer(1, ctx.sampleRate * 1.5, ctx.sampleRate), d = b.getChannelData(0);
+      let hold = 0, v = 0;
+      for (let i = 0; i < d.length; i++) { if (--hold <= 0) { hold = 30 + Math.random() * 900; v = Math.random() < 0.35 ? 1 : 0.25; } d[i] = (Math.random() * 2 - 1) * v; }
+      const src = ctx.createBufferSource(); src.buffer = b; src.loop = true;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = 0.7;
+      const g = ctx.createGain(); g.gain.value = 0;
+      src.connect(bp).connect(g).connect(this.dry); src.start();
+      this._crk = g;
+    }
+    if (!active) { this._crk.gain.setTargetAtTime(0, t, 0.1); return; }
+    const g = this._crk.gain;
+    g.cancelScheduledValues(t);
+    if (on) {
+      g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0.11, t + 0.4); g.linearRampToValueAtTime(0.05, t + 1.6); g.linearRampToValueAtTime(0.015, t + 3);
+      if (this.musBus) this.musBus.gain.setTargetAtTime(0.008, t, 0.5);
+      try { if (window.speechSynthesis?.speaking) speechSynthesis.pause(); } catch (e) { /* */ }
+    } else {
+      g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0.09, t + 0.15); g.linearRampToValueAtTime(0, t + 1.1);
+      if (this.musBus) this.musBus.gain.setTargetAtTime(this.station === 'lounge' ? 0.22 : 0.18, t + 0.6, 0.4);
+      try { if (window.speechSynthesis?.paused) speechSynthesis.resume(); } catch (e) { /* */ }
+    }
+  }
 
   // ---------- stations musicales (v20) : musique générée à la volée -------------
   // Rien n'est enregistré (aucun morceau existant) : accords, basse et batterie

@@ -903,3 +903,25 @@ Un fichier mémoire existe déjà à `C:\Users\daryl\.claude\projects\C--Users-d
   phase « dépannage » (véhicule chargé) puis la voie est rouverte (`events.notice` → popup + radio).
 - **Pare-brise (cockpit)** : filets d'eau latéraux, buée des matins froids (désembuage 45 s), insectes les soirs d'été.
 - Cache SW `periph-v26`, `?v=26`.
+
+## v27 — corrections + priorité aux entrées, convois, engins de nuit, saisons, pigeons, radio en tunnel
+- **Corrections** : plus de popup « sans clignotant » ; témoins d'angle mort supprimés ; caméra sans secousse
+  (frôlements, joints, regards) — seule une brève secousse reste aux vrais chocs ; Tribunal de Paris recalé au sud
+  du périphérique (il mordait la chaussée) ; Tours Duo décalées de 6 m côté ville ; **eau** : un cours d'eau busé
+  (OSM) croisant le périph en tranchée près de Bagnolet était dessiné à −3 m au-dessus de la chaussée →
+  `world.waterCrossesTrench` ne dessine plus ces tronçons ; **portiques d'affectation** (`RampLife.buildGantry`) :
+  poteaux posés au sol + traverse en travers de la route (la traverse était orientée dans l'axe = « tuyau
+  flottant »), signaux suspendus par des tiges sous couverture, pas de portique au ras d'une couverture.
+- **Priorité aux entrées** : les entrants s'insèrent franchement (`accept` réduit), la voie de droite lève le pied
+  (`courtesyT`), rappel « PRIORITÉ À DROITE » (`traffic.entrantNear`, 1 fois / 25 s).
+- **Nuit** : convoi exceptionnel (`convoi`, semi surbaissé + module de 4,3 m à cheval sur 2 voies, voitures
+  `pilote` devant / derrière, `spawnConvoy`), laveuse (citerne, jets d'eau) et balayeuse de la Ville
+  (`spawnCleaner`, 16 km/h, warnings + gyrophares). `laneLeader` tient compte de la largeur (hors gabarit).
+- **`js/wildlife.js`** : pigeons (envol à l'approche), feuilles / sacs plastique soulevés par le vent et le souffle
+  des véhicules, feuilles qui tombent en automne. `seasonNow()` (date réelle) → couleur des arbres (feuillage
+  désaturé + teinte d'instance : automne roux, hiver nu, printemps vert tendre).
+- **Radio** : `audio.radioTunnel` — grésillement puis coupure dans les tunnels, bulletins suspendus.
+- **Tours** : Duo 1 avec « ventre », couronne biseautée et jardin sommital, auvent incliné de Duo 2, mosaïque plus
+  fine ; arêtes aluminium de la Tour Triangle ; **reflets du soleil** sur les façades vitrées (`skyline.glint`,
+  facettes calculées depuis la géométrie) + éblouissement bref (`feel.towerGlare`).
+- Cache SW `periph-v27`, `?v=27`.

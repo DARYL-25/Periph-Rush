@@ -28,7 +28,7 @@ const G = (lat, lon) => [(lon - LON0) * M_LON, -(lat - LAT0) * M_LAT];
 export const SKYLINE_ZONES = [
   { lat: 48.82497, lon: 2.38285, r: 70, name: 'Tours Duo' },
   { lat: 48.83166, lon: 2.28596, r: 80, name: 'Tour Triangle' },
-  { lat: 48.89730, lon: 2.31210, r: 95, name: 'Tribunal de Paris' },
+  { lat: 48.89680, lon: 2.31250, r: 95, name: 'Tribunal de Paris' },
   { lat: 48.88056, lon: 2.28444, r: 40, name: 'Hyatt Regency Étoile' },
   { lat: 48.87890, lon: 2.28330, r: 85, name: 'Palais des Congrès' },
   { lat: 48.86790, lon: 2.41520, r: 70, name: 'Les Mercuriales' },
@@ -72,7 +72,7 @@ function makeTextures(T) {
   const X = {};
   // Tours Duo : verre en mosaïque — panneaux argentés, gris-bleu et sombres en désordre, nez de dalle clairs
   X.duo = facade(T, 512, 512, 1801, (c, W, H, r) => {
-    const cols = 16, rows = 8, cw = W / cols, rh = H / rows;
+    const cols = 24, rows = 8, cw = W / cols, rh = H / rows;
     for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
       const q = r();
       const base = q < 0.34 ? [206, 216, 224] : q < 0.62 ? [150, 168, 184] : q < 0.86 ? [104, 124, 142] : [70, 86, 102];
@@ -97,10 +97,10 @@ function makeTextures(T) {
   // Tour Triangle : verre clair à trame en losanges (triangles)
   X.tri = facade(T, 512, 512, 2026, (c, W, H, r) => {
     const g = c.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, '#b9cad6'); g.addColorStop(1, '#9fb3c3');
+    g.addColorStop(0, '#a9c0d0'); g.addColorStop(1, '#7f9bb1');
     c.fillStyle = g; c.fillRect(0, 0, W, H);
     for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(255,255,255,${0.05 + r() * 0.1})`; c.fillRect(r() * W, r() * H, 20 + r() * 60, 6 + r() * 20); }
-    c.strokeStyle = 'rgba(70,84,98,0.85)'; c.lineWidth = 3;
+    c.strokeStyle = 'rgba(52,64,76,0.95)'; c.lineWidth = 5;
     const s = 64;
     for (let k = -W; k <= W * 2; k += s) {
       c.beginPath(); c.moveTo(k, 0); c.lineTo(k + H / 2, H); c.stroke();
@@ -285,17 +285,31 @@ function leanRings(base, y0, y1, steps, lean, grow = () => 1) {
 function toursDuo(T, M) {
   const duo2 = cleanPoly([3139, 3763.5, 3139.5, 3762, 3137, 3759.5, 3138, 3758.5, 3083.5, 3725.5, 3064, 3735, 3104, 3775, 3104, 3777, 3111.5, 3783, 3139.5, 3765]);
   const duo1 = cleanPoly([3201.5, 3810.5, 3176, 3789.5, 3171, 3792, 3153, 3780.5, 3152.5, 3779, 3147.5, 3777, 3113.5, 3791, 3164, 3842, 3172, 3834, 3174, 3836]);
+  // v27 : léger recalage (≈ 6 m) côté ville : le pied de Duo 1 mordait sur l'accotement
+  for (const P of [duo1, duo2]) for (const q of P) { q[0] -= 4.0; q[1] -= 4.4; }
   const c1 = centroid(duo1), c2 = centroid(duo2);
   const dl = Math.hypot(c1[0] - c2[0], c1[1] - c2[1]), dx = (c1[0] - c2[0]) / dl, dz = (c1[1] - c2[1]) / dl;
   const glass = rgb(0xffffff);
-  // Duo 1 : s'écarte de Duo 2 en montant (V), s'évase dans sa partie haute
-  const r1 = leanRings(duo1, 0, 166, 8, (t) => [dx * 15 * Math.pow(t, 1.35), dz * 15 * Math.pow(t, 1.35)], (t) => 0.86 + 0.2 * Math.pow(t, 0.8));
+  // Duo 1 : s'écarte de Duo 2 en montant (V), « ventre » vitré à mi-hauteur puis s'évase vers le sommet
+  const r1 = leanRings(duo1, 0, 166, 12, (t) => [dx * 12 * Math.pow(t, 1.4), dz * 12 * Math.pow(t, 1.4)],
+    (t) => 0.84 + 0.12 * Math.pow(t, 0.9) + 0.05 * Math.sin(Math.PI * Math.min(1, t * 1.6)));
   loft(M.duo, r1, glass, 24, 36);
   const top1 = r1[r1.length - 1];
-  const crown = leanRings(top1.pts, 166, 180, 1, (t) => [dx * 2 * t, dz * 2 * t]);
+  // couronne : résille métallique dont le bord supérieur est biseauté (plus haute côté extérieur)
+  const [kx, kz] = centroid(top1.pts);
+  const crown = [{ y: 166, pts: top1.pts }, { y: 180, pts: top1.pts.map(([x, z]) => [x + dx * 2, z + dz * 2]) }];
   loft(M.mesh, crown, glass, 12, 14);
-  capPoly(T, M.solid, crown[1].pts, 180, rgb(0x8d969d));
-  capPoly(T, M.solid, top1.pts.map(([x, z]) => [x, z]), 166.2, rgb(0x6e777e));
+  {
+    const tp = crown[1].pts, c = rgb(0x9aa3aa);
+    for (let i = 0; i < tp.length; i++) {      // arête biseautée : relève de 0 à 8 m selon la position
+      const [x0, z0] = tp[i], [x1, z1] = tp[(i + 1) % tp.length];
+      const h0 = 180 + 8 * Math.max(0, ((x0 - kx) * dx + (z0 - kz) * dz) / 30), h1 = 180 + 8 * Math.max(0, ((x1 - kx) * dx + (z1 - kz) * dz) / 30);
+      M.mesh.quad(M.mesh.v(x0, 180, z0, 0, 0, c), M.mesh.v(x1, 180, z1, 1, 0, c), M.mesh.v(x1, h1, z1, 1, (h1 - 180) / 14, c), M.mesh.v(x0, h0, z0, 0, (h0 - 180) / 14, c));
+    }
+  }
+  capPoly(T, M.solid, top1.pts, 166.2, rgb(0x6f8a5c));            // jardin sommital
+  const rk = rng(7);
+  for (let i = 0; i < 10; i++) { const a = rk() * Math.PI * 2, d = rk() * 12; tree(M.solid, kx + Math.cos(a) * d * 1.5, 166.2, kz + Math.sin(a) * d, 1.8 + rk() * 1.2, 0x557f3d); }
   // Duo 2 : penche dans l'autre sens, terrasse panoramique coiffée d'un auvent
   const r2 = leanRings(duo2, 0, 112, 6, (t) => [-dx * 9 * Math.pow(t, 1.3), -dz * 9 * Math.pow(t, 1.3)], (t) => 0.9 + 0.12 * t);
   loft(M.duo, r2, glass, 24, 36);
@@ -304,11 +318,17 @@ function toursDuo(T, M) {
   capPoly(T, M.solid, top2, 112, rgb(0x7b8a73));
   const inner = top2.map(([x, z]) => [tx + (x - tx) * 0.72, tz + (z - tz) * 0.72]);
   prism(M.duo, inner, 112, 118, glass, 24, 36);                         // restaurant vitré
-  const roof = top2.map(([x, z]) => [tx + (x - tx) * 1.04, tz + (z - tz) * 1.04]);
-  prism(M.solid, roof, 121, 122, rgb(0xd8dcdf), 30, 30);
-  capPoly(T, M.solid, roof, 122, rgb(0xd8dcdf));
-  capPoly(T, M.solid, roof, 121, rgb(0xa9b0b5));
-  for (let i = 0; i < top2.length; i += 2) { const [x, z] = roof[i]; mast(M.solid, x + (tx - x) * 0.06, 112, z + (tz - z) * 0.06, 9, 0.5, 0xc9ced2); }
+  // grand auvent incliné au-dessus du bar panoramique (plus haut côté Seine)
+  const roof = top2.map(([x, z]) => [tx + (x - tx) * 1.08, tz + (z - tz) * 1.08]);
+  const ry = (x, z) => 120 + 5 * Math.max(-1, Math.min(1, -((x - tx) * dx + (z - tz) * dz) / 30));
+  const ac = rgb(0xd8dcdf), ac2 = rgb(0xa9b0b5);
+  {
+    const ids = roof.map(([x, z]) => M.solid.v(x, ry(x, z), z, 0, 0, ac)), ids2 = roof.map(([x, z]) => M.solid.v(x, ry(x, z) - 0.8, z, 0, 0, ac2));
+    const tris = T.ShapeUtils.triangulateShape(roof.map(([x, z]) => new T.Vector2(x, z)), []);
+    for (const [a, b, c] of tris) { M.solid.tri(ids[a], ids[c], ids[b]); M.solid.tri(ids[a], ids[b], ids[c]); M.solid.tri(ids2[a], ids2[c], ids2[b]); M.solid.tri(ids2[a], ids2[b], ids2[c]); }
+    for (let i = 0; i < roof.length; i++) { const j = (i + 1) % roof.length; M.solid.quad(ids2[i], ids2[j], ids[j], ids[i]); }
+  }
+  for (let i = 0; i < top2.length; i += 1) { const [x, z] = roof[i]; const xx = x + (tx - x) * 0.1, zz = z + (tz - z) * 0.1; mast(M.solid, xx, 112, zz, ry(xx, zz) - 112 - 0.6, 0.45, 0xc9ced2); }
   const rr = rng(12);
   for (let i = 0; i < 9; i++) { const a = rr() * Math.PI * 2, d = 6 + rr() * 10; tree(M.solid, tx + Math.cos(a) * d * 1.6, 112, tz + Math.sin(a) * d, 1.6 + rr()); }
   // socle commun : passerelle vitrée basse entre les deux tours
@@ -334,6 +354,12 @@ function tourTriangle(T, M) {
     rings.push({ y: 172 * t, pts: base.map((p, i) => [p[0] + (topPts[i][0] - p[0]) * t, p[1] + (topPts[i][1] - p[1]) * t]) });
   }
   loft(M.tri, rings, rgb(0xffffff), 18, 18);
+  // arêtes en aluminium le long des quatre angles inclinés
+  for (let i = 0; i < 4; i++) {
+    const [bx, bz] = base[i], [qx, qz] = topPts[i], c = rgb(0xd7dde2);
+    const ox = (bx - cx) * 0.012, oz = (bz - cz) * 0.012;
+    M.solid.quad(M.solid.v(bx - oz, 0, bz + ox, 0, 0, c), M.solid.v(bx + oz, 0, bz - ox, 0, 0, c), M.solid.v(qx + oz * 0.2, 172, qz - ox * 0.2, 0, 0, c), M.solid.v(qx - oz * 0.2, 172, qz + ox * 0.2, 0, 0, c));
+  }
   capPoly(T, M.solid, topPts, 172, rgb(0x9aa6ae));
   mast(M.solid, cx, 172, cz, 9, 0.9, 0xd0d4d6);
   // pied : hall vitré en retrait
@@ -342,8 +368,8 @@ function tourTriangle(T, M) {
 
 // Tribunal de Paris — socle long + trois volumes vitrés en gradins, terrasses plantées, aileron des ascenseurs
 function tribunal(T, M) {
-  const [cx, cz] = G(48.8973, 2.3121);
-  const W = frame(cx, cz, -0.5);                      // grand axe ≈ ENE, parallèle au périphérique
+  const [cx, cz] = G(48.8968, 2.3125);    // v27 : recalé au sud du périphérique (il mordait sur la chaussée)
+  const W = frame(cx, cz, -0.51);                      // grand axe ≈ ENE, parallèle au périphérique
   const glass = rgb(0xffffff);
   const pod = rect(W, 160, 70);
   prism(M.trib, pod, 0, 28, glass, 32, 32);
@@ -646,9 +672,63 @@ export function buildSkyline(T, scene) {
   { const p = [-3958, 3039]; const m = new T.Mesh(bGeo, bMat); m.position.set(p[0], 181, p[1]); group.add(m); beacons.push(m); }
   { const m = new T.Mesh(bGeo, bMat); m.position.set(3170, 181, 3810); group.add(m); beacons.push(m); }
   scene.add(group);
+  // v27 : reflets du soleil sur les façades vitrées — facettes verticales des tours brillantes
+  const facets = [];
+  group.children.forEach((mesh) => {
+    if (!mesh.isMesh || !mesh.material || !mesh.material.specular) return;   // matériaux vitrés (Phong)
+    const pa = mesh.geometry.getAttribute('position'), ix = mesh.geometry.index;
+    if (!pa || !ix) return;
+    const a = new T.Vector3(), b = new T.Vector3(), c = new T.Vector3(), n = new T.Vector3(), e1 = new T.Vector3(), e2 = new T.Vector3();
+    for (let i = 0; i < ix.count; i += 6) {      // un quad = 2 triangles
+      a.fromBufferAttribute(pa, ix.getX(i)); b.fromBufferAttribute(pa, ix.getX(i + 1)); c.fromBufferAttribute(pa, ix.getX(i + 2));
+      e1.subVectors(b, a); e2.subVectors(c, a); n.crossVectors(e1, e2);
+      const area = n.length();
+      if (area < 400) continue;
+      n.normalize();
+      if (Math.abs(n.y) > 0.45) continue;
+      const ctr = new T.Vector3().addVectors(a, c).multiplyScalar(0.5);
+      if (ctr.y < 20) continue;
+      facets.push({ p: ctr, n: n.clone(), size: Math.sqrt(area) });
+    }
+  });
+  const gTex = (() => { const cv = canvas(128, 128), c = cv.getContext('2d'); const g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,250,235,1)'); g.addColorStop(0.18, 'rgba(255,236,190,0.75)'); g.addColorStop(0.5, 'rgba(255,210,150,0.18)'); g.addColorStop(1, 'rgba(255,200,140,0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); const t2 = new T.CanvasTexture(cv); t2.colorSpace = T.SRGBColorSpace; return t2; })();
+  const glint = new T.Sprite(new T.SpriteMaterial({ map: gTex, blending: T.AdditiveBlending, depthWrite: false, depthTest: true, transparent: true, opacity: 0, fog: false }));
+  glint.renderOrder = 5;
+  scene.add(glint);
+  const _s = new T.Vector3(), _r = new T.Vector3(), _v = new T.Vector3();
+  let gFrame = 0, gBest = null, gK = 0;
   let t = 0;
   return {
     group,
+    // éclat du soleil renvoyé par une façade vers la caméra ; renvoie l'intensité (0..1) pour l'éblouissement
+    glint(camera, sunPos, sunTarget, elevation, dim) {
+      if ((gFrame++ % 3) === 0) {
+        gBest = null; gK = 0;
+        if (elevation > -0.02 && elevation < 0.55 && dim < 0.8) {
+          _s.copy(sunPos).sub(sunTarget).normalize();
+          for (const f of facets) {
+            const ns = f.n.dot(_s);
+            if (ns <= 0.05) continue;
+            _r.copy(f.n).multiplyScalar(2 * ns).sub(_s);                // direction réfléchie
+            _v.copy(camera.position).sub(f.p);
+            const d = _v.length(); if (d > 3200 || d < 30) continue;
+            _v.divideScalar(d);
+            const k = (_r.dot(_v) - 0.975) / 0.025;
+            if (k > gK) { gK = k; gBest = f; }
+          }
+        }
+      }
+      const k = Math.min(1, gK) * (1 - dim);
+      if (gBest && k > 0.01) {
+        const d = camera.position.distanceTo(gBest.p);
+        glint.position.copy(gBest.p);
+        const sc = Math.max(18, d * 0.09) * (0.6 + k);
+        glint.scale.set(sc, sc, 1);
+        glint.material.opacity = k;
+      } else glint.material.opacity = 0;
+      if (gBest) { _v.copy(gBest.p).project(camera); this.screen = { x: (_v.x * 0.5 + 0.5) * 100, y: (-_v.y * 0.5 + 0.5) * 100, on: _v.z < 1 }; }
+      return gBest && this.screen?.on ? k * Math.min(1, 900 / (camera.position.distanceTo(gBest.p) + 300)) : 0;
+    },
     // night : 0 (jour) → 1 (nuit)
     tick(dt, night) {
       t += dt;

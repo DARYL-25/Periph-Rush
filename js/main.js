@@ -414,7 +414,7 @@ async function boot() {
 
   // hook de debug/tests (console)
   window.__periph = {
-    renderer, scene, camera, track, world, traffic, events, player, game, ambience, prog, fleet,
+    THREE_: THREE, renderer, scene, camera, track, world, traffic, events, player, game, ambience, prog, fleet,
     fps: () => fpsEMA, state: () => state, tier: () => qualityTier,
     // mini-capture : rend une frame et renvoie un JPEG data-URL (test hors écran)
     snap: (w = 420, q = 0.6) => {

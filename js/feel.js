@@ -97,6 +97,9 @@ export class Feel {
           this.glare.style.background = `radial-gradient(circle at ${x.toFixed(1)}% ${y.toFixed(1)}%, rgba(255,236,190,0.95) 0%, rgba(255,200,120,0.45) 9%, rgba(255,170,90,0.12) 32%, transparent 60%)`;
         }
       }
+      // v27 : éblouissement bref par le reflet d'une tour vitrée
+      const tg = Math.max(0, (this.towerGlare || 0) - 0.35) * 0.9;
+      if (tg > gl) { gl = tg; const sp = this.towerGlarePos || { x: 50, y: 30 }; this.glare.style.background = `radial-gradient(circle at ${sp.x.toFixed(1)}% ${sp.y.toFixed(1)}%, rgba(255,244,215,0.85) 0%, rgba(255,220,160,0.35) 14%, transparent 55%)`; }
       this.glare.style.opacity = (gl * 0.85).toFixed(3);
     }
 
@@ -159,8 +162,7 @@ export class Feel {
     // ponctuelles (joints, tampons, flaques) restent, amorties
     this.bumpV += (-this.bumpY * 520 - this.bumpV * 26) * dt;
     this.bumpY += this.bumpV * dt;
-    camera.position.y += this.bumpY * 0.7;
-    camera.rotateX(this.bumpY * 0.4);
+    // v27 : caméra parfaitement stable (les joints / regards ne se font plus qu'entendre)
 
     // ---- frottements contre la DBA / dégâts visibles ----
     if (p.scraping && p.v > 3) {

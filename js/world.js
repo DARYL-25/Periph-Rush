@@ -25,6 +25,7 @@ import {
 import { Scenery, buildLandmarks, geoToLocal } from './scenery.js';
 import { buildDetailedLandmarks } from './landmarks.js';
 import { buildSkyline, buildRooftopSigns } from './skyline.js';
+import { seasonNow } from './wildlife.js';
 import { buildParcDesPrinces } from './stadium.js';
 
 const ROW = 5;            // pas des rangées de construction (m)
@@ -334,7 +335,7 @@ export class World {
       bld: this.windowFlicker(atlasify(new T.MeshLambertMaterial({ map: Bt.tex, emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, side: DS }))),
       graf: new T.MeshLambertMaterial({ map: TX.graffitiAtlas(T), alphaTest: 0.35, side: DS, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }),
       trunk: new T.MeshLambertMaterial({ color: 0x5b4a3a }),
-      canopy: new T.MeshLambertMaterial({ color: 0xffffff, map: TX.leavesTexture(T) }),
+      canopy: new T.MeshLambertMaterial({ color: 0xffffff, map: seasonNow() === 'ete' ? TX.leavesTexture(T) : greyLeaves(T, TX.leavesTexture(T)) }),
       dark: new T.MeshBasicMaterial({ color: 0x0c0e11 }),
       // v12 : garde-corps ajourés (barreaudage, balustrade, grillage, haie) et affichage publicitaire
       rail: atlasify(new T.MeshLambertMaterial({ map: TX.railAtlas(T), vertexColors: true, alphaTest: 0.45, side: DS })),
@@ -1432,6 +1433,24 @@ export class World {
     B.quad(a, b, d, e);
   }
 
+  waterCrossesTrench(ax, az, bx, bz, w) {
+    const key = `${ax},${az},${bx},${bz}`;
+    this._wx = this._wx || new Map();
+    if (this._wx.has(key)) return this._wx.get(key);
+    const t = this.track, p = {};
+    let bad = false;
+    const n = Math.max(2, Math.ceil(Math.hypot(bx - ax, bz - az) / 8));
+    for (let i = 0; i <= n && !bad; i++) {
+      const x = ax + ((bx - ax) * i) / n, z = az + ((bz - az) * i) / n;
+      const pr = this.scenery.index.project(x, z, 120);
+      if (!pr) continue;
+      t.pointAt(pr.s, p);
+      if (Math.abs(pr.lat) < t.mainEdgeAt(pr.s) + w + 12 && p.y < -1.0 && !t.onBridge(pr.s)) bad = true;
+    }
+    this._wx.set(key, bad);
+    return bad;
+  }
+
   // ---------- eau (Seine, canaux) ----------
   buildWater(ctx) {
     const { rows, B } = ctx;
@@ -1443,6 +1462,9 @@ export class World {
         const tt = clamp(((mid.x - ax) * dx + (mid.z - az) * dz) / L2, 0, 1);
         if (Math.hypot(ax + dx * tt - mid.x, az + dz * tt - mid.z) > 260) continue;
         const Ls = Math.sqrt(L2), nx = -dz / Ls, nz = dx / Ls, w = l.w / 2 + 6;
+        // v27 : cours d'eau busé / souterrain croisant le périphérique en tranchée ou en couverture :
+        // on ne dessine pas sa surface (elle masquait la chaussée près de la porte de Bagnolet)
+        if (this.waterCrossesTrench(ax, az, bx, bz, w)) continue;
         const c = [1, 1, 1];
         const q = [B.water.v(ax + nx * w, -3.0, az + nz * w, 0, 0, c), B.water.v(bx + nx * w, -3.0, bz + nz * w, 1, 0, c), B.water.v(bx - nx * w, -3.0, bz - nz * w, 1, 1, c), B.water.v(ax - nx * w, -3.0, az - nz * w, 0, 1, c)];
         B.water.quad(q[0], q[1], q[2], q[3]);
@@ -1557,11 +1579,18 @@ export class World {
         m4.compose(v.set(x, y, z), q, sc);
         trunks.setMatrixAt(i, m4);
         crowns.setMatrixAt(i, m4);
+        // v27 : saison réelle (date du jour) — automne roux, hiver nu, printemps vert tendre
+        const season = this.season || (this.season = seasonNow());
+        if (season === 'hiver' && kind !== 1) { sc.multiplyScalar(0.72); m4.compose(v.set(x, y, z), q, sc); crowns.setMatrixAt(i, m4); }
         if (kind === 1) col.setHSL(0.2 + rand() * 0.08, 0.3 + rand() * 0.2, 0.42 + rand() * 0.15);
         else if (kind === 4) col.setHSL(0.07 + rand() * 0.06, 0.55 + rand() * 0.2, 0.55 + rand() * 0.12);
         else if (kind === 2) col.setHSL(0.21 + rand() * 0.05, 0.3 + rand() * 0.15, 0.55 + rand() * 0.15);
         else if (kind === 3) col.setHSL(0.2 + rand() * 0.06, 0.32 + rand() * 0.15, 0.66 + rand() * 0.15);
         else col.setHSL(0.19 + rand() * 0.1, 0.25 + rand() * 0.25, 0.62 + rand() * 0.25);
+        // carte de feuillage désaturée hors été : la teinte vient entièrement de la couleur d'instance
+        if (season === 'automne') { const u = rand(); col.setHSL(u < 0.7 ? 0.04 + rand() * 0.1 : 0.2 + rand() * 0.06, u < 0.7 ? 0.75 + rand() * 0.2 : 0.45, u < 0.7 ? 0.42 + rand() * 0.16 : 0.34); }
+        else if (season === 'hiver') col.setHSL(0.07 + rand() * 0.03, 0.14 + rand() * 0.1, kind === 1 ? 0.3 : 0.36 + rand() * 0.1);
+        else if (season === 'printemps') { col.setHSL(0.24 + rand() * 0.05, 0.55 + rand() * 0.2, 0.42 + rand() * 0.1); if (kind !== 1 && rand() < 0.07) col.setHSL(0.93 + rand() * 0.05, 0.45, 0.8); }
         crowns.setColorAt(i, col);
       });
       crowns.castShadow = true;
@@ -2223,4 +2252,18 @@ export class World {
       best.override = performance.now() + 60000;
     }
   }
+}
+
+// v27 : feuillage en niveaux de gris (la saison est donnée par la couleur d'instance)
+function greyLeaves(T, tex) {
+  const img = tex.image, cv = document.createElement('canvas');
+  cv.width = img.width; cv.height = img.height;
+  const c = cv.getContext('2d');
+  c.drawImage(img, 0, 0);
+  const d = c.getImageData(0, 0, cv.width, cv.height), a = d.data;
+  for (let i = 0; i < a.length; i += 4) { const l = Math.min(255, (a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11) * 1.7); a[i] = a[i + 1] = a[i + 2] = l; }
+  c.putImageData(d, 0, 0);
+  const t = new T.CanvasTexture(cv);
+  t.colorSpace = tex.colorSpace; t.wrapS = tex.wrapS; t.wrapT = tex.wrapT; t.repeat.copy(tex.repeat); t.anisotropy = tex.anisotropy;
+  return t;
 }

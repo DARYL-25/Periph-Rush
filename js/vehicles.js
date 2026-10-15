@@ -231,6 +231,16 @@ export const CATALOG = {
     cols: [P.jaune, P.blancVan, P.orange], w: 0.5, beacon: { x: 2.0, y: 2.7, z: 0.55 } },   // v26 : gyrophares orange (intervention)
   municipal: { name: 'Ville de Paris', kind: 'box', dims: [5.4, 2.05, 2.4], wb: 3.3, wr: 0.34,
     cols: [P.vertParis], w: 1, municipal: true },
+  // v27 : engins de nettoyage de nuit (laveuse à citerne, balayeuse) — gyrophares orange, warnings, jets d'eau
+  laveuse: { name: 'Laveuse', kind: 'box', dims: [6.2, 2.4, 2.95], wb: 3.6, wr: 0.4, cols: [P.vertParis], w: 0, municipal: true, washer: true, tank: true,
+    beacon: { x: 1.3, y: 2.95, z: 0.6 } },
+  balayeuse: { name: 'Balayeuse', kind: 'box', dims: [4.8, 1.75, 2.55], wb: 2.6, wr: 0.34, cols: [P.vertParis], w: 0, municipal: true, sweeper: true,
+    beacon: { x: 0.9, y: 2.55, z: 0.45 } },
+  // v27 : convoi exceptionnel de nuit (porte-engins surbaissé + module hors gabarit) et voitures pilotes
+  convoi: { name: 'Convoi exceptionnel', kind: 'semi', trailer: 'convoi', dims: [22, 4.3, 4.3], wb: 3.8, wr: 0.5, cols: [P.blanc, P.jaune], w: 0,
+    beacon: { x: 9.8, y: 3.95, z: 0.8 } },
+  pilote: { name: 'Voiture pilote', glbId: 'cargo', kind: 'van', dims: [5.0, 1.92, 1.95], wb: 3.1, wr: 0.33, cols: [0xf2f3f4], w: 0,
+    beacon: { x: 0.2, y: 2.12, z: 0.55 } },
   // v16 : variété du trafic (designs génériques)
   roadster: { glbId: 'm_road', name: 'Roadster', kind: 'moto', dims: [2.1, 0.8, 1.42], wb: 1.45, wr: 0.31, moto: 'naked',
     cols: [P.rougeVif, P.noir, P.grisF, P.bleu], w: 3 },
@@ -900,7 +910,7 @@ export class VehicleFactory {
     const cab = new T.ExtrudeGeometry(shape, { depth: cabW, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: 2 });
     cab.translate(0, 0, -cabW / 2);
     paint.push(cab);
-    if (m.kind !== 'tow') {
+    if (m.kind !== 'tow' && !m.tank) {
       const bh = H * 0.92 - yBot;
       paint.push(xform(new T.BoxGeometry(boxL, bh, W), { x: -L / 2 + boxL / 2, y: yBot + bh / 2 }));
     }
@@ -933,6 +943,12 @@ export class VehicleFactory {
       lensR.push(xform(new T.BoxGeometry(0.05, 0.22, 0.12), { x: -L / 2 + 0.005, y: yBot + 0.5, z: side * (W / 2 - 0.15) }));
     }
     if (m.municipal) box(det, 0.4, 0.12, 0.3, { x: L / 2 - cabL * 0.5, y: cabH + 0.08 }, 0xffa020);
+    if (m.tank) {   // v27 : citerne de laveuse (fût cylindrique) + rampe de buses à l'avant
+      det.push(colorize(T, xform(new T.CylinderGeometry(0.95, 0.95, boxL * 0.95, cheap ? 10 : 18), { x: -L / 2 + boxL / 2, y: H * 0.55, rz: Math.PI / 2 }), 0x2f7a4e));
+      box(det, 0.12, 0.12, W * 1.05, { x: L / 2 + 0.25, y: 0.45 }, 0x9aa0a6);
+    }
+    if (m.sweeper) for (const sd of [-1, 1]) det.push(colorize(T, xform(new T.CylinderGeometry(0.42, 0.42, 0.12, 12), { x: L / 2 - cabL * 0.2, y: 0.12, z: sd * (W / 2 - 0.1) }), 0x3a3428));
+    if (m.washer || m.sweeper) box(det, 0.05, 0.7, 1.4, { x: -L / 2 - 0.03, y: H * 0.78 }, 0x1a1c1f);   // flèche lumineuse arrière
     if (m.stripe) for (const sd of [-1, 1]) box(det, L * 0.6, 0.3, 0.02, { x: -L * 0.15, y: H * 0.6, z: sd * (W / 2 + 0.005) }, m.stripeCol ?? 0xd9b430);
 
     const geom = this.assemble({ paint, glass, det, bright, lensF, lensR });
@@ -943,7 +959,8 @@ export class VehicleFactory {
   // ---------- poids lourd : tracteur + semi-remorque (design générique) ----
   semiGeometry(m, noWheels = false, cheap = false) {
     const T = this.T;
-    const [L, W, H] = m.dims;
+    const [L, WL, H] = m.dims;
+    const W = Math.min(WL, 2.55);          // v27 : convoi hors gabarit — tracteur de largeur normale
     const wr = m.wr;
     const paint = [], det = [], bright = [], lensF = [], lensR = [], glass = [];
     const box = (arr, w, h, d, tf, col) => {
@@ -978,6 +995,16 @@ export class VehicleFactory {
         }
       }
       for (const dx of [0.2, trL / 2, trL - 0.2]) for (const sd of [-1, 1]) box(det, 0.12, 2.6, 0.12, { x: -L / 2 + dx, y: 2.05, z: sd * (W / 2 - 0.06) }, 0x3a3f45);
+    } else if (m.trailer === 'convoi') {
+      // porte-engins surbaissé + module préfabriqué hors gabarit, panneaux « convoi » jaune et rouge, fanions
+      box(det, trL, 0.25, 3.0, { x: tx, y: 0.75 }, 0x2f3338);
+      const mL = trL - 1.2, mH = 3.3;
+      box(paint, mL, mH, WL, { x: tx - 0.2, y: 0.9 + mH / 2 });
+      for (const y of [1.6, 2.6, 3.6]) box(det, mL + 0.02, 0.06, WL + 0.02, { x: tx - 0.2, y }, 0x9aa0a6);
+      box(det, 0.05, 0.6, 2.2, { x: -L / 2 - 0.03, y: 1.4 }, 0xf6c400);                  // panneau arrière jaune
+      for (const sd of [-1, 1]) box(det, 0.06, 0.6, 0.18, { x: -L / 2 - 0.04, y: 1.4, z: sd * 1.0 }, 0xd8202a);
+      for (const [x, sd] of [[tx - 0.2 - mL / 2, 1], [tx - 0.2 - mL / 2, -1], [tx - 0.2 + mL / 2, 1], [tx - 0.2 + mL / 2, -1]]) box(det, 0.35, 0.35, 0.02, { x, y: 0.9 + mH + 0.25, z: sd * (WL / 2 + 0.02) }, 0xff5a10);
+      box(det, 0.6, 0.35, 2.0, { x: fx - cabL / 2, y: cabH + 0.62 }, 0xf6c400);          // panneau sur la cabine
     } else if (m.trailer === 'tanker') {
       // citerne inox (carburant) : fût cylindrique, passerelle, losanges de danger
       const tank = xform(new T.CylinderGeometry(1.15, 1.15, trL - 0.3, cheap ? 10 : 20), { x: tx, y: 2.3, rz: Math.PI / 2 });

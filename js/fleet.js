@@ -318,6 +318,19 @@ export class Fleet {
         if (b.m.emergency) { if (h.sirenOn !== false) this.pushLocal(this.L.blue, base, b.beacon[flash]); }
         else if (h.sirenOn !== false && Math.floor((this.time + h.blinkPhase) * 2.5) % 2) { this.pushLocal(this.L.orange, base, b.beacon[0]); if (b.beacon[1]) this.pushLocal(this.L.orange, base, b.beacon[1]); }
       }
+      // v27 : laveuse de la Ville — jets d'eau projetés devant / sur les côtés
+      if (b.m.washer && d2 < 120 * 120) {
+        for (const q of b.spray) {
+          this._m.multiplyMatrices(base, q);
+          this._v.setFromMatrixPosition(this._m);
+          this._v.addScaledVector(this._fwd || (this._fwd = new this.T.Vector3()), 0);
+          this._q.copy(camera.quaternion);
+          const sc = 1.3 + 0.25 * Math.sin(this.time * 9 + h.blinkPhase * 6);
+          this._s.set(sc * 1.8, sc * 0.8, sc);
+          this._m.compose(this._v, this._q, this._s);
+          this.L.spray.push(this._m);
+        }
+      }
       if (wetLights && d2 < 180 * 180) {
         if (night || h.brake.visible) for (const q of b.streakR) this.pushLocal(this.L.streakR, base, q);
         if (night && !b.m.noLights) for (const q of b.streakF) this.pushLocal(this.L.streakF, base, q);

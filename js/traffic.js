@@ -355,6 +355,49 @@ export class Traffic {
     });
   }
 
+  purgeGone() {
+    for (const o of this.npcs) if (o.gone && o.mode !== 'chase') this.release(o.bundle);
+    this.npcs = this.npcs.filter((o) => !o.gone || o.mode === 'chase');
+  }
+  // v27 : convoi exceptionnel — porte-engins à cheval sur les voies 2 et 3, voiture pilote devant et derrière
+  spawnConvoy(playerS) {
+    const L = this.track.length, s0 = wrap(playerS + Math.min(this.LV.winA - 80, 260 + this.rand() * 80), L);
+    if (this.track.coverAt(s0) || this.laneCount(s0) < 4) return;
+    const right = this.rightLane(s0);
+    // on dégage la place (les véhicules présents sur les deux voies concernées s'effacent)
+    for (const o of this.npcs) { const d = loopDelta(o.s, s0, L); if (d > -45 && d < 60 && (o.mode === 'lane' || o.mode === 'interfile') && o.lat > laneCenter(Math.max(1, right - 1)) - 2.2) o.gone = true; }
+    this.purgeGone();
+    const mk = (id, s, lane, off) => {
+      const n = this.makeNPC(id, wrap(s, L));
+      Object.assign(n, { mode: 'lane', lane, laneFrom: lane, laneTo: lane, laneT: 1, laneOff: off, v0: MS(42), v: MS(38), phone: false, zz: false, convoy2: true, lc: 0 });
+      n.persona = PERSONAS.normal; n.personaKey = 'normal';
+      n.lat = n.latT = this.computeLat(n);
+      n.bundle = this.acquire(id);
+      this.npcs.push(n);
+      return n;
+    };
+    const lane = Math.max(1, right - 1);
+    mk('pilote', s0 + 45, lane, 1.75);
+    const c = mk('convoi', s0, lane, 1.75);
+    if (c) c.hazardT = 1e9;
+    mk('pilote', s0 - 30, lane, 1.75);
+  }
+  // v27 : laveuse ou balayeuse de la Ville, lente sur la voie de droite, warnings + gyrophares
+  spawnCleaner(playerS) {
+    const L = this.track.length, s = wrap(playerS + Math.min(this.LV.winA - 60, 240 + this.rand() * 120), L);
+    if (this.track.coverAt(s)) return;
+    for (const o of this.npcs) { const d = loopDelta(o.s, s, L); if (d > -15 && d < 15 && (o.mode === 'lane' || o.mode === 'interfile') && o.lat > laneCenter(this.rightLane(s)) - 2) o.gone = true; }
+    this.purgeGone();
+    const id = this.rand() < 0.55 ? 'laveuse' : 'balayeuse', lane = this.rightLane(s);
+    const n = this.makeNPC(id, s);
+    Object.assign(n, { mode: 'lane', lane, laneFrom: lane, laneTo: lane, laneT: 1, v0: MS(16), v: MS(14), phone: false, zz: false, cleaner: true, lc: 0, hazardT: 1e9 });
+    n.persona = PERSONAS.normal; n.personaKey = 'normal';
+    n.lat = n.latT = this.computeLat(n);
+    if (this.collides(n, n.lat)) return;
+    n.bundle = this.acquire(id);
+    this.npcs.push(n);
+  }
+
   // v26 : dépanneuse appelée sur un accident — remonte la file en interfile, gyrophare orange
   spawnTow(playerS) {
     const s = wrap(playerS - this.LV.winB * 0.8, this.track.length);
@@ -506,6 +549,14 @@ export class Traffic {
       if (this.entryT <= 0) { this.entryT = LV.entryEvery * (0.5 + this.rand()); if (this.npcs.length < target * 1.2) this.spawnEntry(playerS); }
       this.queueT = (this.queueT ?? 0) - dt;
       if (this.queueT <= 0) { this.queueT = 1.5; this.spawnExitQueue(playerS); }
+    }
+    // v27 : la nuit — convoi exceptionnel escorté, engins de nettoyage de la Ville
+    {
+      const h = this.hour ?? 14, night = h >= 22 || h < 5.5;
+      this.convoyT = (this.convoyT ?? 40 + this.rand() * 60) - dt;
+      if (night && this.convoyT <= 0) { this.convoyT = 200 + this.rand() * 200; if (!this.npcs.some((n) => n.convoy2)) this.spawnConvoy(playerS); }
+      this.washT = (this.washT ?? 20 + this.rand() * 40) - dt;
+      if (night && this.washT <= 0) { this.washT = 120 + this.rand() * 150; if (!this.npcs.some((n) => n.cleaner)) this.spawnCleaner(playerS); }
     }
     this.emergT = (this.emergT ?? lerp(LV.emergEvery[0], LV.emergEvery[1], this.rand()) * 0.5) - dt;
     if (this.emergT <= 0 && !this.npcs.some((n) => n.mode === 'emerg')) {
@@ -883,7 +934,8 @@ export class Traffic {
       n.blinker = -1;
       const remain = n.ramp.par + n.ramp.taper * 0.6 + o.vv;
       // priorité aux véhicules qui entrent : on force le passage, de plus en plus au bout de la voie
-      const accept = (remain < 40 ? 0.2 : remain < 80 ? 0.35 : 0.55) * n.persona.accept;
+      // v27 : priorité à droite (comme sur le vrai périph) — l'entrant s'insère franchement
+      const accept = (remain < 40 ? 0.12 : remain < 80 ? 0.24 : 0.4) * n.persona.accept;
       n.mergeReq = this.rightLane(n.s);
       const right = this.rightLane(n.s);
       // v24 : en bout de voie d'accélération, ça force — klaxon si le joueur ne laisse pas la place
@@ -913,6 +965,7 @@ export class Traffic {
   }
 
   considerLaneChange(n, leader, gap, playerObs) {
+    if (n.convoy2 || n.cleaner) return;
     const right = this.rightLane(n.s);
     if (n.zz) { this.zigzag(n, leader, gap, playerObs, right); return; }
     if (n.phone) return;   // au téléphone : il ne pense pas à changer de voie
@@ -927,7 +980,12 @@ export class Traffic {
       for (const o of this.npcs) {
         if (o.mode !== 'enter') continue;
         const d = loopDelta(o.s, n.s, this.track.length);
-        if (d > -5 && d < 60) { courtesy = this.rand() < (n.personaKey === 'dimanche' ? 0.8 : n.personaKey === 'presse' ? 0.15 : 0.5); break; }
+        if (d > -5 && d < 60) {
+          courtesy = this.rand() < (n.personaKey === 'dimanche' ? 0.8 : n.personaKey === 'presse' ? 0.15 : 0.5);
+          // v27 : priorité à droite — si on ne peut pas se décaler, on lève le pied pour laisser entrer
+          if (!courtesy && n.personaKey !== 'presse' && d > -3 && d < 35) n.courtesyT = Math.max(n.courtesyT || 0, 2.5);
+          break;
+        }
       }
     }
     if (!wantFaster && !wantLeft && !wantRight && !courtesy) return;
@@ -1022,6 +1080,17 @@ export class Traffic {
     return type;
   }
 
+  // v27 : véhicule qui entre (prioritaire) à hauteur du joueur, sur la voie d'insertion
+  entrantNear(player) {
+    const L = this.track.length;
+    for (const n of this.npcs) {
+      if (n.mode !== 'enter' || n.merging) continue;
+      const d = loopDelta(n.s, player.s, L);
+      if (d > -12 && d < 30) return n;
+    }
+    return null;
+  }
+
   // v26 : véhicule dans l'angle mort (voie adjacente, de l'arrière de la caisse à ~12 m derrière)
   blindSpot(player) {
     const L = this.track.length;
@@ -1076,7 +1145,8 @@ export class Traffic {
       if (o === n) return;
       const d = loopDelta(o.s, n.s, L);
       if (d <= 0 || d > 90) return;
-      if (Math.abs(o.lat - c) > 1.6 && Math.abs((o.latT ?? o.lat) - c) > 1.0) return;
+      const xw = Math.max(0, ((o.wid || 1.8) - 1.8) / 2);   // v27 : convoi hors gabarit à cheval sur deux voies
+      if (Math.abs(o.lat - c) > 1.6 + xw && Math.abs((o.latT ?? o.lat) - c) > 1.0 + xw) return;
       const g = d - (o.len + n.len) / 2;
       if (!best || g < best.gap) best = { o, gap: g };
     };

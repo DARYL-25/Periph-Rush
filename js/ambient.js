@@ -281,22 +281,44 @@ export class RampLife {
     const tex = new T.CanvasTexture(cv); tex.colorSpace = T.SRGBColorSpace;
     return (this._lcs[kind] = new T.MeshBasicMaterial({ map: tex, toneMapped: false }));
   }
+  // v27 : portique posé au sol (deux poteaux + traverse en travers de la chaussée) ou, sous couverture,
+  // signaux suspendus au plafond par des tiges (plus rien ne flotte)
   buildGantry(s, states, ceiling = false) {
     const T = this.T, t = this.track, p = this._p;
     t.pointAt(s, p);
     const g = new T.Group();
     const at = (lat, y) => new T.Vector3(p.x + p.rx * lat, y, p.z + p.rz * lat);
     const yaw = Math.atan2(p.tx, p.tz);
-    const Em = t.mainEdgeAt(s), yb = p.y + (ceiling ? 4.85 : 5.7);
+    const Em = t.mainEdgeAt(s), CEIL = 5.3;
+    const yb = p.y + (ceiling ? CEIL - 0.25 : 6.2);
+    const nl = states.length, latR = 1.3 + 3.5 * nl + 0.6;
     if (!ceiling) {
-      for (const lat of [0, Em + 1.3]) { const post = new T.Mesh(new T.BoxGeometry(0.35, yb - p.y + 0.4, 0.35), this.mat.pole); post.position.copy(at(lat, p.y + (yb - p.y + 0.4) / 2)); post.rotation.y = yaw; g.add(post); }
-      const beam = new T.Mesh(new T.BoxGeometry(Em + 1.6, 0.5, 0.45), this.mat.pole);
-      beam.position.copy(at((Em + 1.3) / 2, yb + 0.15)); beam.rotation.y = yaw + Math.PI / 2; g.add(beam);
+      const latL = 0.25, h = yb - p.y + 0.5;
+      for (const lat of [latL, Math.max(latR, Em + 0.9)]) {
+        const post = new T.Mesh(new T.BoxGeometry(0.4, h, 0.4), this.mat.pole);
+        post.position.copy(at(lat, p.y + h / 2)); post.rotation.y = yaw; g.add(post);
+        const foot = new T.Mesh(new T.BoxGeometry(0.9, 0.5, 0.9), this.mat.pole);
+        foot.position.copy(at(lat, p.y + 0.25)); foot.rotation.y = yaw; g.add(foot);
+      }
+      const span = Math.max(latR, Em + 0.9) - latL;
+      // traverse en treillis : deux membrures + fond, en travers de la route (axe local x)
+      for (const dy of [0.05, 0.75]) {
+        const beam = new T.Mesh(new T.BoxGeometry(span, 0.18, 0.18), this.mat.pole);
+        beam.position.copy(at(latL + span / 2, yb + dy)); beam.rotation.y = yaw; g.add(beam);
+      }
+      const back = new T.Mesh(new T.BoxGeometry(span, 0.7, 0.06), this.mat.pole);
+      back.position.copy(at(latL + span / 2, yb + 0.4)).addScaledVector(new T.Vector3(p.tx, 0, p.tz), 0.12); back.rotation.y = yaw; g.add(back);
     }
     states.forEach((st, lane) => {
       const lat = 1.3 + 3.5 * (lane + 0.5);
       const housing = new T.Mesh(new T.BoxGeometry(1.0, 1.0, 0.3), this.mat.head);
       housing.position.copy(at(lat, yb - 0.55)); housing.rotation.y = yaw; g.add(housing);
+      if (ceiling) {   // tiges de suspension jusqu'au plafond
+        for (const dx of [-0.3, 0.3]) {
+          const rod = new T.Mesh(new T.BoxGeometry(0.06, p.y + CEIL - (yb - 0.05), 0.06), this.mat.pole);
+          rod.position.copy(at(lat + dx, (yb - 0.05 + p.y + CEIL) / 2)); rod.rotation.y = yaw; g.add(rod);
+        }
+      }
       const face = new T.Mesh(new T.PlaneGeometry(0.86, 0.86), this.lcsMat(st));
       face.position.copy(at(lat, yb - 0.55)).addScaledVector(new T.Vector3(-p.tx, 0, -p.tz), 0.16);
       face.rotation.y = yaw + Math.PI; g.add(face);
@@ -320,7 +342,9 @@ export class RampLife {
           const toward = open.length ? (open.reduce((a, b) => (Math.abs(b - k) < Math.abs(a - k) ? b : a)) > k ? 'right' : 'left') : 'x';
           return toward;
         });
-        want.set(`${e.s0.toFixed(0)}:${ds}`, { s, st, ceiling: !!t.coverAt(s) });
+        let sg = s;
+        for (let k = 0; k < 12 && !t.coverAt(sg) && (t.coverAt(wrap(sg + 25, L)) || t.coverAt(wrap(sg - 25, L))); k++) sg = wrap(sg - 20, L);
+        want.set(`${e.s0.toFixed(0)}:${ds}`, { s: sg, st, ceiling: !!t.coverAt(sg) });
       }
     }
     // couvertures longues : signaux au plafond tous les 150 m
