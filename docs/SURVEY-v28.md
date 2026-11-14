@@ -360,3 +360,48 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
 - s≈8500 : PONT (rue/av. vers Pte Brancion-Didot ?) : tablier béton, BALUSTRADE BÉTON à balustres, culées MEULIÈRE
   (D taguée de grands graffs colorés), pile centrale sur TPC ; PMV noir 2 lignes fixé sur le tablier à G + panneau
   blanc à D du PMV (à relire : présignalisation Brancion/Vanves) ; talus enherbé + grille noire à D ; tour 18 niv. à G.
+- Sous le pont s≈8500 : dalle béton patinée, piles carrées côté TPC (ouvert sur sens ext.), mur D meulière, appliques.
+- s≈8530-8560 : PORTIQUE (2 montants gris-beige) : grand PMV caisson noir (éteint) au centre-gauche ; à D panneau
+  blanc « Pte BRANCION / Pte DE VANVES » (ligne supérieure = distance, hors champ) ; caisson « 50 » lumineux éteint
+  accroché au montant TPC (côté sens ext.) ; armoire technique beige haute sur TPC. Rive D : B14 « 50 » + panneau
+  blanc d'information (picto) sur mât, talus enherbé + arbustes pourpres + clôture grillagée verte basse ;
+  glissière métallique double sur le TPC sur ~80 m (remplace la DBA) ; candélabres simples.
+- s≈8600-8700 : D = DBA + bande enherbée + MUR MEULIÈRE (~3 m) couvert de GRAFFS colorés, couronné d'un bandeau
+  béton clair lui aussi peint ; devant le mur, balustrade béton basse à travées (rampe d'accès) ; BORNE SOS orange ;
+  immeuble blanc 9 niv. à loggias + grue ; mât d'éclairage de stade. G : immeubles en chantier (grue rouge/blanche),
+  immeuble blanc à gradins 8 niv., bâtiment bas blanc.
+  PANNEAUX TUNNEL : sur mât en rive D ET sur TPC : plaque blanche « Tunnel / Vanves » + carré bleu pictogramme tunnel
+  (C111) + panonceau blanc « ↑ 420 m ↑ » ; B6d + RAPPEL sur TPC juste avant.
+- s≈8610 TÊTE DU TUNNEL DE VANVES (repère 8614→9020) : PORTIQUE devant la tête : blanc « Pte DE SÈVRES » (G) ;
+  blanc « 500 m » au-dessus de blanc « Pte DE LA PLAINE / Pte DE VERSAILLES » (centre) ; à D caisson PMV noir au-dessus
+  de blanc « ↘ » (flèche oblique) au-dessus de blanc « Pte BRANCION / Pte DE VANVES » ; feux d'affectation aux
+  montants ; fronton béton avec immeuble blanc au-dessus à D.
+- TUNNEL (int.) : 3 voies, plafond béton sombre, piédroit D en meulière puis béton, piédroit G en panneaux
+  métalliques perforés gris + béton ; APPLIQUES SODIUM orange en file continue en haut des 2 piédroits ; trottoirs
+  de service. À ~120 m de la tête : SORTIE BRANCION/VANVES à D DANS LE TUNNEL : musoir avec balise J14a verte +
+  3 balises vertes J11, la bretelle (1 voie) part derrière un piédroit/voile central et remonte, niche éclairée ;
+  plus loin : coffret jaune (extincteur/PAU) en applique à D, panneau vert « issue de secours » (picto) lumineux,
+  marquage jaune temporaire (non reproduit).
+- TUNNEL DE VANVES 2e moitié : piédroits en grands panneaux lisses beige-gris (trame verticale ~2,5 m), panneaux
+  métalliques perforés côté G près de la sortie, appliques sodium ; 2 panneaux suspendus au plafond avant la sortie
+  (présignalisation, illisibles : bruit) ; coffret SOS/extincteur à D.
+- s≈9020 SORTIE DU TUNNEL : G = ÉCRAN ANTIBRUIT MÉTALLIQUE gris clair en caissons perforés (~5 m, trame carrée) sur
+  ~150 m ; D = grille noire basse + talus enherbé planté de jeunes arbres tuteurés, en haut MURET meulière + BALUSTRADE
+  béton + grillage vert haut ; borne SOS orange + coffrets ; panneaux C (carrés bleus : refuge/extincteur) sur mât ;
+  POTENCE à D : caisson afficheur noir au-dessus de blanc « Pte DE LA PLAINE / Pte DE VERSAILLES ».
+- s 9053 SORTIE PTE DE LA PLAINE / VERSAILLES : musoir = balise J14a verte + 3 balises J11 vertes, zébra ; la bretelle
+  (2 voies) part à D et PASSE SOUS un pont-cadre (culée meulière + balustrade béton) ; à l'entrée de la bretelle :
+  triangle de danger + B14 « 50 » ; mur meulière le long de la section courante au-delà (hauteur ~5 m, balustrade).
+  G : barre de bureaux années 70 à trame serrée (9 niv.), platanes ; TPC DBA + herbe.
+- s≈9150 : 3 voies ; D = DBA + bande herbeuse + mur meulière tagué + grille verte ; B6d + « RAPPEL » en rive D ;
+  glissière métallique double sur TPC (~100 m) ; G : immeubles blanc-rose 10 niv., tour blanche à enseigne rouge
+  (neutre), dépôt ; à D au loin : DÔME BLANC NERVURÉ (Palais des Sports / Dôme de Paris).
+- s≈9250 ★ RADAR : en rive D sur 2 pieds : B14 « 50 » au-dessus du panneau rectangulaire blanc d'ANNONCE RADAR
+  (texte « Pour votre sécurité », pictogramme ondes radar + voiture/moto, mention en bas) ; talus enherbé, pavillon
+  bas à casquette, arbres ; G : tour de bureaux blanche à trame horizontale (18+ niv.) en angle.
+- s≈9450 : PORTIQUE (2 montants gris, traverse fine) : grand PMV noir (grille 2×6 modules, éteint) à G ; B14 « 50 »
+  FIXÉ SUR CHAQUE MONTANT (TPC et rive D) ; D = DBA + mur meulière + balustrade béton + grille verte, immeuble vitré
+  en haut à D ; G : mur meulière ext.
+- s 9518-9618 DOUBLE PONT PTE DE VERSAILLES : 1er tablier béton + balustrade béton, grande BÂCHE PUBLICITAIRE sur
+  le garde-corps, pile = voiles rectangulaires massifs côté TPC ; puis 2e pont à balustrade claire à balustres ;
+  dessous : dalle béton lisse à joints, mur D meulière, projecteurs en applique.
