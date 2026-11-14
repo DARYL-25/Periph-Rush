@@ -441,3 +441,41 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   (quais, péniches, silos à ciment blancs + convoyeur incliné du port de Javel côté nord, pont du Garigliano au loin).
   G : immeuble de bureaux vitré bleu 8 niv. (enseigne neutre) ; dans l'axe : TOUR blanche ~20 niv. à écran/enseigne
   en tête (tour TF1, Boulogne).
+- s≈11600-11850 (viaduc de Seine, suite) : 4 voies ; rive D garde-corps vert barreaudé continu ; TPC DBA +
+  candélabres doubles en Y ; armoire sur TPC ; borne SOS orange en rive D ; côté D au-delà de la Seine : immeubles
+  HAUSSMANNIENS/années 30 en pierre et brique (7-8 niv., toits d'ardoise) du 16e, rangée de PEUPLIERS d'Italie,
+  toiles blanches d'un chapiteau/tennis ; côté G : TOUR TF1 (fût blanc/vitré ~14 niv., grand écran rouge en tête),
+  bureaux vitrés de Boulogne, verrière basse.
+- s≈11950 : fin du viaduc : D = glissière + garde-corps vert, peupliers, immeuble brique rose 8 niv. ; PMV sur
+  portique à ~150 m (à relire) ; coffret gris fixé à la DBA du TPC.
+- s≈12050 : portique du sens ext. à G avec écran antibruit VERT ANIS translucide côté ext. ; D = MUR BÉTON BEIGE lisse
+  (~3 m) avec plaque bleue d'information, grands platanes derrière ; panneau directionnel VERT + BLANC en rive D
+  (« PARIS-CENTRE » vert / « Pte de St-CLOUD » blanc, à relire) ; B (disque) sur mât.
+- s 12153 SORTIE PARIS-CENTRE / PTE DE ST-CLOUD : bretelle 2 voies à D qui s'écarte derrière un îlot enherbé planté
+  (glissières, balises), mur beige ; section courante 4→3 voies bordée de PLATANES sur le TPC élargi (terre-plein
+  planté avec arbres d'alignement, DBA des deux côtés), disque (dos) sur TPC ; D : bâtiment à voûte VERT D'EAU
+  (halle/gymnase en berceau), villas, peupliers.
+- s≈12250 : D = mur de soutènement béton beige + garde-corps VERT à barreaudage en tête (rampe de la bretelle qui
+  monte), arbres pourpres (prunus), cèdre ; TPC planté de jeunes arbres ; G : mur béton + garde-corps vert.
+- s≈12340 TÊTE DE LA COUVERTURE (Pte de St-Cloud / Boulogne) : fronton béton gris à bandeau, garde-corps vert
+  barreaudé + jardinières/végétation en tête, pins au-dessus ; panneaux fixés au fronton, de G à D :
+  VERT « [A 13 cartouche bleu] ROUEN » ; BLANC « Pte d'AUTEUIL / Pte MOLITOR » ; BLANC « [D910 jaune] 100 m »
+  au-dessus de VERT « BOULOGNE » ; à l'extrême D panneau bleu « P » (parking) + panonceau.
+  Sur le TPC devant la tête : mât avec caisson noir à LOSANGE blanc (voie réservée covoiturage) + flèche ↙ lumineuse ;
+  2 armoires beiges ; jeune arbre tuteuré. Mur D en dalles de pierre beige (calepinage), lierre.
+- COUVERTURE PTE DE ST-CLOUD (s 12360 → ~12650, « av. Georges-Lafont » au-dessus) : 4 voies ; plafond béton lisse ;
+  côté TPC = COLONNADE de piles rectangulaires béton avec allèges/voiles bas entre piles (jour vers le sens ext.) ;
+  piédroit D béton sombre + trottoir de service + lisse ; éclairage = projecteurs blancs/sodium en file en haut des
+  deux côtés ; à ~200 m la SORTIE BOULOGNE (D910) part à D derrière un musoir (ligne continue, balises) ;
+  à la sortie de la couverture : local technique vitré en mezzanine à D, plaque d'info au mur.
+- s≈12650-12750 (entre deux couvertures) : TPC large PLANTÉ de PLATANES adultes (alignement), DBA de chaque côté,
+  dalle béton au sol du TPC ; murs de tranchée en DALLES BÉTON CLAIR calepinées (~6 m) + garde-corps vert barreaudé
+  en tête, candélabres ville (lanternes) en haut ; panneau bleu « P » + flèche sur le pont suivant.
+  ★ RADAR FIXE : CABINE GRISE (caisson ~0,5×0,4×1 m sur mât, 2 hublots, socle béton) implantée SUR LE TPC, au droit
+  du mur de tête de la couverture suivante, tournée vers la chaussée ; triangle (dos) sur candélabre voisin.
+- TÊTE DE LA COUVERTURE SUIVANTE (Pte Molitor, s≈12800) : pont-dalle béton gris, garde-corps vert barreaudé, lampadaires
+  doubles ; panneaux sur le fronton à D : blanc « 700 m » au-dessus de blanc « Pte d'AUTEUIL / Pte MOLITOR » ; à côté
+  carré bleu « station-service » (pompe) + panonceau « 700 m » ; carré bleu « P » + panonceau bleu « 700 m ».
+  Intérieur : 2 tubes séparés par piles massives ; piédroit D carrelé gris (petits carreaux) avec grilles de
+  ventilation ; ENTRÉE par la D sous la couverture : grand zébra à CHEVRONS blancs + ligne continue ; côté TPC
+  colonnade à allèges, appliques sodium orange en file ; garde-corps métallique sur passerelle de service à D.
