@@ -278,3 +278,51 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   à barreaux, haie, panneaux pub 4×3 lumineux (paires sur mât), mât d'éclairage sportif.
   Rive D de la voie latérale : panneau « interdiction de tourner à D » + panonceau, sens interdit au loin (bretelle).
   G : enfilade de bureaux vitrés bleus 5-6 niv., grand cèdre à D au fond.
+- s≈7650-7750 : voie latérale à D toujours séparée (séparateurs béton + balises vertes J11 en tête d'îlot) ; au droit
+  d'une rue qui débouche : SENS INTERDIT (B1) + balise K8 à chevrons bleu/blanc, panneau bleu d'information sur mât,
+  panneau blanc de rue ; palissade de chantier/abris bâchés bleus le long de la clôture ; GRANDS CÈDRES et pins
+  derrière la clôture (stade/cimetière de Montrouge) ; candélabres simples.
+- s≈7850-7950 : la voie latérale rejoint la section courante (biseau, zébra long) ; D = DBA + bande herbeuse +
+  MUR DE SOUTÈNEMENT EN MEULIÈRE (~3 m) entièrement tagué, surmonté d'une grille verte et d'arbres ; panneau pub
+  bleu sur mât au-dessus du mur ; candélabre simple à crosse courte (mât galva) au pied du mur, câbles aériens.
+  Devant : PORTIQUE avec PMV noir 2 lignes ambre (à G) + panneau blanc (à D, à relire) ; « 50 » (B14) sur le TPC.
+  G : bureaux vitrés (cylindre vitré bleu en angle, 7 niv.).
+
+> ⚠ SECOND RECALAGE (annule le précédent pour la zone Orléans) : le portique PMV « D906 800 m » est à s ≈ 6880 (800 m
+> avant la sortie Châtillon s 7677) et le biseau où la voie latérale rejoint la section courante est L'ENTRÉE s 6839.
+> Donc : la « voie d'entrée » notée à P34-36 est en réalité le DÉBUT D'UNE VOIE LATÉRALE (collectrice Pte d'Orléans)
+> qui longe la section courante jusqu'à s 6839 ; le pont-passerelle à grillage (P40) est vers s ≈ 6350-6400 ; le
+> portique blanc « D 906 … / Châtillon / Montrouge » de la zone des cylindres est vers s ≈ 6500 (distance à relire :
+> probablement « 1 250 m »). Un appui clavier ≈ 5 m. Toutes les abscisses antérieures sont à recaler sur :
+> A6a musoir 5650 · entrée 6839 · PMV 6880 · ponts 6983 / 7104 / 7321 · sortie Châtillon 7677.
+
+- s≈6880 : PORTIQUE (2 montants gris, traverse) : à G PMV caisson noir 2 lignes LED ambre « P. AUTEUIL : 12 MN /
+  P. MAILLOT : 16 MN » ; à D blanc « [D906 jaune] 800 m » au-dessus de blanc « Pte DE CHÂTILLON / Pte DE MONTROUGE ».
+  B14 « 50 » sur le TPC ET en rive D (sur l'îlot), au droit du portique. Fin de l'îlot de séparateurs béton + zébra.
+  G (rive ext.) : mur de soutènement gris + balustrade ; TOUR-HÔTEL grise à trame carrée (~14 niv.) coiffée d'un DÔME
+  en résille blanche, enseigne en attique (à laisser neutre) ; immeubles de bureaux blancs/vitrés 7-8 niv.
+- s≈6930-6980 : TRANCHÉE : D = trottoir de service + MUR MEULIÈRE à assises régulières (4→7 m) couronné d'une
+  BALUSTRADE BÉTON à travées ajourées entre dés ; candélabres simples à crosse au pied du mur (mât vert) ; plaquette
+  blanche « ← SOS 200 m » sur mât ; la voie latérale passe AU-DESSUS à D (rampe) derrière la balustrade.
+  G : même mur meulière + balustrade côté ext. ; TPC = DBA + herbe.
+- s≈6983 : PONT (av. de la Pte de Montrouge ?) : tablier béton à poutre de rive moulurée, garde-corps = balustrade
+  béton ajourée, pile intermédiaire = file de poteaux ronds sur le TPC, culées meulière ; feux tricolores et
+  candélabres en tête. G au-dessus : immeubles vitrés bleu-vert à façade courbe (8 niv.).
+- Méthode retenue (rapide) : 1er clic sur le point de fuite de la chaussée, puis clics au CENTRE de l'écran juste
+  sous l'horizon (731,455) : ~60-70 m par clic, le cap se recentre sur le point cliqué.
+- Après le pont s≈6983 (≈ +0 à +250 m) : TRANCHÉE 3 voies ; D = trottoir de service béton + HAUT MUR MEULIÈRE (~8 m,
+  assises régulières à bossage) couronné de la BALUSTRADE béton ajourée ; candélabres simples à crosse (mât vert) au
+  pied du mur tous les ~35 m ; éclairage sous pont = projecteurs en applique. G (rive ext.) : mur meulière + au-dessus
+  ÉCRAN gris à panneaux en forme d'ogives/stèles jointives ; immeubles haussmanniens et HBM 6-7 niv. ; enseigne
+  d'hôtel verte en toiture (neutre). B6d + RAPPEL en rive D (au début de la balustrade basse) ET sur le TPC.
+  Puis le mur D s'abaisse : MURET + balustrade béton (rampe d'entrée qui descend derrière), mur meulière tagué
+  en retrait, peupliers/arbres.
+- PONT AV. DE LA PTE DE MONTROUGE (repère 7321-7383, large ~60 m) : fronton béton PEINT EN BLEU-BLANC-ROUGE… lu :
+  bandeau BLEU (G) / ROUGE (centre) / BLEU (D) sur toute la largeur, tagué ; B14 « 50 » de chaque côté (TPC et
+  rive D) juste avant ; panneau blanc en potence à D « … / Pte DE CHATILLON / Pte DE MONTROUGE » (ligne du haut hors
+  champ = cartouche D906 + distance) ; plaquette PR sur TPC. Sous l'ouvrage : dalle béton à caissons, piles carrées
+  cannelées côté TPC (travée ouverte vers le sens ext.), mur D enduit clair tagué, porte de service, appliques.
+- Sortie du pont (+0 à +150 m) : TRANCHÉE À PAREMENT DE PIERRE DE TAILLE : D = mur en grandes dalles de pierre beige
+  (calepinage régulier ~1×0,6 m, ~8 m de haut) avec corniche et ATTIQUE AJOURÉ (petites baies rectangulaires) ;
+  candélabres simples à crosse au pied ; G = mur béton gris à pilastres + attique ajouré, couvert de LIERRE
+  retombant ; immeuble blanc années 50 (8 niv.) derrière ; TPC DBA + armoires grises.
