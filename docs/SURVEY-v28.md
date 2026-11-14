@@ -613,3 +613,64 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   béton plein + végétation, piles = VOILES BÉTON rectangulaires massifs (TPC) ; B14 « 50 » + armoire beige sur TPC
   devant la pile ; mur D béton peint gris avec retouches.
 - ⚠ à cet endroit le relevé a basculé sur la chaussée EXTÉRIEURE (clic sur le TPC). Reprise par coordonnées.
+- ⚠ LACUNE s≈17567 → 18250 (échangeur Maillot, couverture, Ternes) : atterrissages par coordonnées sur des bretelles ;
+  s'appuyer sur le relevé v17 (points 0-750).
+
+## Secteur nord-ouest : Champerret → Asnières → Clichy (reprise à s ≈ 18 300)
+
+- s≈18300 : 4 voies ; rive D = DBA + muret béton à caissons + GARDE-CORPS GRIS-BEIGE à barreaudage vertical (rampe
+  d'entrée qui descend derrière), mur de soutènement carrelé beige en dessous, arbres denses ; G : immeuble de bureaux
+  vitré 8 niv. à jardinières en attique, glissière sur TPC.
+- s≈18400 PONT (Pte de Champerret, tablier béton long ~50 m) : poutre de rive béton patiné, garde-corps métallique à
+  barreaux + panneaux pleins VERTS ponctuels, piles rectangulaires en file côté TPC ; panneaux sur le tablier à D :
+  blanc « [D 908 jaune] 500 m » au-dessus de blanc « Pte DE CHAMPERRET » ; carré bleu « P » + picto (parc relais)
+  avec panonceau « 500 m ».
+- Sous le pont Champerret : dalle béton à joints, piles rectangulaires massives côté TPC, mur D en DALLES BEIGES
+  calepinées avec bande basse repeinte crème (anti-tags), appliques-projecteurs ; disque B (interdiction) sur mât
+  dans l'îlot ; ENTRÉE à D avec zébra à chevrons ; B6d + RAPPEL sur TPC.
+- Tranchée Champerret (entre ponts, ~100 m) : D = mur en dalles beiges (~7 m) + bandeau béton + garde-corps gris à
+  barreaux en tête, projecteurs en applique ; G = mur béton clair + garde-corps, arbres ; 4 voies ; B14 « 50 » sur TPC.
+- 2e pont (large, ~40 m) : mêmes piles ; puis ★ DALLE EN ENCORBELLEMENT à D sur ~150 m : casquette béton à sous-face
+  nervurée (stries transversales) en porte-à-faux au-dessus de la voie de droite, portée par le mur D en dalles
+  beiges ; à G portique du sens ext. (2 montants carrés béton clair, traverse) + caisson noir sur TPC ; talus sableux
+  boisé côté ext. ; au fond : pont suivant + immeubles beiges 10 niv. ; candélabres simples à G.
+- s≈18460 TÊTE DE LA COUVERTURE CHAMPERRET (repère 18561→18772) : pont-dalle béton patiné, garde-corps métallique
+  clair barreaudé + végétation, rangée de mâts fins en haut ; panneaux sur le fronton : blanc « Pte d'ASNIÈRES »
+  (voies G/centre) ; à D blanc « [D 908 jaune] 250 m » au-dessus de blanc « Pte DE CHAMPERRET » ; fin de la casquette
+  en encorbellement à D ; candélabre DOUBLE (2 crosses) sur TPC ; pile centrale carrée.
+- Intérieur couverture Champerret : très sombre ; côté TPC colonnade + allèges avec caissons lumineux/enseignes
+  techniques au-dessus des piles ; projecteurs ponctuels ; 4 voies ; sortie Champerret (s 18712) à D sous l'ouvrage.
+- s≈18780 sortie de la couverture Champerret : MUSOIR de la sortie Pte de Champerret (bretelle 1 voie montant à D le
+  long d'un mur beige à bandeau + casquette béton en tête) : îlot planté de PALMIERS/yuccas et arbustes, panneau de
+  musoir blanc « [D 908] ↘ / Pte DE CHAMPERRET » sur 2 mâts ; panneau bleu de services sur mât ; mur D beige avec bande
+  basse repeinte ; candélabres doubles sur TPC ; G : talus boisé, camions, immeubles vitrés bleus 8 niv. au fond.
+- s≈18870 PORTIQUE (2 montants gris) : PMV noir 2 lignes ambre à G ; B14 « 50 » sur TPC et sur l'îlot D ; grand
+  panneau BLEU de services sur 2 pieds en rive D (pictos : P, pompe à essence, « P » — aire/station + parc) ;
+  glissière métallique + palmiers en rive D, rampe de la bretelle derrière ; mur beige + garde-corps gris ; G :
+  bâtiment brun rouille à pergola (équipement bas) + mur ext. ; immeuble vitré bleu.
+- s≈18950 : D = rampe + parking/gare routière en surplomb : dalle béton sur piles, garde-corps béton ajouré, cars
+  stationnés, panneaux bleus « P » ; tête de la COUVERTURE suivante (s 19000 → 19307) : pont-dalle + garde-corps gris ;
+  G : construction brun-rouille (bardage acier corten, auvent) accolée au mur ext.
+- COUVERTURE s 19000→19307 (Pte de Champerret nord / Courcelles) : tête = dalle béton à sous-face en redans, mur D
+  béton tagué avec porte ; intérieur : appliques SODIUM orange en file côté G (TPC = colonnade ouverte avec jours et
+  lames lumineuses blanches verticales vers la sortie), piédroit D = grands PANNEAUX BEIGES lisses (trame ~2,5 m)
+  avec ATTIQUE à caissons/baies rectangulaires en tête ; plafond en dalles calepinées puis POUTRES transversales
+  apparentes ; trottoir de service à D ; 4 voies.
+- s≈19320 sortie : D = DBA + TALUS ENHERBÉ sec + arbustes, candélabre simple grande hauteur ; G : talus boisé,
+  portique du sens ext. (grand panneau blanc dos), immeubles : barres beige/brun-rouge 12 niv. (Levallois), tours
+  blanches ; devant : PORTIQUE (2 montants) : PMV noir à G + panneau blanc à D (à relire : « D 909 … Pte d'ASNIÈRES ») ;
+  second portique à ~150 m.
+- s≈19330 (≈ 500 m avant la sortie Asnières s 19812) PORTIQUE (2 montants gris carrés) : à G grand PMV noir matriciel
+  (grille 2×10 modules, éteint) ; à D blanc « [D 909 jaune] 500 m » au-dessus de blanc « Pte d'ASNIÈRES » ; caisson
+  noir carré (signal d'affectation éteint) accroché à CHAQUE montant côté extérieur ; rive D = DBA + talus enherbé
+  sec très boisé (érables, robiniers) ; G : talus + portique ext., barres beige/brun 12 niv., tours 15-20 niv.
+- s≈19400 : en rive D sur un mât : triangle de danger A (dos-d'âne/cassis ?) au-dessus de B6d + « RAPPEL » ; B6d sur
+  TPC ; panneau blanc à pictos (information) côté ext. ; candélabres simples à crosse derrière DBA.
+- s 19465 → 19985 COUVERTURE D'ASNIÈRES (~520 m) : tête = pont-dalle béton, talus plantés ; intérieur : plafond en
+  dalles préfabriquées calepinées ; piédroit D en PANNEAUX SOMBRES (gris anthracite) à mi-hauteur + bandeau haut
+  couvert de GRAFFS ; un ventilateur cylindrique en applique à D près de l'entrée ; file continue de projecteurs
+  SODIUM des 2 côtés ; côté TPC colonnade à allèges + appliques ; trottoir de service à D.
+  ★ NICHE DE SÉCURITÉ à D (~120 m de l'entrée) : édicule VERT (porte d'issue de secours verte à hublot, bandes
+  lumineuses vertes verticales de part et d'autre), panneau vert lumineux « issue de secours » (picto) en drapeau,
+  2 carrés bleus au-dessus (téléphone SOS / extincteur), plaque de repère grise, puis porte ORANGE (local technique
+  vitré) ; cône de chantier.
