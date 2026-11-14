@@ -89,3 +89,26 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
 - #15 : section courante 3 voies, TPC DBA simple + herbes ; G = rive ext. en arcades meulière/béton (poteaux carrés,
   galerie sombre), balustrade béton en tête, immeubles 7-8 niv. beige/vitré ; pont suivant en vue (tablier béton +
   balustrade claire). Panneau rond blanc (dos) sur TPC ; petit panneau B sur mât rouge/blanc côté TPC.
+- #15 bis (terre-plein entre section courante et bretelle A6b) : DBA double + bande enherbée ; borne SOS orange +
+  coffret rouge ; mât à tête rayée rouge/blanc portant des feux (fermeture de trémie) + 2 afficheurs noirs (dos) ;
+  B14 « 50 » sur mât ; panneau blanc d'information fixé au mur meulière côté bretelle.
+- #16 (entrée de la couverture, ~Pte de Gentilly / A6b) : DEUX TUBES séparés par un piédroit en meulière :
+  · tube G = section courante 3 voies passant sous un pont-dalle béton (balustrade béton claire à travées en tête,
+    piles rectangulaires massives côté TPC) ;
+  · tube D = trémie A6b (2 voies) : fronton béton, bandeau blanc « DANGER [triangle] À 200 m » (texte noir, triangles
+    de danger aux extrémités), B14 « 50 » de part et d'autre de l'entrée, panneau bleu à texte + panneau bleu carré
+    (C-type) sur le piédroit, disque d'interdiction en haut à G du fronton.
+  D : mur meulière + parapet béton plein à caissons ; au-dessus immeuble de bureaux à façade résille gris-bleu (~7 niv.).
+  G : pont avec balustrade béton à balustres carrés, candélabres simples en tête, pins.
+- #17 (sous l'ouvrage) : sous-face en dalles/poutres béton, about du mur en gros blocs de meulière à bossage,
+  végétation retombante ; ÉCLAIRAGE SODIUM (appliques orangées) dans la couverture — image Look Around très bruitée.
+
+## Méthode (pour reprendre le relevé)
+
+- Look Around avance de ~100 m par clic sur le point de fuite de la chaussée (≈ 25 m si clic proche).
+- Ne jamais cliquer au-dessus de l'horizon (la caméra bascule vers le ciel) ; recadrer par glisser vertical.
+- Un glisser horizontal de 1 000 px ≈ 45° ; le cap dérive dans les courbes → recadrer tous les 3-4 clics.
+- Lire les portiques 1 à 2 vues AVANT de passer dessous (zoom sur la zone des panneaux).
+- Dernière position relevée : entrée de la couverture après la divergence A6b (≈ 1,7 km après la Pte d'Ivry).
+- À relire : panneau « 150 m » sous la pile bleue du portique d'Italie ; panonceaux du panneau B de #5 ;
+  panneau d'information blanc du mur (#15 bis).
