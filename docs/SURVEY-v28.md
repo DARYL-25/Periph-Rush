@@ -479,3 +479,90 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   Intérieur : 2 tubes séparés par piles massives ; piédroit D carrelé gris (petits carreaux) avec grilles de
   ventilation ; ENTRÉE par la D sous la couverture : grand zébra à CHEVRONS blancs + ligne continue ; côté TPC
   colonnade à allèges, appliques sodium orange en file ; garde-corps métallique sur passerelle de service à D.
+- s≈12900 (sortie de la couverture Molitor) : B14 « 50 » en rive D (pied du mur) ET sur le TPC ; mur D = dalles béton
+  clair tachées + garde-corps vert barreaudé en tête, grille de ventilation ; TPC DBA ; G : mur à pilastres clairs,
+  immeubles bas commerciaux à enseignes (neutres), bureaux gris.
+- s≈12980 : PORTIQUE (2 montants gris, traverse) : PMV noir 2 lignes ambre à G (temps de parcours) ; sur le TPC :
+  panneau carré BLEU « tunnel » (C111) + panonceau ; armoire beige sur TPC ; D : mur béton clair + garde-corps vert,
+  candélabre simple grande crosse ; borne/coffret gris au pied du mur. G : bus RATP sur voie latérale.
+- ★ PARC DES PRINCES (rive ext./au-dessus, s≈13000-13150) : stade à CONSOLES BÉTON en éventail (portiques blancs
+  nervurés inclinés, ~50 fûts), 3 grandes bâches en façade (neutres : pas de logos) ; il surplombe la tête du tunnel.
+- s≈13050 TÊTE DU TUNNEL DU PARC DES PRINCES : fronton béton, garde-corps VERT barreaudé + grillage ; 2 tubes
+  (voile central tagué) ; panneaux sur le fronton du tube D : bleu « ROUEN / VERSAILLES »-type (pile bleue A13, à
+  relire) + blanc « Pte d'AUTEUIL / Pte MOLITOR » + carrés bleus station/P ; en rive D : B (interdictions) sur mâts,
+  panneau directionnel blanc à flèche, caisson noir sur mât (afficheur), coffrets ; glissière/garde-corps blanc bas
+  le long d'une contre-allée à D ; candélabre simple.
+  Intérieur : 4 voies (dont voie de sortie à D avec ligne T2 + zébra) ; ★ batterie de 6 VENTILATEURS-ACCÉLÉRATEURS
+  cylindriques (Ø ~1,2 m, grilles) suspendus en ligne sous le plafond à l'entrée ; piédroits béton brut à
+  banches, appliques SODIUM orange en file continue des 2 côtés ; plaque verte « issue » à D.
+
+## Reprise n°4 — Molitor → Parc des Princes → Auteuil
+
+- Sortie de la couverture Molitor (s≈12950) : B14 « 50 » sur mât en rive D ET sur le TPC ; mur D en dalles béton clair
+  + bandeau, caisson technique en applique ; G : rive ext. = mur à contreforts/voiles verticaux clairs + garde-corps,
+  façades commerciales basses à enseignes (neutres), immeuble de bureaux gris 6 niv.
+- s≈13050 : PORTIQUE (potence 2 montants gris) avec PMV noir 2 lignes ambre (temps de parcours) à G ; panneau bleu
+  carré « tunnel » (C111) sur le TPC ; armoire beige sur TPC ; mur D béton clair + garde-corps vert barreaudé en
+  tête ; candélabres simples à crosse ; fourgon/abri technique blanc en rive D.
+- ★ PARC DES PRINCES (rive G/ext., au-dessus de la couverture) : couronne de PORTIQUES BÉTON en « lames » verticales
+  galbées (≈ 50 consoles blanches en éventail portant le bandeau de toiture), gradins visibles entre les lames,
+  grandes bâches rectangulaires accrochées entre lames (visuels de club : à laisser neutres/fictifs).
+- TÊTE DE LA COUVERTURE DU PARC DES PRINCES (s≈13150) : fronton béton + garde-corps VERT D'EAU barreaudé ; mur de
+  refend central tagué ; panneaux sur le fronton au-dessus du tube D : BLEU « ROUEN / VERSAILLES » (2 lignes, avec
+  cartouche A13 — à relire), blanc « Pte d'AUTEUIL … », carré bleu « P » ; sur mâts à D : disque B (interdiction),
+  B14 « 50 », panneau rectangulaire blanc, feu R24 ; zébra + bretelle d'entrée venant de la D (muret + garde-corps
+  blanc à barreaux) ; 4 voies.
+- INTÉRIEUR couverture Parc des Princes : plafond bas béton ; ★ 6 ACCÉLÉRATEURS/VENTILATEURS cylindriques gris
+  (Ø ~1,2 m, grilles) suspendus en batterie sous la dalle à l'entrée ; piédroits béton brut à joints, APPLIQUES
+  SODIUM rectangulaires en file continue des 2 côtés ; voie d'insertion à D avec zébra.
+- Sortie de la couverture Parc des Princes (s≈13400) : G = écran/mur métallique gris sombre à lames verticales +
+  pylône ; D = mur béton brut à banches + bâtiment ocre ; B6d sur mât à D ; borne SOS orange.
+- s≈13450 PORTIQUE (2 montants gris, traverse) :
+  · à G : BLEU « vers A 14 - A 15 - A 1 » au-dessus de VERT « CH. DE GAULLE » ;
+  · au centre : BLANC « Pte DE PASSY » ;
+  · à D : panneau blanc avec cartouche ROUGE « A 13 » + flèche oblique ↗ noire, au-dessus de BLEU 3 lignes
+    « ROUEN / St QUENTIN EN Y^nes / VERSAILLES ».
+  Rive D : mât avec disque B (interdit aux véhicules de transport en commun/PL, picto) + plaque « E » + flèche ↘
+  (refuge) ; mur béton brut à banches (~4 m) taché, DBA en pied.
+  ★ Bâtiment D de premier rang : LONG VOLUME à façade en LAMES HORIZONTALES OCRE/TERRE CUITE (brise-soleil bois ou
+  terre cuite, ~12 m au-dessus du mur), grandes LETTRES découpées en creux bleu nuit sur la façade (nom d'enceinte
+  sportive → lettrage neutre), auvent gris en pied ; pins et cèdres derrière.
+- s≈13550-13620 : voie de D = voie de SORTIE A13 (ligne T2 puis continue, flèches de rabattement jaunes temporaires
+  à ignorer) ; 3 voies de transit ; TPC DBA ; G : pelouse, arbres, portique du sens ext. avec PMV.
+  Devant : TÊTE DE COUVERTURE (Pte d'Auteuil, s≈13700) : fronton béton bas végétalisé (haie en tête), 2 tubes ;
+  le musoir A13 (balises vertes, glissières) est juste devant la tête, la bretelle A13 longe la façade ocre à D
+  et passe à l'air libre.
+- ⚠ Erreur de branche à la tête de couverture d'Auteuil : entré dans le tube de la BRETELLE (1-2 voies, piédroit G à
+  colonnade, D béton tagué, puis passage sous un viaduc de bretelle à pile en Y « 50 RAPPEL », puis tunnel courbe à
+  1 voie) = échangeur A13, hors section courante. LACUNE s≈13700 → ~15350 (couvertures du Bois de Boulogne/Auteuil/
+  Passy) à refaire ; l'atterrissage par coordonnées tombe dans les tubes de l'échangeur.
+
+## Secteur Bois de Boulogne : Auteuil → Passy → Muette (reprise à s ≈ 14 650)
+
+- s≈14650 (tranchée entre 2 couvertures, repère 14595-14738) : 4 voies ; D = DBA + trottoir de service + HAUT MUR EN
+  DALLES DE PIERRE BEIGE calepinées (~0,6×1 m, ~8 m), sommet tagué, GARDE-CORPS VERT D'EAU barreaudé en tête, arbres
+  du Bois au-dessus ; ★ CONDUITE ROUGE (colonne incendie Ø ~10 cm) fixée horizontalement à ~1,5 m sur tout le mur ;
+  G = glissière métallique sur TPC, mur ext. identique en dalles + garde-corps vert, Bois.
+  Devant : TÊTE DE COUVERTURE (s 14738) : fronton béton + garde-corps vert ; PMV 2 lignes ambre au-dessus du tube G
+  (« …OTE : 4 MN / …LLE : 22 MN ») ; au-dessus du tube D : blanc « 400 m » au-dessus de blanc « Pte de PASSY » ;
+  carré bleu « tunnel » (C111) sur mât en rive D.
+- TÊTE s 14738 : pont-dalle béton, garde-corps vert d'eau barreaudé courbe, la conduite rouge remonte verticalement
+  au droit de la tête ; mur G en grands panneaux béton clair lisses (~3×5 m) ; arbres du Bois au-dessus.
+- COUVERTURE DU BOIS DE BOULOGNE (s 14738 → 15312, ~570 m) : 4 voies ; piédroits béton sombre, moitié haute taguée
+  (grands graffs) ; trottoir de service + lisse/glissière en pied à D ; ÉCLAIRAGE = projecteurs blancs/verdâtres
+  ponctuels (tous les ~12 m) en haut des 2 piédroits (pas de file sodium continue) ; 2 ventilateurs cylindriques
+  suspendus près de l'entrée (côté D) ; NICHE DE SÉCURITÉ à D (~150 m) : 2 caissons lumineux VERTS (issue de secours),
+  panneaux carrés bleus (extincteur / téléphone), balises ; à ~300 m : 2 panneaux suspendus au plafond : blanc
+  « Pte DE LA MUETTE » (voies G) et blanc « 150 m » au-dessus de blanc « Pte de PASSY » (voie D) ; puis voie de
+  sortie Passy à D (ligne T2 → continue).
+- Fin de la couverture du Bois : la SORTIE PTE DE PASSY (s 15181) part à D SOUS la couverture derrière un voile ;
+  piédroit G en pierre/moellons, D béton tagué + lisses blanches.
+- s≈15312 SORTIE DE COUVERTURE : PORTIQUE (2 montants ronds gris) : blanc « Pte DE LA MUETTE » à D ; rive D = DBA +
+  TALUS ENHERBÉ haut + lisière du BOIS DE BOULOGNE (chênes, marronniers) ; B6d + « RAPPEL » en rive D ; candélabres
+  simples à crosse (mâts verts) ; G : TPC DBA + armoire, mur ext., grand panneau publicitaire blanc, Bois.
+- s≈15400-15500 : D = MUR BÉTON CLAIR lisse puis en DALLES DE PIERRE beige calepinées (~4→7 m), tags bleus recouverts,
+  arbres du Bois au-dessus ; disque B (interdiction de tourner) sur candélabre ; ENTRÉE à D (s 15513) : zébra plein
+  blanc + flèche de rabattement, 5 voies sur ~70 m ; portique du sens ext. avec PMV à G.
+- s 15578-15644 PONT/COUVERTURE (Pte de la Muette) : pont-dalle béton gris, talus planté et arbres au-dessus ; côté TPC
+  colonnade de piles rectangulaires ; piédroit D béton lisse clair + lisse ; file de petits projecteurs en applique ;
+  la SORTIE PTE DE LA MUETTE (s 15611, 2 voies) se détache à D sous l'ouvrage (ligne T2 large).
