@@ -112,3 +112,6 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
 - Dernière position relevée : entrée de la couverture après la divergence A6b (≈ 1,7 km après la Pte d'Ivry).
 - À relire : panneau « 150 m » sous la pile bleue du portique d'Italie ; panonceaux du panneau B de #5 ;
   panneau d'information blanc du mur (#15 bis).
+- ⚠ À la reprise : la dernière vue est dans un tube à 2 voies (panneau de danger A14 + panonceau, jours latéraux à G,
+  appliques sodium) — vérifier s'il s'agit de la trémie A6b (mauvaise branche) et, si oui, revenir à #15 pour reprendre
+  le tube de gauche (section courante).
