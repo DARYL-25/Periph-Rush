@@ -674,3 +674,18 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   lumineuses vertes verticales de part et d'autre), panneau vert lumineux « issue de secours » (picto) en drapeau,
   2 carrés bleus au-dessus (téléphone SOS / extincteur), plaque de repère grise, puis porte ORANGE (local technique
   vitré) ; cône de chantier.
+- Couverture d'Asnières (suite) : 2 panneaux suspendus au plafond à ~250 m : blanc « Pte DE CLICHY » (G) et blanc
+  « [D 909] 150 m » / « Pte d'ASNIÈRES » (D) ; 2e niche de sécurité verte à D (mêmes équipements + panneau carré
+  « flèche issue ») ; piédroit D en panneaux clairs sur la 2e moitié.
+- s 19812 SORTIE PTE D'ASNIÈRES : musoir SOUS la couverture : zébra jaune/blanc + 6 BALISES J11 jaune/noir (potelets),
+  B14 « 50 » sur pied à D ; la bretelle (1 voie) sort à D et MONTE entre un mur en dalles de pierre beige (garde-corps
+  béton ajouré clair en tête, platanes) et un muret + garde-corps béton ajouré côté section courante ; candélabres
+  simples à crosse verts ; en haut : carrefour à feux, mât de jalonnement à 5 lames blanches.
+- ⚠ parcouru la bretelle par erreur : LACUNE section courante s≈19850 → 20300 (fin de couverture, tranchée, pont-rail
+  de Clichy) → s'appuyer sur v17 (points 2000-2500).
+- s≈20350 (reprise section courante, approche Pte de Clichy) : 4 voies ; TPC = DBA + glissière, bande plantée
+  (peupliers, arbustes) avec mâts d'éclairage à projecteurs ; D = DBA + talus enherbé, B (disque) sur mât ;
+  ★ à D en premier rang : TRIBUNAL DE PARIS (tour en 3 blocs vitrés superposés en gradins, ~160 m, façade rideau
+  blanche/argent, terrasses plantées entre blocs) + immeuble de bureaux gris-bleu à trame serrée (8 niv.) à grande
+  enseigne (neutre) ; devant : pont (bd/tram) à tablier béton + garde-corps, piles ; G : halle blanche basse, pylônes
+  d'éclairage de stade.
