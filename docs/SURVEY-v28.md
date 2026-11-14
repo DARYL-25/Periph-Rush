@@ -326,3 +326,37 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   (calepinage régulier ~1×0,6 m, ~8 m de haut) avec corniche et ATTIQUE AJOURÉ (petites baies rectangulaires) ;
   candélabres simples à crosse au pied ; G = mur béton gris à pilastres + attique ajouré, couvert de LIERRE
   retombant ; immeuble blanc années 50 (8 niv.) derrière ; TPC DBA + armoires grises.
+- s≈7400-7550 : D = MUR BÉTON ANCIEN très patiné (brun-noir, coulures) à panneaux entre pilastres + ATTIQUE AJOURÉ
+  (baies rectangulaires), tags blancs en tête ; candélabres simples à crosse au pied ; borne SOS orange au pied du
+  mur ; plaquette PR « 05.6 »-type sur TPC ; G = mur gris à contreforts/stèles + attique, lierre ; immeubles : bureaux
+  blancs à casquette (5 niv.), bureaux vitrés bleus, immeuble blanc 9 niv. ; à D en retrait immeuble gris-beige
+  8 niv. à loggias + CHEMINÉE EN BRIQUE (~25 m).
+- s≈7600 : le mur D se termine par un pilier en MEULIÈRE ; présignalisation sur mât en rive D : blanc
+  « [D 906 jaune]  ↘ » au-dessus de blanc « Pte DE CHÂTILLON / Pte DE MONTROUGE ».
+- s≈7677 SORTIE PTE DE CHÂTILLON : biseau à D, la bretelle (1 voie) MONTE le long d'un talus enherbé ; entre bretelle
+  et section courante : muret + GARDE-CORPS VERT à lisses ; B (sens interdit/limitation) sur mât ; arbres en fleurs.
+  Bâtiment D : GRAND VOLUME BOMBÉ à bardage métallique ANTHRACITE à joints horizontaux (halle type salle de sport/
+  commerce, ~15 m, enseigne neutre) + 2 panneaux pub 4×3 sur sa façade ; mur meulière tagué en pied.
+  Section courante redescend en tranchée : murs à LAMES HORIZONTALES bicolores gris clair/gris-vert (parement strié),
+  DBA en pied à D ; G : mur meulière + écran à stèles, immeuble de bureaux vitré bleu 9 niv., cylindre ROUGE
+  (colonne/silo publicitaire) + immeubles blancs.
+- s 7827-7885 PASSAGE SOUS L'AV. DE LA PTE DE CHÂTILLON : fronton béton beige tagué, garde-corps vert en tête, feux et
+  candélabres doubles sur le pont ; dessous : dalle béton écaillée, FILE DE POTEAUX CARRÉS (carrelés gris-vert) côté
+  TPC ouvrant sur le sens ext., mur D carrelé blanc/gris clair avec portes de service, APPLIQUES SODIUM orange
+  en haut des deux côtés ; 3 voies.
+- s≈7900-8000 (sortie du passage Châtillon) : tranchée à murs en LAMES HORIZONTALES gris clair/gris-vert (D tagué en
+  pied), garde-corps vert à lisses en tête à D (rampe d'entrée qui descend), arbres ; candélabres simples à crosse ;
+  G : rampe ext. + garde-corps, bâtiment commercial blanc bas à grandes enseignes rouges (neutre), barres roses
+  7-8 niv. (2), tour 15 niv. au fond.
+- s≈8050 : D = muret + glissière/lisse métallique grise, panneau AB3a-type TRIANGLE « cédez le passage/danger » (dos
+  de l'entrée) ; G = mur meulière bas, barres roses, peupliers.
+- s 8123 ENTRÉE (Pte de Châtillon) : voie d'insertion à D avec zébra + flèches de rabattement, B (interdiction
+  dépasser/limitation) sur mât + borne SOS orange sur l'îlot, mur meulière tagué + grillage vert derrière, platanes ;
+  TPC : DBA + armoires beiges ; portique léger du sens ext. à G.
+- s≈8200-8450 : 3 voies + voie d'insertion qui se résorbe ; D = DBA + TALUS ENHERBÉ montant, boisé (érables,
+  marronniers), jeunes arbres tuteurés (tuteurs bois triples) ; candélabres simples à crosse derrière DBA ; B14 « 50 »
+  rive D et TPC vers s≈8250 ; G = talus enherbé côté ext. + alignement d'arbres, barres HLM beige-rose 8 niv.,
+  tours 15-18 niv. (2) ; TPC : montant de portique du sens ext., armoires.
+- s≈8500 : PONT (rue/av. vers Pte Brancion-Didot ?) : tablier béton, BALUSTRADE BÉTON à balustres, culées MEULIÈRE
+  (D taguée de grands graffs colorés), pile centrale sur TPC ; PMV noir 2 lignes fixé sur le tablier à G + panneau
+  blanc à D du PMV (à relire : présignalisation Brancion/Vanves) ; talus enherbé + grille noire à D ; tour 18 niv. à G.
