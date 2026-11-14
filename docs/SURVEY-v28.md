@@ -115,3 +115,79 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
 - ⚠ À la reprise : la dernière vue est dans un tube à 2 voies (panneau de danger A14 + panonceau, jours latéraux à G,
   appliques sodium) — vérifier s'il s'agit de la trémie A6b (mauvaise branche) et, si oui, revenir à #15 pour reprendre
   le tube de gauche (section courante).
+
+## Reprise n°2 (14 nov. après-midi)
+
+- La dernière vue de la 1re passe était bien dans la TRÉMIE A6b (2 voies, marquage jaune, « ISSUE 401 ») : hors périph.
+  Tronçon non relevé à refaire : couverture de la section courante entre #16 et la Poterne des Peupliers (~300 m).
+- Méthode fiable : `python3 tools/s2ll.py <s>` donne lat,lon (retirer ~0,00038 de latitude) ;
+  ouvrir `maps.apple.com/look-around?coordinate=lat,lon`, cliquer la vignette, puis avancer avec FLÈCHE HAUT
+  (≈ 12 m par appui, attendre 1,5 s entre deux appuis) : le cap reste fixe, contrairement aux clics.
+
+## Secteur Poterne des Peupliers → Gentilly (s ≈ 4 600 →)
+
+- P1 (s≈4600) : 3 voies, enrobé récent sombre, lignes T1 ; D = DBA béton + bande herbeuse + fourré dense (robiniers,
+  ailantes, arbustes), B14 « 50 » sur mât galva derrière la DBA ; candélabres simples à crosse derrière DBA.
+  G = DBA TPC, sens ext., B6d (arrêt/stationnement interdits) sur le TPC et en rive D ~100 m plus loin ;
+  rive ext. : immeuble de bureaux vitré brun/bronze à lames verticales (~6 niv.), peupliers.
+- P2 (+100 m) : idem ; candélabres simples à crosse (mât vert) tous les ~35 m en rive D ; G immeuble bronze à lames.
+- P3 (+200 m) : PORTIQUE (2 montants beige rosé, traverse caisson beige) : à G grand PMV noir (2 lignes, éteint) ;
+  à D panneau blanc 2 lignes « Pte DE GENTILLY / Pte D'ORLÉANS » surmonté d'un panneau blanc
+  « [D920 cartouche jaune] 600 m ». D = DBA + fourré dense ; G = mur ext. avec fresque/graffs colorés, immeuble
+  blanc arrondi à bandeaux vitrés (~6 niv.) dans l'axe.
+- P4 (+250 m) : en rive D, plaquette de repère fixée sur un mât de candélabre (petite plaque blanche fléchée
+  « [picto SOS] 200 m » = distance du poste d'appel d'urgence), fourré avec prunus pourpre.
+- P5 (s≈4750, VIADUC de la Poterne des Peupliers) : rive D = DBA + PARAPET béton à dés rectangulaires espacés ~3 m
+  reliés par 3 lisses métalliques horizontales grises ; cimes d'arbres (peupliers) dépassant d'en bas ; candélabres
+  simples à crosse. Bâtiment D de premier rang, très proche : IMMEUBLE DE BUREAUX VITRÉ À ANGLES ARRONDIS
+  (5 niveaux, bandeaux de plancher blancs filants, vitrage bleuté toute hauteur à trame verticale fine, édicules
+  techniques + garde-corps en toiture). G : TPC DBA, portique du sens ext. (dos gris), mur ext. tagué.
+- P6 (s≈4900) : fin du viaduc ; D = DBA + lisse métallique basse + fourré ; dos d'un panneau triangulaire sur mât ;
+  arrière-plan D : STADE CHARLÉTY = 4 mâts d'éclairage (pylônes fins à herse rectangulaire inclinée).
+- P7 (s≈5000) : D = DBA, talus qui DESCEND vers une clôture à barreaudage sombre, grands cèdres/conifères, bâtiment
+  brique rouge-orangé (~8 niv.) au loin ; candélabres simples à crosse tous les ~35 m ; 3 voies.
+- P8 (s≈5100) : D = DBA + fourré (ailantes) ; disque (dos gris tagué) fixé sur mât de candélabre.
+- P9 (s≈5200) : PORTIQUE (potence + traverse grise) :
+  · à G : panneau blanc « [A6a ? cartouche rouge] 600 m » au-dessus d'une pile BLEUE « …BORDEAUX-NANTES /
+    LYON-ÉVRY / ORLY-RUNGIS » (à relire de face) ;
+  · à D : panneau blanc « [D 920 cartouche jaune] 300 m » au-dessus du panneau blanc « Pte DE GENTILLY /
+    Pte D'ORLÉANS ».
+  Marquage : la voie de droite devient voie de sortie (ligne T2 large à tirets courts) ; 2 armoires techniques beiges
+  taguées derrière la DBA ; mât de candélabre galva en rive.
+- P9 de face : le portique est une POTENCE (un seul montant gris sur le TPC, traverse en porte-à-faux vers la D).
+  G : panneau blanc « [A6a cartouche rouge] 600 m » ; dessous bleu « [A 10] BORDEAUX-NANTES » ; dessous bleu 2 lignes
+  « LYON-ÉVRY / [avion] ORLY-RUNGIS ». D : blanc « [D 920] 300 m » ; dessous blanc « Pte DE GENTILLY / Pte D'ORLÉANS ».
+- P10 (s≈5300) : BORNE SOS orange n° « 13 » (colonne carrée ~2 m, bandeau blanc « 13 13 », 2 pictos SOS/téléphone)
+  derrière la DBA ; D en contrebas : CIMETIÈRE DE GENTILLY (tombes) derrière un mur en plaques béton ; mât Charléty.
+- P11 (s≈5400) : D = DBA + lisse métallique + mur plaques béton en contrebas ; dos de panneau triangulaire ;
+  G : TPC DBA, sens ext. ; au fond G immeubles de bureaux bleu-blanc à trame carrée (~8 niv.).
+- P12-P14 (s≈5500-5700) : marquage d'entrecroisement très retouché (anciennes lignes effacées visibles, T2 large) ;
+  D = DBA + fourré haut continu (érables, robiniers) ; candélabres simples à crosse derrière DBA.
+- P15 (s≈5800) : court ouvrage : parapet béton à dés + lisse tubulaire, puis clôture grillagée verte.
+- P16 (s≈5900) : D = DBA + CLÔTURE EN TREILLIS SOUDÉ BLANC (~2 m, poteaux blancs) ; derrière, sur socle :
+  GROUPE SCULPTÉ en pierre grise (figures assises, ~3 m) sous les arbres (abords Cité universitaire).
+  G : immeuble de bureaux bleu/blanc à trame de fenêtres carrées (8 niv.), immeuble vitré à VOÛTE en berceau
+  (verrière cintrée sombre) et corps beige.
+- P17 (s≈6000) : B6d + panonceau « RAPPEL » en rive D (mât derrière DBA) ET sur le TPC ; ~60 m plus loin en rive D,
+  sur 2 mâts : caisson noir (PMV/afficheur) au-dessus d'un panneau blanc de présignalisation « [D920] /
+  Pte DE GENTILLY / Pte D'ORLÉANS » (flèche oblique) ; candélabre simple à crosse ; sculpture toujours visible.
+- P17 détail : présignalisation en rive D sur 2 mâts gris = caisson noir (afficheur éteint) / panneau blanc
+  « [D920 jaune]  ↘ » (flèche oblique noire bas-droite) / panneau blanc « Pte DE GENTILLY / Pte D'ORLÉANS ».
+- P18 (s≈6050) : D = DBA + bande herbeuse + clôture treillis blanc puis MUR béton clair à panneaux (~3 m, redans) ;
+  G : immeuble beige/gris à corps vitré en VOÛTES (5 travées cintrées vert sombre, enseigne en attique), 6 niv.
+- P19 (s≈6150) : MUSOIR de la sortie Pte de Gentilly/Orléans : la bretelle (1 voie large + BAU) part à D en restant
+  au niveau, bordée à D d'un mur béton clair à panneaux et d'une haie d'arbres ; musoir = glissières métalliques
+  convergentes + balise J14a verte, panneau B (disque) sur mât dans la bretelle ; DBA entre bretelle et section
+  courante avec herbes hautes ; parapet béton à balustres courts au début du viaduc.
+- P20 (s≈6250) : POTENCE (montant unique sur TPC, gris clair) AU-DESSUS DE LA SECTION COURANTE :
+  · à G : vert « [A 13 cartouche bleu… lu « A 13 »] ROUEN » ; dessous blanc « Pte DE CHÂTILLON / Pte DE MONTROUGE » ;
+  · à D : cartouche rouge « A6a » au-dessus ; bleu « [A 10] BORDEAUX-NANTES » ; grand bleu « LYON-ÉVRY /
+    [avion] ORLY-RUNGIS » avec 1 flèche blanche vers le bas.
+  Flèches directionnelles blanches au sol : ↑ (voie 1), ↑ (voie 2), ↱ (voie 3, vers A6a).
+  Rive D : parapet de viaduc béton à dés + lisses métalliques ; candélabres simples à crosse.
+- P21-P23 (s≈6350-6550) : divergence A6a : les voies de droite (avec flèches ↱ répétées) se séparent par une ligne
+  continue ; section courante = 2 voies le long du TPC. TPC = DBA double avec bande plantée (herbes), armoire
+  technique beige taguée sur le TPC. D : parapet viaduc + arbres, borne SOS orange, B (disque rouge) + panonceau sur
+  mât ; immeuble rose saumon (~7 niv.) + immeuble vitré en retrait. G (rive ext.) : conifères, HBM beige à toits
+  d'ardoise mansardés (7 niv.), immeuble blanc 8 niv. ; dans l'axe : CLOCHER élancé (flèche) de l'église de
+  Gentilly (Sacré-Cœur, Cité U).
