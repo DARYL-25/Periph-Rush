@@ -191,3 +191,25 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   mât ; immeuble rose saumon (~7 niv.) + immeuble vitré en retrait. G (rive ext.) : conifères, HBM beige à toits
   d'ardoise mansardés (7 niv.), immeuble blanc 8 niv. ; dans l'axe : CLOCHER élancé (flèche) de l'église de
   Gentilly (Sacré-Cœur, Cité U).
+- P24-P26 (s≈6650-6850) : section courante 2 voies + voie(s) A6a à D séparées par ligne continue large, flèches ↱
+  au sol ; TPC = DBA double + bande de terre/herbes ; armoire technique beige sur TPC ; B6d sur TPC (mât).
+  Rive ext. (G) : MUR peint en BLEU sur toute la longueur, couvert de graffs, surmonté d'une clôture grillagée ;
+  immeuble HAUSSMANNIEN pierre claire (7 niv., toit ardoise mansardé, lucarnes, balcons filants) puis petits
+  immeubles brique ; potence/portique du sens ext. (dos). Rive D : IMMEUBLE ROSE SAUMON (8 niv., trame régulière de
+  fenêtres carrées) accolé à un volume VITRÉ en retrait (structure métallique apparente) ; panneau triangulaire de
+  danger sur mât ; candélabres simples à crosse ; au fond tour de bureaux blanche (~12 niv.).
+- P27 (s≈6950, MUSOIR A6a) : pointe de zébra (chevrons blancs) + 2 BALISES VERTES cylindriques (J11 vertes à bandes
+  blanches) + DBA qui démarre ; la bretelle A6a (2 voies) s'écarte à D au même niveau ; grand panneau bleu de
+  confirmation sur portique au-dessus de la bretelle (« BORDEAUX-NANTES / LYON-ÉVRY / ORLY-RUNGIS » + flèches).
+  TPC : file de SÉPARATEURS BÉTON modulaires (K16/GBA courts, gris, joints visibles) à la place de la DBA coulée,
+  balises vertes sur le TPC. Rive D : immeuble de bureaux beige à loggias en béton préfabriqué (~9 niv.).
+- P28 (s≈7050) : G : camions sur le sens ext. ; immeubles brique rouge/pierre (6-7 niv., bow-windows), immeuble à
+  pignon publicitaire noir ; D : bretelle A6a qui descend, panneaux publicitaires 4×3 (2, cadres gris sur mâts),
+  immeuble RAYÉ ROUGE ET BLANC (bandeaux horizontaux, ~7 niv.) + immeuble vert d'eau ; cheminée/édicule brique.
+- P29 (s≈7150) : 2 voies ; rive D = DBA + GLISSIÈRE métallique double, panneau blanc rectangulaire « ALLUMEZ VOS /
+  CODES » (noir sur blanc, 2 lignes) sur 2 pieds derrière la glissière ; B (interdiction) + panonceau sur mât ;
+  TPC : DBA + bande herbeuse large, plaquette PR (petit panneau blanc sur piquet, « 04.1 » lu) ; G : mur bleu tagué
+  continu, HBM beige 8 niv. à balcons, pignon noir à enseigne, pavillons ; CLOCHER dans l'axe légèrement à G ;
+  couverture/pont en vue à ~300 m.
+- Dernière position : s ≈ 7 150-7 300 (après le musoir A6a, avant la Porte d'Orléans). Reprendre avec
+  `python3 tools/s2ll.py 7200` puis traversée vers la chaussée intérieure.
