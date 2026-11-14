@@ -590,3 +590,26 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   COLONNADE de poteaux rectangulaires fins côté TPC OUVERTE sur le sens ext. et le talus du Bois (lumière du jour),
   piédroit D en grands panneaux béton beige avec ATTIQUE AJOURÉ (baies rectangulaires hautes) ; trottoir de service ;
   pas d'éclairage sodium visible (jour naturel latéral). 4 voies.
+- s 16752 SORTIE PTE DAUPHINE : présignalisation en rive D sur 2 mâts : caisson noir (afficheur) / blanc « ↘ » /
+  blanc « Pte DAUPHINE » ; à côté carré bleu « station-service » + carré bleu « P » ; sens interdit (dos) ; B14 « 50 »
+  sur mât au mur ; B6d + « RAPPEL » sur TPC et sur rive D ; mur D en béton clair lisse (~5 m) avec retouches de
+  peinture, arbres au-dessus ; la bretelle (1 voie) monte à D le long d'un muret + glissière, talus arbustif ;
+  au-dessus à D : bâtiment blanc à passerelles/escaliers métalliques (université Dauphine, ~6 niv., bandeaux vitrés).
+  Section courante : 4 voies ; G : TPC DBA, talus sableux, Bois.
+- s 16947 → 17183 COUVERTURE DAUPHINE (place) : tête béton + talus planté, panneau VERT rectangulaire fixé au
+  fronton côté G (à relire : « LA DÉFENSE / … ») ; intérieur : 4 voies, côté TPC colonnade à allèges, piédroit D béton
+  + PASSERELLE DE SERVICE à garde-corps métallique à mi-hauteur, mur haut couvert de GRAFFS ; APPLIQUES SODIUM orange
+  en file des 2 côtés ; parois à lames lumineuses claires côté G vers la sortie.
+- s≈17200 sortie : rive D = DBA + rampe d'entrée qui descend (glissière + garde-corps), candélabres simples à crosse
+  et un mât à projecteurs ; G : talus, Bois ; candélabres sur les 2 rives.
+- s≈17250-17400 APPROCHE PTE MAILLOT : ENTRÉE à D (s 17406) avec long zébra + 5 voies ; B14 « 50 » sur TPC ET sur
+  rive D ; lisière du Bois à D (talus + arbres denses) ; candélabres à projecteurs en tête de mât à G ;
+  PORTIQUE : à G panneau BLEU (« … A 14 … » à relire) ; à D pile de 2-3 panneaux VERTS (« LA DÉFENSE [N 13] » etc.,
+  à relire) ; plus loin sur le fronton du pont : panneau vert + blanc « Pte MAILLOT ».
+- s 17448 SORTIE PTE MAILLOT/LA DÉFENSE (2 voies à D) : mur D en dalles béton clair, B6d sur mât ; dans l'axe à D :
+  TOUR CYLINDRIQUE/arrondie blanche ~35 niv. (hôtel de la Pte Maillot) ; mât-lampadaire « champignon » (couronne
+  de projecteurs) sur la place.
+- s 17567 PONT (rue du Général-Anselin / échangeur Maillot) : tablier béton en biais à sous-face lisse, garde-corps
+  béton plein + végétation, piles = VOILES BÉTON rectangulaires massifs (TPC) ; B14 « 50 » + armoire beige sur TPC
+  devant la pile ; mur D béton peint gris avec retouches.
+- ⚠ à cet endroit le relevé a basculé sur la chaussée EXTÉRIEURE (clic sur le TPC). Reprise par coordonnées.
