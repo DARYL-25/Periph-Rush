@@ -241,3 +241,40 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   G : immeubles HBM beige rosé 8 niv. (2 barres à trame serrée), platanes ; TPC : DBA + muret pierre (dénivelé).
   Dans l'axe : PONT de la Pte d'Orléans (tablier mince, garde-corps bleu clair) + portique à panneau VERT et
   cartouche ; immeuble vitré bleu-vert (~10 niv.) et rotonde à D au fond ; panneau publicitaire sur mât à D.
+- P40 (s≈8300) : PONT-PASSERELLE (av. P. Vaillant-Couturier / Cité U – Montrouge) : tablier béton mince sur piles
+  rondes (une file sur TPC, une en rive D), garde-corps surmonté d'un GRILLAGE HAUT bleu-gris (pare-jets) ;
+  panneaux accrochés à D du tablier, lus : VERT « [A 13] ROUEN » au-dessus d'un blanc « PÉRIPHÉRIQUE » (voies de
+  transit) ; à D blanc « [D 920 cartouche] 400 m » au-dessus de blanc « Pte d'ORLÉANS ».
+  G : 2 GRANDES BARRES HBM en pierre/béton rosé (9 niv., trame de fenêtres carrées serrée, RDC à arcades hautes),
+  mur de soutènement en pierre + balustrade ; TPC : DBA + muret pierre, armoire grise.
+- P41-P42 (s≈8400-8500) : 3 voies + zébra à D (entrée) ; D : DBA, candélabres doubles en Y ; à D immeuble de bureaux
+  vitré vert-gris à lames horizontales (~9 niv.) ; dans l'axe à D : IMMEUBLE CYLINDRIQUE/ovale à résille blanche
+  ajourée (motif organique, ~8 niv.) ; immeuble années 60 à trame (7 niv.) ; G : immeuble rose saumon 9 niv.,
+  platanes ; TPC : DBA + armoires techniques beiges ; panneaux pub 4×3 à D.
+
+> ⚠ RECALAGE : un appui sur « flèche haut » ≈ 7 m (et non 12). Les abscisses « s≈ » des entrées P1 à P42 sont donc
+> SURESTIMÉES. Repères sûrs (data/junctions.txt) : P9 potence « D920 300 m » ≈ s 5070 ; P19 musoir sortie
+> Gentilly/Orléans = s 5370-5400 ; P20 potence A13/A6a ≈ s 5450 ; musoir A6a (P27) ≈ s 5650-5700 ; section à 2 voies
+> = s 5608→6839 ; église de Gentilly ≈ s 6300 ; passerelle du Cambodge ≈ s 6500 ; entrée (P34-36) = s 6839 ;
+> pont Pte d'Orléans (P40) = s 7321-7383 ; portique « D 906 250 m » = s ≈ 7430. Interpoler linéairement entre repères.
+> À partir d'ici les abscisses sont recalées sur ces repères.
+
+- s≈7450 (PORTIQUE blanc pleine largeur, 2 montants : TPC et îlot entre section courante et voie d'entrée) :
+  à G panneau blanc « [D 906 cartouche jaune] 250 m » au-dessus de blanc « Pte DE CHÂTILLON / Pte DE MONTROUGE » ;
+  à D caisson noir (afficheur) au-dessus de la voie d'entrée. La VOIE D'ENTRÉE (2 files, venant de la Pte d'Orléans)
+  longe la section courante à D, séparée par une file de SÉPARATEURS BÉTON modulaires gris (K16) sur ~200 m.
+  Rive D de l'entrée : grille noire + arbres ; panneau blanc à texte « VOIE … RÉSERVÉE AUX BUS / TAXIS… » (à relire)
+  + disque B ; 2 panneaux pub 4×3 sur mâts ; candélabres simples.
+  Bâtiment D de premier rang : IMMEUBLE CYLINDRIQUE (~9 niv.) à peau en relief gris/blanc (motif de petits
+  parallélépipèdes en quinconce), puis immeuble à trame béton brun-gris (8 niv., loggias, toiture plantée).
+  G : bureaux vitrés bleus 5-6 niv. en enfilade (Montrouge).
+- s≈7500-7600 : la voie latérale d'entrée (2 files, souvent saturée) reste séparée par séparateurs béton modulaires ;
+  au-dessus d'elle une potence porte « [A 13] ROUEN » (vert) / « PÉRIPHÉRIQUE » (blanc) et « Pte d'ORLÉANS » (blanc,
+  cartouche D jaune au-dessus) — signalisation propre à la voie latérale. Section courante : 3 voies, B6d sur TPC.
+  Bâtiments D de premier rang, dans l'ordre : (1) cylindre à peau en relief gris anthracite/blanc ; (2) IMMEUBLE
+  ARRONDI en brique grise à assises décalées (claustras), bandeaux de dalle clairs filants, baies vitrées toute
+  hauteur en quinconce, 8 niv., toiture-jardin ; (3) immeuble 7 niv. à bandeaux gris clair horizontaux et allèges
+  bois/orange ponctuelles ; (4) tour-barre béton gris clair à bandeaux (10+ niv.). Devant eux : grille noire haute
+  à barreaux, haie, panneaux pub 4×3 lumineux (paires sur mât), mât d'éclairage sportif.
+  Rive D de la voie latérale : panneau « interdiction de tourner à D » + panonceau, sens interdit au loin (bretelle).
+  G : enfilade de bureaux vitrés bleus 5-6 niv., grand cèdre à D au fond.
