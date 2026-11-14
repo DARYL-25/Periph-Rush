@@ -213,3 +213,31 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   couverture/pont en vue à ~300 m.
 - Dernière position : s ≈ 7 150-7 300 (après le musoir A6a, avant la Porte d'Orléans). Reprendre avec
   `python3 tools/s2ll.py 7200` puis traversée vers la chaussée intérieure.
+
+## Reprise n°3 — Gentilly (église) → Porte d'Orléans
+
+- P30 (s≈7300) : 2 voies + accotement ; TPC = DBA puis MURET DE SOUTÈNEMENT en moellons/pierre (le sens ext. est plus
+  bas d'~1,5 m) ; D : DBA + muret béton, candélabres DOUBLES en Y (2 crosses) ; G : mur bleu tagué + grillage,
+  immeubles 4-6 niv. beige/rose ; D : immeuble blanc à panneaux ROUGES (allèges rouges sous fenêtres, 8 niv.),
+  2 panneaux pub 4×3, immeuble gris-vert 7 niv.
+- P31 (s≈7400) : G : ÉGLISE DU SACRÉ-CŒUR DE GENTILLY : pierre blonde, nef à pignon avec rosace, coupole basse grise,
+  CAMPANILE carré très élancé (~60 m) à lanternon vert-de-gris et flèche conique ; immeuble HBM crème 6 niv. à toit
+  de tuiles et cheminées. TPC s'élargit : haie dense puis pelouse. D : IMMEUBLE À FACETTES (bardage métallique
+  gris-vert plissé en triangles, petites fenêtres carrées aléatoires, ~7 niv., en surplomb) ; 2 panneaux pub
+  orangés ; grille noire à barreaux. B6d sur TPC. Zébra d'insertion à D (entrée).
+- P32 (s≈7500) : D : sous-face vitrée/porte-à-faux d'un bâtiment à résille noire ; B6d + RAPPEL rive D ; grille
+  noire, talus enherbé. TPC = large pelouse avec jeunes arbres, armoire technique blanche, plaquette PR.
+- P33 (s≈7600) : PASSERELLE piétonne (du Cambodge) : tablier béton mince clair, pile intermédiaire double sur TPC,
+  CAGE GRILLAGÉE VERTE en arceaux sur toute la longueur + jardinières/arbustes ; culée D taguée, borne SOS orange
+  au pied ; candélabre simple grande crosse ; D : talus enherbé + grille noire.
+- P34-P36 (s≈7700-7900) : courbe à D ; 2 voies + ENTRÉE par la D (zébra, biseau d'insertion → 3 voies) ; TPC = DBA +
+  bande herbeuse ; D : muret béton + grille noire à barreaux, talus enherbé, candélabres simples à crosse.
+  G (rive ext., Montrouge) : mur tagué + grillage ; maison meulière/tuiles, immeuble BRIQUE ROUGE 4 niv. à bandeaux
+  blancs, immeubles de bureaux blancs/vitrés 6 niv. (toiture végétalisée), puis GRAND IMMEUBLE VITRÉ BLEU à angle
+  arrondi (6 niv., vitrage sérigraphié) + immeuble noir vitré 5 niv. ; portique blanc du sens ext. (dos) ;
+  disque rouge (sens interdit, dos) sur TPC.
+- P37-P39 (s≈8000-8200) : 3 voies ; D : zébra de fin d'insertion, muret en PIERRE MEULIÈRE bas + DBA, fourré,
+  candélabres DOUBLES en Y sur la rive D (bretelle derrière) ; immeuble blanc à balcons filants (~12 niv.) à D ;
+  G : immeubles HBM beige rosé 8 niv. (2 barres à trame serrée), platanes ; TPC : DBA + muret pierre (dénivelé).
+  Dans l'axe : PONT de la Pte d'Orléans (tablier mince, garde-corps bleu clair) + portique à panneau VERT et
+  cartouche ; immeuble vitré bleu-vert (~10 niv.) et rotonde à D au fond ; panneau publicitaire sur mât à D.
