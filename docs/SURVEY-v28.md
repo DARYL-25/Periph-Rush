@@ -566,3 +566,27 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
 - s 15578-15644 PONT/COUVERTURE (Pte de la Muette) : pont-dalle béton gris, talus planté et arbres au-dessus ; côté TPC
   colonnade de piles rectangulaires ; piédroit D béton lisse clair + lisse ; file de petits projecteurs en applique ;
   la SORTIE PTE DE LA MUETTE (s 15611, 2 voies) se détache à D sous l'ouvrage (ligne T2 large).
+- s≈15660-15800 (trémie entre ouvrages) : la bretelle Muette monte à D le long d'un mur béton clair tagué (flèche de
+  direction blanche sur portique léger) ; ★ ANNONCE RADAR en rive D sur l'îlot : B14 « 50 » au-dessus du panneau
+  blanc « Pour votre sécurité / [picto ondes + moto + voiture] / contrôles automatiques », sur 1 pied, socle béton
+  tagué ; glissière + garde-corps gris de la rampe derrière ; candélabre simple.
+- COUVERTURE (s 15815 → 16104, sous la place de la Pte de la Muette/Bd Lannes) : courbe à D ; côté TPC colonnade de
+  piles carrées avec jours ; piédroit D béton + passerelle de service à lisses en hauteur ; projecteurs sodium/blancs
+  espacés ; marquage jaune de chantier (ignoré) ; vers la sortie : parois à LAMES LUMINEUSES verticales côté G
+  (bandes claires rétroéclairées entre piles).
+- s≈16104 sortie : rive D = DBA + grille noire à barreaux + talus boisé (Bois de Boulogne) ; panneau AB1 « CROIX DE
+  ST-ANDRÉ » (triangle, X noir) sur mât de candélabre (dos d'entrée) ; candélabres simples à crosse (mâts verts) sur
+  rive D ET sur rive G ; TPC = DBA + large bande plantée (arbustes, herbes hautes) ; G : talus enherbé + pelouses.
+- s≈16250 : 4 voies ; disque B sur mât à D ; D = mur béton gris bas (~3 m) + arbres ; devant : PORTIQUE avec PMV
+  2 lignes ambre (G) + panneau VERT à D (à relire) ; pont/couverture Dauphine à ~250 m.
+- s≈16300 PORTIQUE : à G PMV noir 2 lignes ambre « P. MAILLOT : 2 MN / P. CHAPELLE : 12 MN » ; à D pile de panneaux :
+  BLEU « vers A 14 - A 15 - A 1 » / VERT « CH. DE GAULLE » / VERT « LA DÉFENSE » (à confirmer) / BLANC
+  « Pte MAILLOT » ; à l'extrême D blanc « Pte DAUPHINE » avec panonceau « … m » + carré bleu « P » ; B14 « 50 » sur le
+  TPC au pied du portique.
+- s≈16400 : D = MUR EN DALLES DE PIERRE CLAIRE calepinées (~7 m), tags en tête, arbres du Bois au-dessus ; G : talus
+  sableux/enherbé + lisière du Bois, armoire beige et coffret vert sur TPC, candélabres simples sur les 2 rives.
+- s 16522 → 16742 COUVERTURE DAUPHINE (côté lac) : tête = pont-dalle béton + garde-corps métallique gris à
+  barreaudage ; ★ structure en PORTIQUES BÉTON : poutres transversales apparentes tous les ~4 m (sous-face nervurée),
+  COLONNADE de poteaux rectangulaires fins côté TPC OUVERTE sur le sens ext. et le talus du Bois (lumière du jour),
+  piédroit D en grands panneaux béton beige avec ATTIQUE AJOURÉ (baies rectangulaires hautes) ; trottoir de service ;
+  pas d'éclairage sodium visible (jour naturel latéral). 4 voies.
