@@ -405,3 +405,39 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
 - s 9518-9618 DOUBLE PONT PTE DE VERSAILLES : 1er tablier béton + balustrade béton, grande BÂCHE PUBLICITAIRE sur
   le garde-corps, pile = voiles rectangulaires massifs côté TPC ; puis 2e pont à balustrade claire à balustres ;
   dessous : dalle béton lisse à joints, mur D meulière, projecteurs en applique.
+- s≈9650 ★ PORTIQUE DE CONTRÔLE (après le double pont) : portique-passerelle à 2 montants ronds gris, TABLIER
+  TECHNIQUE à garde-corps grillagé sur toute la largeur, hérissé d'une quinzaine de CAMÉRAS/CAPTEURS (boîtiers sur
+  potelets au-dessus et en dessous, projecteurs IR) = contrôle automatisé (voie réservée / vitesse) ; armoire
+  technique grise sur TPC. D = DBA + talus + mur meulière à balustrade ; G = mur meulière, dépôt.
+- s 9710→10216 VIADUC (au-dessus du Parc des Expositions) : 3 voies, rive D = DBA + GARDE-CORPS MÉTALLIQUE vert-gris
+  à barreaudage vertical serré (~1,2 m) sur longrine ; TPC = DBA double + bande d'herbe ; candélabres simples à
+  crosse sur les 2 rives (mâts verts) ; ni BAU ni talus.
+  D (premier rang, en contrebas) : HALLS D'EXPOSITION = grands volumes bas en bardage métallique gris clair à
+  nervures horizontales, portails gris, auvent en sheds, toitures techniques ; un panneau pub 4×3 lumineux bleu sur
+  mât ; au second plan ★ TOUR TRIANGLE : pyramide/trapèze vitré très élancé (~180 m), façade à bandes horizontales
+  blanches et vitrage, pan incliné côté périph, grue en tête (chantier), encoche triangulaire en pied.
+  G : halls gris à portails (pavillons du Parc), mât de forage/grue bleue, immeubles pierre 7-8 niv., bureaux
+  blancs 5 niv., hôtel rose à enseigne en toiture (neutre), immeubles vitrés d'Issy.
+- s≈10150 : fin du viaduc ; D = DBA + garde-corps vert + clôture GRILLAGÉE noire haute (pare-ballons) devant un
+  bâtiment NOIR bas à bardage (hall), tour de bureaux vitrée bleu-gris (~20 niv.) dans l'axe à D.
+- s≈10200-10350 : D = DBA + garde-corps vert ; halls gris avec ESCALIERS DE SECOURS métalliques extérieurs ; borne SOS
+  orange ; PARKING-SILO à étages ouverts béton beige/rose (8 niv., rampe d'accès qui plonge à D le long de la
+  section courante) ; armoires beiges sur TPC. G : bureaux noirs/vitrés à bandeaux (6-8 niv., enseignes neutres),
+  bâtiment blanc à voile incliné, immeuble brique rouge 7 niv. (HBM), cité blanche.
+- ★ s≈10350 → ~10800 : ZONE FLOUTÉE PAR APPLE (ministère des Armées, « Hexagone Balard ») : images pixélisées puis
+  absentes sur la chaussée intérieure. Ce tronçon (dont la sortie Pte de Sèvres s 10668) NE PEUT PAS être relevé
+  dans Look Around → s'appuyer sur le relevé v17 et les données OSM, sans détail de façade (bâtiment sensible :
+  volumes neutres).
+- ⚠ LACUNE s≈10350 → 11450 (zone floutée + Pte de Sèvres + sortie Quai d'Issy s 11282) : non relevée dans le sens
+  de circulation. Reprise sur le viaduc de Seine (coordonnée 48.83468,2.26670 → chaussée ext., puis traversée).
+  Vu depuis le sens ext. à cet endroit : côté sud (Issy) immeubles de bureaux vitrés bleus 8-10 niv., bâtiment OVOÏDE
+  vitré (« œuf » ~8 niv.), viaduc ferroviaire RER C à garde-corps vert passant sous le périph, tour ronde vitrée.
+
+## Secteur Seine (pont aval) → Pte de Saint-Cloud (s ≈ 11 450 →)
+
+- s≈11500 (VIADUC DE SEINE, « pont aval ») : 4 voies, enrobé clair ; rive D = bordure haute béton + GARDE-CORPS
+  VERT à barreaudage vertical (~1,3 m) ; pas de BAU ; caniveau à grille en rive G/TPC ; TPC = DBA simple ;
+  CANDÉLABRES DOUBLES EN Y (2 crosses opposées) sur le TPC, mâts gris ~12 m tous les ~40 m ; Seine visible à D
+  (quais, péniches, silos à ciment blancs + convoyeur incliné du port de Javel côté nord, pont du Garigliano au loin).
+  G : immeuble de bureaux vitré bleu 8 niv. (enseigne neutre) ; dans l'axe : TOUR blanche ~20 niv. à écran/enseigne
+  en tête (tour TF1, Boulogne).
