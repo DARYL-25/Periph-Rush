@@ -689,3 +689,25 @@ Chaque entrée : `#n` = numéro de vue depuis le départ (≈ n × pas).
   blanche/argent, terrasses plantées entre blocs) + immeuble de bureaux gris-bleu à trame serrée (8 niv.) à grande
   enseigne (neutre) ; devant : pont (bd/tram) à tablier béton + garde-corps, piles ; G : halle blanche basse, pylônes
   d'éclairage de stade.
+- s≈20440-20530 PONT-RAIL + PONT ROUTIER DE CLICHY : tablier béton large (poutre de rive claire, garde-corps métallique
+  à barreaux), poteaux caténaires au-dessus, pile-culée centrale massive sur TPC avec coffrets ; culée D en meulière
+  taguée ; dessous : dalle béton à caissons carrés, mur G béton lisse, appliques rectangulaires en file, colonnade
+  ronde à D ouvrant sur une contre-allée ; glissière + garde-corps en rive D avant le pont.
+- s≈20600 : TPC planté de PLATANES/érables adultes (bande enherbée entre 2 DBA) ; portique du sens ext. (béton clair) ;
+  D = DBA + garde-corps VERT barreaudé + haie ; premier rang D : bâtiment bas à bardage gris sombre, immeuble béton
+  brut à claustras (5 niv.), mur tagué ; au-dessus le Tribunal de Paris.
+- s≈20680 PORTIQUE (2 montants béton clair carrés, traverse) : blanc « Pte DE St OUEN » (centre) ; à D blanc
+  « [D 911 jaune] 100 m » au-dessus de blanc « Pte DE CLICHY » ; D : ★ bâtiment NOIR à FACETTES inclinées (bardage
+  métallique anthracite plissé, 36 rue du Bastion) au ras de la chaussée, mur tagué en pied, B (disque) sur mât.
+- s 20761 SORTIE PTE DE CLICHY (1 voie à D, descend) ; puis s 20785 début du VIADUC (→ 24436) : 4 voies, D = DBA +
+  garde-corps vert + arbres, triangle de danger orange (temporaire) ; premier rang D : immeuble de bureaux vitré
+  bleu-gris 8 niv. à trame fine (longue façade) ; G : immeuble blanc à très grande BÂCHE publicitaire (neutre),
+  bureaux vitrés 8 niv., immeuble brique ; PMV sur potence au loin.
+- DERNIÈRE POSITION RELEVÉE : s ≈ 20 900 (début du viaduc après la Pte de Clichy).
+
+## Bilan au 15 nov. 2026
+
+Relevé couvrant s ≈ 2 900 → 20 900 (Pte d'Ivry → Pte de Clichy, ~18 km) avec LACUNES :
+4 300-4 600 (couverture A6b) · 10 350-11 450 (zone floutée Balard, Sèvres, Quai d'Issy) · 13 700-14 650 (Auteuil) ·
+17 570-18 250 (Maillot/Ternes) · 19 850-20 300 (Asnières nord). RESTE : 20 900 → 34 951 puis 0 → 2 900 (~17 km).
+Abscisses P1-P42 à recaler (voir encadrés ⚠).
