@@ -16,7 +16,7 @@ import { Batch, rgb, shade } from './geo.js';
 import { FACADES } from './textures.js';
 import { LANDMARK_ZONES } from './landmarks.js';
 import { SKYLINE_ZONES } from './skyline.js';
-import { FRONT as FRONT28 } from './releve28.js';
+import { BUILDINGS as B28 } from './releve28.js';
 
 const FAC = Object.fromEntries(FACADES.map((f, i) => [f.id, i]));
 export const LAT0 = 48.8590, LON0 = 2.3400;
@@ -163,15 +163,17 @@ export class Scenery {
     this.dropped = 0;
     // v17 : emprises des monuments modélisés en détail (js/landmarks.js) : pas de bâtiment OSM générique dedans
     const zones = [...LANDMARK_ZONES, ...SKYLINE_ZONES].map((zn) => ({ ...geoToLocal(zn.lat, zn.lon), r: zn.r }));
+    // v28 : bâtiments de premier rang relevés un par un — les emprises OSM génériques qu'ils remplacent sont retirées
+    this.b28 = [];
+    for (const [sB, side, dist, len, dep, h, fac, o = {}] of B28) {
+      const p = {}; track.pointAt(sB, p);
+      const lat = side * (dist + dep / 2), x = p.x + p.rx * lat, z = p.z + p.rz * lat, ang = Math.atan2(p.tz, p.tx);
+      this.b28.push({ s: sB, x, z, ang, len, dep, h, fac, o });
+      if (h < 40 || len > 20) zones.push({ x, z, r: Math.max(len, dep) / 2 + 3 });
+    }
     const inZone = (b) => { const c = b.kind === 'box' ? [b.cx, b.cz] : b.pts.reduce((a, q) => [a[0] + q[0] / b.pts.length, a[1] + q[1] / b.pts.length], [0, 0]); return zones.some((zn) => Math.hypot(c[0] - zn.x, c[1] - zn.z) < zn.r); };
     const put = (s, b) => {
       if (!b.custom && inZone(b)) return;
-      // v28 : bâtiments de premier rang du tronçon relevé — façade et hauteur d'après Look Around
-      if (!b.custom && b.dist < 75 && b.s != null) {
-        const pj = b.kind === 'box' ? this.index.project(b.cx, b.cz) : null;
-        const sd = pj ? (pj.lat > 0 ? 1 : -1) : 0;
-        for (const [a, e, side, fac, h] of FRONT28) if (b.s >= a && b.s < e && (!sd || sd === side)) { b.fac = FAC[fac]; b.h = h * (0.94 + b.seed * 0.1); break; }
-      }
       // aucune emprise ne doit mordre sur la chaussée, les bretelles ou les ouvrages
       const near = b.custom || !(b.dist > 55);
       const res = near ? this.clearance(b.kind === 'box' ? rectPts(b) : b.pts) : { ok: true };
@@ -216,6 +218,25 @@ export class Scenery {
       put(pr.s, { kind: 'box', cx, cz, w: Math.max(w, 3), d: Math.max(d, 3), ang, h, fac, dist: minLat, s: pr.s, seed: r });
     }
     this.addCustomBuildings(put);
+    // v28 : dessin des bâtiments relevés (boîte, plan arrondi ou circulaire, volumes superposés)
+    for (const q of this.b28) {
+      const mk = (len, dep, y0, h, fac) => {
+        const base = { h: y0 + h, y0, fac: FAC[fac] ?? FAC.modern, dist: 99, s: q.s, seed: 0.5, tint: [1, 1, 1], custom: true };
+        if (q.o.cyl || q.o.round) {
+          const pts = [], n = q.o.cyl ? 20 : 0, ca = Math.cos(q.ang), sa = Math.sin(q.ang);
+          if (q.o.cyl) for (let k = 0; k < n; k++) { const a = -k / n * 6.2832, u = Math.cos(a) * len / 2, v = Math.sin(a) * dep / 2; pts.push([q.x + u * ca - v * sa, q.z + u * sa + v * ca]); }
+          else { // rectangle à angles arrondis
+            const R = Math.min(len, dep) * 0.32;
+            for (const [cx, cy, a0] of [[len / 2 - R, dep / 2 - R, 0], [-len / 2 + R, dep / 2 - R, 1], [-len / 2 + R, -dep / 2 + R, 2], [len / 2 - R, -dep / 2 + R, 3]])
+              for (let k = 0; k <= 4; k++) { const a = (a0 + k / 4) * Math.PI / 2, u = cx + Math.cos(a) * R, v = cy + Math.sin(a) * R; pts.push([q.x + u * ca - v * sa, q.z + u * sa + v * ca]); }
+            pts.reverse();
+          }
+          put(q.s, { ...base, kind: 'poly', pts });
+        } else put(q.s, { ...base, kind: 'box', cx: q.x, cz: q.z, w: len, d: dep, ang: q.ang });
+      };
+      mk(q.len, q.dep, 0, q.h, q.fac);
+      for (const [kl, kd, y0, h, fac] of q.o.tiers || []) mk(q.len * kl, q.dep * kd, y0, h, fac || q.fac);
+    }
     // --- grands bâtiments polygonaux ---
     const seenBig = new Set();
     for (const [hRaw, type, flat, name] of BIG_BUILDINGS) {
@@ -465,6 +486,7 @@ const TINTS = [
   [0xffffff, 0xf2efe8, 0xe8e5dc],                     // panneaux colorés
   [0xe8e6e0, 0xd8d6d0, 0xf0ece4],                     // tours béton
 ];
+while (TINTS.length < FACADES.length) TINTS.push([0xffffff, 0xf6f6f4]);   // v28 : façades relevées, teinte propre à la texture
 
 function rectPts(b) {
   const ca = Math.cos(b.ang), sa = Math.sin(b.ang), W = b.w / 2, D = b.d / 2;

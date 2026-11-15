@@ -21,7 +21,7 @@ import * as TX from './textures.js';
 import {
   directionPanel, gantryPanel, signBackTexture, speedLimitTexture, radarTexture, hovTexture, laneSignalTexture,
   sosTexture, prPlateTexture, goreTexture, VMSPanel, bpStack, exitLines,
-  noStoppingTexture, fuelSignTexture, fuelPanelTexture, touristTexture, nicheSignTexture, dangerTexture, sosDistTexture,
+  noStoppingTexture, fuelSignTexture, fuelPanelTexture, touristTexture, nicheSignTexture, dangerTexture, sosDistTexture, textPanelTexture, tunnelSignTexture,
 } from './signs.js';
 import { Scenery, buildLandmarks, geoToLocal } from './scenery.js';
 import { buildDetailedLandmarks } from './landmarks.js';
@@ -320,8 +320,8 @@ export class World {
     // atlas « bâti » : 6 façades + toitures (jour) et fenêtres allumées (nuit)
     const roof = TX.roofTexture(T);
     const bEntries = facades.map((f, i) => ({ name: 'f' + i, image: f.day.image })).concat([{ name: 'roof', image: roof.image }]);
-    const Bt = makeAtlas(T, bEntries);
-    const glow = makeAtlasLike(T, Bt, facades.map((f) => ({ image: f.glow.image })).concat([{ image: null }]));
+    const Bt = makeAtlas(T, bEntries, 512, 6);   // v28 : 34 tuiles (6 × 6)
+    const glow = makeAtlasLike(T, Bt, facades.map((f) => ({ image: f.glow.image })).concat([{ image: null }]), 512, 6);
     const m = {
       road: new T.MeshPhongMaterial({ map: asphalt.map, bumpMap: asphalt.bump, bumpScale: 0.6, vertexColors: true, shininess: 6, specular: 0x111111 }),
       paint: new T.MeshPhongMaterial({ map: TX.paintTexture(T), vertexColors: true, side: DS, shininess: 18, specular: 0x222222, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }),
@@ -630,7 +630,7 @@ export class World {
     for (const k in MATS) B.mat[k] = new TileView(S, MATS[k]);
     const Bb = new Batch(true), bt = this.mats.btiles;
     B.bld = Bb;
-    B.fac = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => new TileView(Bb, bt['f' + i]));
+    B.fac = TX.FACADES.map((f, i) => new TileView(Bb, bt['f' + i]));
     B.roof = new TileView(Bb, bt.roof);
     const glow = [];
     const ctx = { s0, len, rows, B, glow, rand, group, geoms, idx, graf: new Batch() };
@@ -1509,7 +1509,7 @@ export class World {
       this._pineGeo = g;
     }
     const spots = [], pines = [];
-    const pushSpot = (x, y, z, sc, kind = 0) => { if (spots.length < 200) spots.push([x, y, z, sc, kind]); };
+    const pushSpot = (x, y, z, sc, kind = 0) => { if (spots.length < 700) spots.push([x, y, z, sc, kind]); };
     // kind : 0 feuillu courant, 1 arbuste, 2 peuplier, 3 platane/marronnier, 4 roussi
     for (const r of rows) {
       for (const side of [1, -1]) {
@@ -1526,6 +1526,32 @@ export class World {
           if (H > 0.35 && !via) { const bx = E + 1.6 + H * (0.4 + Math.min(extra, 2) * 0.4); return [bx, Math.max(0, H - (bx - E - 1) / 1.7)]; }
           return [E + 3.2 + extra, 0];
         };
+        if (veg === 'fourre') {
+          // v28 : talus couvert d'un fourré dense (arbustes + arbres), comme relevé — plus de pente d'herbe nue
+          const x0 = E + 2.0, x1 = slopeT ? E + 1.55 + (-H - 1.1) * 1.55 : E + 7, n = slopeT ? 6 : 4;
+          for (let k = 0; k < n; k++) {
+            const f = (k + rand()) / n, bx = x0 + (x1 - x0) * f, y = slopeT ? (H + 1.1) * (1 - f) : Math.max(0, H);
+            const p = P(r, side * bx, y);
+            if (k % 3 !== 2) pushSpot(p[0], y - 0.3, p[2], 0.7 + rand() * 0.5, 1);
+            else pushSpot(p[0], y - 0.5, p[2], 0.75 + rand() * 0.5, rand() < 0.1 ? 4 : 0);
+          }
+          const pt = P(r, side * (E + 1.9 + (slopeT ? (-H) * 1.55 : 3) + rand() * 5), 0);
+          pushSpot(pt[0], 0, pt[2], 1.0 + rand() * 0.7, 0);
+          // talus de séparation entre la section courante et une bretelle qui s'écarte : même fourré (plus d'herbe nue)
+          if (side > 0) {
+            const Em = t.mainEdgeAt(r.s);
+            for (const q of this.ramps.at(r.s, r.h)) {
+              if (q.parallel || !(q.g > 5)) continue;
+              const nq = Math.min(7, Math.floor(q.g / 2.6));
+              for (let k = 0; k < nq; k++) {
+                const f = (k + 0.2 + rand() * 0.6) / nq, lat = Em + 1.6 + f * (q.g - 3.2), y = r.h + (q.hr - r.h) * f;
+                const pq = P(r, lat, y);
+                pushSpot(pq[0], y - 0.3, pq[2], 0.7 + rand() * 0.55, k % 3 === 2 ? 0 : 1);
+              }
+            }
+          }
+          continue;
+        }
         const regular = { platanes: 9, marronniers: 10, peupliers: 6, pins: 11 }[veg];
         if (regular) {
           const k0 = Math.floor(r.s / regular);
@@ -1990,6 +2016,29 @@ export class World {
           this.riveSign(ctx, f.s, rv, dangerTexture(T, 'x'), 1.0, 1.0, 2.0);
           break;
         }
+        case 'textPanel': {
+          const st = textPanelTexture(T, f.lines), w = 2.3;
+          this.riveSign(ctx, f.s, rv, st.tex, w, w * st.h / st.w, 1.6);
+          break;
+        }
+        case 'tunnelSign': {
+          const st = tunnelSignTexture(T, f.name, f.dist);
+          this.riveSign(ctx, f.s, rv, st, 1.15, 2.0, 1.7);
+          break;
+        }
+        case 'eqGantry': {
+          // v28 : portique de contrôle (passerelle technique hérissée de caméras et de capteurs)
+          this.gantry(ctx, f.s, Eo, []);
+          const nL = t.lanesAt(f.s), yy = r.h + 5.0;
+          const rc = this.rowAt(f.s - 0.5);
+          for (let l = 0; l < nL; l++) for (const dx of [-0.9, 0, 0.9]) {
+            const lat = CFG.INNER_EDGE + LW * (l + 0.5) + dx;
+            boxAt(B.metal, rc, lat, yy + (dx ? 1.25 : -0.45), 0.22, 0.3, 0.5, rgb(dx ? 0xd8dadc : 0x2a2c2e));
+            if (dx) boxAt(B.metal, rc, lat, yy + 0.9, 0.06, 0.4, 0.06, rgb(0x8f979c));
+          }
+          boxAt(B.metal, this.rowAt(f.s + 0.5), CFG.INNER_EDGE + LW * nL / 2, yy + 1.2, LW * nL + 2, 1.0, 0.05, rgb(0x7d858c));
+          break;
+        }
         case 'sosDist': {
           const st = sosDistTexture(T, f.dist);
           this.riveSign(ctx, f.s, rv, st.tex, 0.62, 0.27, 2.6);
@@ -2005,7 +2054,11 @@ export class World {
           boxAt(B.gba, r, cx, yd - 0.22, span, 0.22, len - 1.2, concD, 4);          // sous-face
           for (const e of [-len / 2 + 0.18, len / 2 - 0.18]) {                      // garde-corps des deux rives du pont
             const rr = this.rowAt(f.s + e);
-            if (f.parapet === 'balustrade') {
+            if (f.parapet === 'cage') {   // passerelle : cage grillagée verte en arceaux
+              const a0 = P(rr, cx - span / 2, 0), a1 = P(rr, cx + span / 2, 0);
+              this.railQuad(B.bars, [a0[0], a0[2]], [a1[0], a1[2]], yd + 1.15, 2.6, rgb(0x4f8a66), 2);
+              boxAt(B.metal, rr, cx, yd + 3.75, span, 0.1, 0.1, rgb(0x4f8a66));
+            } else if (f.parapet === 'balustrade') {
               boxAt(B.gba, rr, cx, yd + 1.15, span, 0.25, 0.36, rgb(0xcfc9bc), 4);
               for (let x = -span / 2 + 0.6; x < span / 2; x += 1.2) boxAt(B.gba, rr, cx + x, yd + 1.4, 0.34, 0.62, 0.3, rgb(0xcfc9bc));
               boxAt(B.gba, rr, cx, yd + 2.02, span, 0.2, 0.4, rgb(0xd6d0c3), 4);

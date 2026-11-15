@@ -19,7 +19,7 @@
 // ============================================================
 
 import { wrap } from './utils.js';
-import { SIDE_R as R28, SIDE_G as G28, MEDIAN_WIDE as MED28, SECTOR as SEC28 } from './releve28.js';
+import { SIDE_R as R28, SIDE_G as G28, MEDIAN_WIDE as MED28, LAMPS as LAMPS28, inSector as in28 } from './releve28.js';
 
 const R = [
   [0, 1350, { wall: 'beige', veg: 'arbres' }],                 // Maillot – Ternes – Champerret (couvertures)
@@ -208,6 +208,6 @@ export class Survey {
   over(list, s) { s = wrap(s, this.L); for (const [a, b, v] of list) if (s >= a && s < b) return v; return null; }
   side(s, side) { return this.over(side > 0 ? R28 : G28, s) || this.find(side > 0 ? this.R : this.G, s) || {}; }
   wideMedian(s) { return !!this.over(MED28.map(([a, b]) => [a, b, true]), s) || !!this.find(this.med, s); }
-  lampStyle(s) { const q = wrap(s, this.L); if (q >= SEC28[0] && q < SEC28[1]) return 'edge'; return this.find(this.lamps, s) || 'edge'; }
+  lampStyle(s) { const q = wrap(s, this.L); if (in28(q)) return this.over(LAMPS28, q) || 'edge'; return this.find(this.lamps, s) || 'edge'; }
   cover(s) { return this.find(this.covers, s) || { piers: 'voile' }; }
 }

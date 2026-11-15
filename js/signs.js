@@ -750,3 +750,31 @@ export function sosDistTexture(THREE, dist = '200 m') {
   textSys(ctx, dist, 164, 58, 38, '#111', 'center', 700);
   return finish(THREE, cv, key);
 }
+
+// --- v28 : panneau à texte noir sur fond blanc (« ALLUMEZ VOS CODES ») ----
+export function textPanelTexture(THREE, lines) {
+  const key = 'txt:' + lines.join('|');
+  if (texCache.has(key)) return texCache.get(key);
+  const px = 56, W = Math.ceil(Math.max(...lines.map((l) => l.length)) * px * 0.62 + px * 1.2), H = Math.ceil(lines.length * px * 1.5 + px * 0.6);
+  const cv = makeCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#f4f5f2'; rrect(ctx, 0, 0, W, H, 10); ctx.fill();
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 5; rrect(ctx, 5, 5, W - 10, H - 10, 8); ctx.stroke();
+  lines.forEach((l, i) => text(ctx, l, W / 2, px * 1.05 + i * px * 1.5, px, '#111', 'center', 600));
+  weather(ctx, W, H, 0.6);
+  return finish(THREE, cv, key);
+}
+// --- v28 : entrée de tunnel (plaque du nom + C111 + panonceau de longueur) ----
+export function tunnelSignTexture(THREE, name, dist) {
+  const key = 'tun:' + name + dist;
+  if (texCache.has(key)) return texCache.get(key);
+  const W = 256, H = 448, cv = makeCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#f4f5f2'; rrect(ctx, 8, 0, W - 16, 120, 8); ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 4; rrect(ctx, 12, 4, W - 24, 112, 6); ctx.stroke();
+  textSys(ctx, 'Tunnel', W / 2, 38, 34, '#111', 'center', 600); textSys(ctx, name, W / 2, 84, 40, '#111', 'center', 700);
+  ctx.fillStyle = '#1f4e9a'; rrect(ctx, 28, 132, 200, 200, 10); ctx.fill(); ctx.strokeStyle = '#f4f5f2'; ctx.lineWidth = 5; rrect(ctx, 34, 138, 188, 188, 8); ctx.stroke();
+  ctx.fillStyle = '#f4f5f2'; ctx.beginPath(); ctx.moveTo(56, 310); ctx.lineTo(56, 240); ctx.arc(128, 240, 72, Math.PI, 0); ctx.lineTo(200, 310); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(84, 310); ctx.lineTo(84, 244); ctx.arc(128, 244, 44, Math.PI, 0); ctx.lineTo(172, 310); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f4f5f2'; rrect(ctx, 28, 346, 200, 92, 8); ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 4; rrect(ctx, 32, 350, 192, 84, 6); ctx.stroke();
+  textSys(ctx, dist, W / 2, 394, 44, '#111', 'center', 700);
+  return finish(THREE, cv, key, { transparent: true, shaped: true });
+}
