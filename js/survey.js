@@ -19,6 +19,7 @@
 // ============================================================
 
 import { wrap } from './utils.js';
+import { SIDE_R as R28, SIDE_G as G28, MEDIAN_WIDE as MED28, SECTOR as SEC28 } from './releve28.js';
 
 const R = [
   [0, 1350, { wall: 'beige', veg: 'arbres' }],                 // Maillot – Ternes – Champerret (couvertures)
@@ -203,8 +204,10 @@ export class Survey {
     for (const r of list) if (wrap(s - r.s0, this.L) < r.len) return r.v;
     return null;
   }
-  side(s, side) { return this.find(side > 0 ? this.R : this.G, s) || {}; }
-  wideMedian(s) { return !!this.find(this.med, s); }
-  lampStyle(s) { return this.find(this.lamps, s) || 'edge'; }
+  // v28 : le relevé Look Around prime sur les relevés précédents dans le tronçon reconstruit
+  over(list, s) { s = wrap(s, this.L); for (const [a, b, v] of list) if (s >= a && s < b) return v; return null; }
+  side(s, side) { return this.over(side > 0 ? R28 : G28, s) || this.find(side > 0 ? this.R : this.G, s) || {}; }
+  wideMedian(s) { return !!this.over(MED28.map(([a, b]) => [a, b, true]), s) || !!this.find(this.med, s); }
+  lampStyle(s) { const q = wrap(s, this.L); if (q >= SEC28[0] && q < SEC28[1]) return 'edge'; return this.find(this.lamps, s) || 'edge'; }
   cover(s) { return this.find(this.covers, s) || { piers: 'voile' }; }
 }

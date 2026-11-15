@@ -253,9 +253,10 @@ function lineSegs(ln) {
 function lineWidthPx(ctx, ln) {
   const c = BP_CAP;
   if (ln.kind === 'porte') return richWidth(lineSegs(ln), c, L1);
-  if (ln.kind === 'green' || ln.kind === 'blue') return richWidth(lineSegs(ln), c, L2) + (ln.plane ? c * 1.6 : 0);
+  if (ln.kind === 'green' || ln.kind === 'blue') return richWidth(lineSegs(ln), c, L2) + (ln.plane ? c * 1.6 : 0) + (ln.ref ? signTextWidth(ln.ref, c * 0.82, L2) + c * 1.1 : 0);
+  if (ln.kind === 'down') return c * 1.6 * (ln.n || 1);
   if (ln.kind === 'vers') return signTextWidth('vers', c, L2, { raw: true }) + c * 1.75 + signTextWidth(ln.ref, c, L2) + c * 0.5;
-  if (ln.kind === 'ref') return (ln.ref ? signTextWidth(ln.ref, c * 0.9, L1) + c * 0.9 : 0) + c * 2 + (ln.dist ? signTextWidth(ln.dist, c, L1, { raw: true }) : 0);
+  if (ln.kind === 'ref') return (ln.ref ? signTextWidth(ln.ref, c * 0.9, L1) + c * 0.9 : 0) + c * 2 + (ln.dist ? signTextWidth(ln.dist, c, L1, { raw: true }) : 0) + (ln.arrow ? c * 1.4 : 0);
   return 0;
 }
 export function bpStack(THREE, lines, minW = 0) {
@@ -277,8 +278,16 @@ export function bpStack(THREE, lines, minW = 0) {
     rrect(ctx, col === 'white' ? 2.5 : 6, y0 + (col === 'white' ? 1.5 : 5), W - (col === 'white' ? 5 : 12), BP_H - (col === 'white' ? 5 : 12), 4); ctx.stroke();
     if (ln.kind === 'porte') drawRich(ctx, lineSegs(ln), W / 2, ym, c, fg, 'center', L1, W - padX * 1.2);
     else if (ln.kind === 'green' || ln.kind === 'blue') {
-      const tw = richWidth(lineSegs(ln), c, L2), tot = tw + (ln.plane ? c * 1.6 : 0);
+      const rw0 = ln.ref ? signTextWidth(ln.ref, c * 0.82, L2) + c * 0.7 : 0;
+      const tw = richWidth(lineSegs(ln), c, L2), tot = tw + (ln.plane ? c * 1.6 : 0) + (ln.ref ? rw0 + c * 0.4 : 0);
       let x = (W - tot) / 2;
+      if (ln.ref) { // v28 : cartouche d'autoroute rouge devant la mention (« A 10 BORDEAUX-NANTES », « A 13 ROUEN »)
+        const rh = c * 1.3;
+        ctx.fillStyle = '#c8102e'; ctx.fillRect(x, ym - rh / 2, rw0, rh);
+        ctx.strokeStyle = '#f6f7f4'; ctx.lineWidth = 2; ctx.strokeRect(x + 2, ym - rh / 2 + 2, rw0 - 4, rh - 4);
+        drawSignText(ctx, ln.ref, x + rw0 / 2, ym, c * 0.82, '#f6f7f4', 'center', L2);
+        x += rw0 + c * 0.4;
+      }
       if (ln.plane) { planePicto(ctx, x, ym - c * 0.62, c * 1.24); x += c * 1.6; }
       drawRich(ctx, lineSegs(ln), x, ym, c, fg, 'left', L2);
     } else if (ln.kind === 'vers') {
@@ -290,11 +299,15 @@ export function bpStack(THREE, lines, minW = 0) {
     } else if (ln.kind === 'ref') {
       if (ln.ref) { // cartouche départementale jaune à gauche
         const rw = signTextWidth(ln.ref, c * 0.9, L1) + c * 0.8, rh = c * 1.45;
-        const isN = /^N/.test(ln.ref);   // routes nationales : cartouche rouge, lettrage blanc
+        const isN = /^[NA]/.test(ln.ref);   // routes nationales et autoroutes : cartouche rouge, lettrage blanc
         ctx.fillStyle = isN ? '#c8102e' : '#f2b800'; ctx.fillRect(c * 0.35, ym - rh / 2, rw, rh);
         drawSignText(ctx, ln.ref, c * 0.35 + rw / 2, ym, c * 0.9, isN ? '#f6f7f4' : '#111', 'center', isN ? L2 : L1);
       }
       if (ln.dist) drawSignText(ctx, ln.dist, W - c * 0.7, ym, c, '#111', 'right', L1, 0, { raw: true, italic: true });
+      if (ln.arrow) drawArrow(ctx, W - c * 1.2, ym, c * 1.25, Math.PI * 0.75, '#111'); // v28 : flèche oblique de présignalisation
+    } else if (ln.kind === 'down') { // v28 : flèches verticales d'affectation (une par voie)
+      const n = ln.n || 1;
+      for (let k = 0; k < n; k++) drawDownArrow(ctx, W * (k + 0.5) / n, ym, c * 1.25, '#111');
     }
   });
   weather(ctx, W, H, 0.6);
@@ -705,5 +718,35 @@ export function nicheSignTexture(THREE) {
   // combiné
   ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(80, 214, 42, 18, 0, Math.PI, 0); ctx.fill();
   ctx.fillRect(38, 210, 24, 26); ctx.fillRect(98, 210, 24, 26);
+  return finish(THREE, cv, key);
+}
+
+
+// --- v28 : panneau de danger (triangle A) ------------------------------
+export function dangerTexture(THREE, picto = 'x') {
+  const key = 'danger:' + picto;
+  if (texCache.has(key)) return texCache.get(key);
+  const S = 256, cv = makeCanvas(S, S), ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, S, S);
+  const tri = (m) => { ctx.beginPath(); ctx.moveTo(S / 2, m); ctx.lineTo(S - m * 0.75, S - m * 0.9); ctx.lineTo(m * 0.75, S - m * 0.9); ctx.closePath(); };
+  ctx.lineJoin = 'round';
+  tri(14); ctx.fillStyle = '#f4f5f2'; ctx.fill(); ctx.strokeStyle = '#f4f5f2'; ctx.lineWidth = 14; ctx.stroke();
+  tri(34); ctx.strokeStyle = '#c8102e'; ctx.lineWidth = 22; ctx.stroke();
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 14; ctx.lineCap = 'butt';
+  if (picto === 'x') { ctx.beginPath(); ctx.moveTo(S * 0.4, S * 0.5); ctx.lineTo(S * 0.6, S * 0.76); ctx.moveTo(S * 0.6, S * 0.5); ctx.lineTo(S * 0.4, S * 0.76); ctx.stroke(); }
+  else { ctx.fillStyle = '#111'; ctx.fillRect(S * 0.47, S * 0.42, S * 0.06, S * 0.24); ctx.fillRect(S * 0.47, S * 0.7, S * 0.06, S * 0.06); }
+  return finish(THREE, cv, key, { transparent: true, shaped: true });
+}
+
+// --- v28 : plaquette « poste d'appel d'urgence à … m » fixée sur un mât ----
+export function sosDistTexture(THREE, dist = '200 m') {
+  const key = 'sosdist:' + dist;
+  if (texCache.has(key)) return texCache.get(key);
+  const W = 256, H = 112, cv = makeCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#f4f5f2'; rrect(ctx, 0, 0, W, H, 10); ctx.fill();
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 5; rrect(ctx, 4, 4, W - 8, H - 8, 8); ctx.stroke();
+  ctx.fillStyle = '#e8701a'; ctx.fillRect(18, 22, 62, 68);
+  textSys(ctx, 'SOS', 49, 58, 26, '#fff', 'center', 700);
+  textSys(ctx, dist, 164, 58, 38, '#111', 'center', 700);
   return finish(THREE, cv, key);
 }

@@ -338,7 +338,8 @@ export class Track {
         if (d < 900 && d < bd) { bd = d; best = e; }
       }
       if (best && out.some((o) => o.entry === best)) best = null; // entrée partagée : départ au droit de la porte
-      const s = /Maillot/.test(p.name) ? this.startS : wrap((best ? best.s : p.s) + 60, L);
+      // v28 : départ Porte d'Ivry à la sortie du pont de la porte (début du tronçon reconstruit)
+      const s = /Maillot/.test(p.name) ? this.startS : /Ivry/.test(p.name) ? 3175 : wrap((best ? best.s : p.s) + 60, L);
       out.push({ name: p.name, s, entry: best });
     }
     out.sort((a, b) => wrap(a.s - this.startS, L) - wrap(b.s - this.startS, L));

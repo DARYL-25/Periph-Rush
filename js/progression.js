@@ -18,7 +18,7 @@ const DEFAULT = {
   selected: 'lutece',
   colors: {},
   challenges: null,
-  settings: { audio: true, haptics: true, autoThrottle: false, sensitivity: 1.0, quality: 'auto', traffic: 1, startPorte: 'Porte Maillot', weather: 'auto', startHour: 'auto', radio: true, camera: 'chase' },
+  settings: { audio: true, haptics: true, autoThrottle: false, sensitivity: 1.0, quality: 'auto', traffic: 1, startPorte: "Porte d'Ivry", weather: 'auto', startHour: 'auto', radio: true, camera: 'chase' },
 };
 
 const CHALLENGE_POOL = [
@@ -43,6 +43,8 @@ export class Progression {
         const out = { ...structuredClone(DEFAULT), ...d, settings: { ...DEFAULT.settings, ...(d.settings || {}) } };
         // v13 : la Lutèce devient la voiture de départ (sélectionnée une fois pour les anciennes sauvegardes)
         if (!out.unlocked.includes('lutece')) { out.unlocked.unshift('lutece'); if (out.selected === 'clio3') out.selected = 'lutece'; }
+        // v28 : départ basculé une fois sur la Porte d'Ivry (tronçon reconstruit d'après Look Around à tester)
+        if (!out.v28Ivry) { out.v28Ivry = true; out.settings.startPorte = "Porte d'Ivry"; }
         return out;
       }
     } catch (e) { /* sauvegarde corrompue → repartir proprement */ }

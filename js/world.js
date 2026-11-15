@@ -15,12 +15,13 @@ import { CFG } from './config.js';
 import { rng, wrap, clamp, lerp, smoothstep } from './utils.js';
 import { Batch, TileView, rgb, shade, P, band, boxAt, boxWorld, cylinder } from './geo.js';
 import { Survey } from './survey.js';
+import { inSector, FEATURES as F28 } from './releve28.js';
 import { makeAtlas, makeAtlasLike, atlasify } from './atlas.js';
 import * as TX from './textures.js';
 import {
   directionPanel, gantryPanel, signBackTexture, speedLimitTexture, radarTexture, hovTexture, laneSignalTexture,
   sosTexture, prPlateTexture, goreTexture, VMSPanel, bpStack, exitLines,
-  noStoppingTexture, fuelSignTexture, fuelPanelTexture, touristTexture, nicheSignTexture,
+  noStoppingTexture, fuelSignTexture, fuelPanelTexture, touristTexture, nicheSignTexture, dangerTexture, sosDistTexture,
 } from './signs.js';
 import { Scenery, buildLandmarks, geoToLocal } from './scenery.js';
 import { buildDetailedLandmarks } from './landmarks.js';
@@ -275,8 +276,9 @@ export class World {
     track.survey = this.survey;
     this.scenery = new Scenery(THREE, track, CFG.CHUNK_LEN, this.ramps);
     this.features = this.planFeatures();
-    this.vms = this.features.filter((f) => f.type === 'pmv').map((f) => ({ s: f.s, panel: new VMSPanel(THREE), override: 0 }));
-    this.features.filter((f) => f.type === 'pmv').forEach((f, i) => { f.vms = this.vms[i]; });
+    const hasVms = (f) => f.type === 'pmv' || f.vmsAt != null;
+    this.vms = this.features.filter(hasVms).map((f) => ({ s: f.s, panel: new VMSPanel(THREE), override: 0 }));
+    this.features.filter(hasVms).forEach((f, i) => { f.vms = this.vms[i]; });
     this.landmarks = buildLandmarks(THREE, scene);
     this.detailed = buildDetailedLandmarks(THREE, scene, track, { parc: false });   // v17 : tour TF1, pavillon Habib-Bourguiba
     this.stadium = buildParcDesPrinces(THREE, scene, geoToLocal, track);             // v18 : Parc des Princes
@@ -510,6 +512,11 @@ export class World {
     // mâts de caméras de vidéosurveillance (PC Rivoli) environ tous les 850 m
     for (let s = 130; s < L; s += 850) { const q = wrap(s + ((s * 7) % 90), L); if (isFree(q, 12)) F.push({ type: 'cctv', s: q, left: ((s / 850) | 0) % 2 === 1 }); }
     for (let s = 0; s < L; s += 500) F.push({ type: 'pr', s: wrap(t.prOrigin + s, L), km: (s / 1000).toFixed(1).replace('.', ',') });
+    // v28 : tronçon reconstruit d'après Look Around — la signalisation automatique y est remplacée
+    // par les équipements relevés (les panneaux de musoir, radars et plaques PR sont conservés)
+    const AUTO = new Set(['gantry', 'bridgeSign', 'limit', 'noStop', 'pmv', 'hov', 'sos', 'cctv', 'tourist', 'radarSign']);
+    for (let k = F.length - 1; k >= 0; k--) if (AUTO.has(F[k].type) && inSector(F[k].s)) F.splice(k, 1);
+    for (const f of F28) F.push({ ...f });
     F.sort((a, b) => a.s - b.s);
     return F;
   }
@@ -1955,6 +1962,66 @@ export class World {
           this.gantry(ctx, f.s, Eo, this.layoutCols(f.cols, t.lanesAt(f.s), rampW));
           break;
         }
+        case 'rg': {
+          // v28 : portique/potence relevé — piles de plaques placées voie par voie, PMV éventuel
+          const nL = t.lanesAt(f.s);
+          const latOf = (at) => (at === 'R' ? CFG.INNER_EDGE + LW * (nL - 0.5) + rampW / 2 + (rampW > 0 ? LW / 2 : 0) : CFG.INNER_EDGE + LW * at);
+          const panels = [];
+          for (const p of f.panels) {
+            if (p.sig) { panels.push({ tex: laneSignalTexture(T, true).tex || laneSignalTexture(T, true), w: 0.9, h: 0.9, lat: latOf(p.at) }); continue; }
+            const st = bpStack(T, p.lines, p.minW || 0), k = p.k || 0.92;
+            panels.push({ tex: st.tex, w: st.w * k, h: st.h * k, lat: latOf(p.at) });
+          }
+          // jamais deux piles qui se chevauchent : resserrer vers la gauche
+          panels.sort((a, b) => a.lat - b.lat);
+          for (let k = panels.length - 2; k >= 0; k--) { const a = panels[k], b = panels[k + 1]; const ov = a.lat + a.w / 2 + 0.25 - (b.lat - b.w / 2); if (ov > 0) a.lat -= ov; }
+          if (f.vms) panels.push({ tex: f.vms.panel.tex, w: 6.4, h: 2.13, lat: CFG.INNER_EDGE + LW * f.vmsAt, vms: true });
+          this.gantry(ctx, f.s, Eo, panels, !!f.vms && !f.panels.length, { style: f.style || 'grey', cant: f.cant, light: f.light });
+          break;
+        }
+        case 'presign': {
+          // v28 : présignalisation de rive sur 2 mâts (caisson d'afficheur noir + plaques)
+          const st = bpStack(T, f.lines, 0), k = Math.min(1, 2.9 / st.w);
+          const pl = this.riveSign(ctx, f.s, rv, st.tex, st.w * k, st.h * k, 2.3);
+          boxAt(B.metal, this.rowAt(f.s + 0.1), pl.lat, rv.H + pl.bottom + pl.h + 0.08, pl.w, 0.85, 0.3, rgb(0x1c1e20));
+          break;
+        }
+        case 'danger': {
+          this.riveSign(ctx, f.s, rv, dangerTexture(T, 'x'), 1.0, 1.0, 2.0);
+          break;
+        }
+        case 'sosDist': {
+          const st = sosDistTexture(T, f.dist);
+          this.riveSign(ctx, f.s, rv, st.tex, 0.62, 0.27, 2.6);
+          break;
+        }
+        case 'obridge': {
+          // v28 : pont de porte franchissant les deux sens (tablier béton, garde-corps, culées, pile sur le TPC)
+          const Lw = t.mainEdgeAt(f.s), Rw = Eo;
+          const yd = Math.max(r.h + 5.7, 0.35), len = f.len || 20;
+          const span = Rw + Lw + 26, cx = (Rw - Lw) / 2;
+          const conc = rgb(0xbdb8ad), concD = rgb(0x8f8b83), stone = rgb(0xa58f6f);
+          boxAt(B.gba, r, cx, yd, span, 1.15, len, conc, 4);                        // tablier
+          boxAt(B.gba, r, cx, yd - 0.22, span, 0.22, len - 1.2, concD, 4);          // sous-face
+          for (const e of [-len / 2 + 0.18, len / 2 - 0.18]) {                      // garde-corps des deux rives du pont
+            const rr = this.rowAt(f.s + e);
+            if (f.parapet === 'balustrade') {
+              boxAt(B.gba, rr, cx, yd + 1.15, span, 0.25, 0.36, rgb(0xcfc9bc), 4);
+              for (let x = -span / 2 + 0.6; x < span / 2; x += 1.2) boxAt(B.gba, rr, cx + x, yd + 1.4, 0.34, 0.62, 0.3, rgb(0xcfc9bc));
+              boxAt(B.gba, rr, cx, yd + 2.02, span, 0.2, 0.4, rgb(0xd6d0c3), 4);
+            } else {
+              const a0 = P(rr, cx - span / 2, 0), a1 = P(rr, cx + span / 2, 0);
+              boxAt(B.gba, rr, cx, yd + 1.15, span, 0.28, 0.3, rgb(0xcfc9bc), 4);
+              this.railQuad(B.bars, [a0[0], a0[2]], [a1[0], a1[2]], yd + 1.43, 0.95, rgb(0x8d979c), 2);
+            }
+          }
+          // culées en meulière derrière les DBA de rive, pile(s) dans l'axe du TPC
+          for (const lat of [-(Lw + 2.4), Rw + 2.4]) if (yd - r.h > 1) boxAt(B.gba, r, lat, r.h, 2.2, yd - r.h, len, stone, 3);
+          const mh = this.medianHalf(r), y0 = r.h + (mh > 0.42 ? 0.1 : 0.82);
+          if (f.piers === 'round') { for (let e = -len / 2 + 2; e <= len / 2 - 2; e += 4) boxAt(B.gba, this.rowAt(f.s + e), 0, y0, 0.5, yd - y0, 0.5, conc); }
+          else boxAt(B.gba, r, 0, y0, Math.max(0.45, 2 * mh - 0.15), yd - y0, len - 4, conc, 3);
+          break;
+        }
         case 'bridgeSign': {
           // panneaux fixés sur la tête du pont de la porte (cf. « A13 ROUEN | Pte d'AUTEUIL | D910 100 m BOULOGNE »)
           const yb = r.h + CEIL - 0.55;
@@ -2157,13 +2224,14 @@ export class World {
 
   // portique treillis au-dessus du sens intérieur (+ PMV éventuel)
   // portique : 2 poteaux + poutre caisson (gris ou rouge minium), panneaux accrochés devant
-  gantry(ctx, s, Eo, panels, isVMS = false) {
+  gantry(ctx, s, Eo, panels, isVMS = false, opts = {}) {
     const B = ctx.B, r = this.rowAt(s);
     // relevé v12 : portiques en BÉTON (piles carrées + poutre) au nord (Saint-Ouen – Ourcq), cadres métalliques ailleurs
     const off = this.offOf(s);
-    const beton = off > 2800 && off < 8700;
-    const red = !beton && ((Math.floor(s / 997) * 7) % 3) === 0 && !isVMS;
-    const col = beton ? rgb(0xc4bfb3) : red ? rgb(0x9b5a52) : rgb(0x8f979c), colD = beton ? rgb(0xa29d92) : red ? rgb(0x7d4640) : rgb(0x6f777c);
+    const beton = !opts.style && off > 2800 && off < 8700;
+    const red = !opts.style && !beton && ((Math.floor(s / 997) * 7) % 3) === 0 && !isVMS;
+    const beige = opts.style === 'beige';
+    const col = beige ? rgb(0xc9b9a6) : beton ? rgb(0xc4bfb3) : red ? rgb(0x9b5a52) : rgb(0x8f979c), colD = beige ? rgb(0xa5968a) : beton ? rgb(0xa29d92) : red ? rgb(0x7d4640) : rgb(0x6f777c);
     const maxH = panels.reduce((m, p) => Math.max(m, p.h), 0);
     const bottom = r.h + 5.0;                       // gabarit sous panneaux
     const top = bottom + Math.max(maxH, 1.2);       // dessus de la poutre = haut des panneaux
@@ -2172,14 +2240,17 @@ export class World {
     const rv = this.rive(s, 1);
     const PB = beton ? B.gba : B.metal, pw = beton ? (mh > 0.42 ? Math.min(0.9, 2 * mh - 0.1) : 0.62) : 0.4;
     const xs = [mh > 0.42 ? 0 : 0.0, Math.max(Eo + 0.75 + pw / 2, rv.post + (rv.trench ? -0.05 : 0.1))];
-    for (const x of xs) {
+    // v28 : potence (montant unique sur le TPC, traverse en porte-à-faux jusqu'au dernier panneau)
+    if (opts.cant) xs[1] = panels.reduce((m, p) => Math.max(m, p.lat + p.w / 2), 2) + 0.2;
+    for (const x of opts.cant ? [xs[0]] : xs) {
       const y0 = x < 2 ? r.h + (mh > 0.42 ? 0.1 : 0.82) : rv.postY;
       boxAt(PB, r, x, y0, pw, top - y0 + 0.1, pw, col);
       boxAt(PB, r, x, y0, pw + 0.3, 0.18, pw + 0.3, colD);
     }
     const span = xs[1] - xs[0] + pw, cx = (xs[0] + xs[1]) / 2;
-    boxAt(PB, r, cx, top - (beton ? 1.0 : 0.75), span, beton ? 1.0 : 0.75, beton ? 0.9 : 0.55, col);          // poutre
-    if (!beton) boxAt(B.metal, this.rowAt(s - 0.3), cx, top - 0.05, span, 0.08, 0.1, colD); // lisse haute
+    const bh = opts.light ? 0.3 : beton ? 1.0 : 0.75;
+    boxAt(PB, r, cx, top - bh, span, bh, opts.light ? 0.3 : beton ? 0.9 : 0.55, col);          // poutre
+    if (!beton && !opts.light) boxAt(B.metal, this.rowAt(s - 0.3), cx, top - 0.05, span, 0.08, 0.1, colD); // lisse haute
     for (const p of panels) {
       const y = p.vms ? top - 0.4 - p.h / 2 : bottom + p.h / 2 + (maxH - p.h);
       this.addSign(ctx, s - 0.4, p.lat, y, p.tex, p.w, p.h);

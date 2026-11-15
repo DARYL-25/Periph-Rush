@@ -16,6 +16,7 @@ import { Batch, rgb, shade } from './geo.js';
 import { FACADES } from './textures.js';
 import { LANDMARK_ZONES } from './landmarks.js';
 import { SKYLINE_ZONES } from './skyline.js';
+import { FRONT as FRONT28 } from './releve28.js';
 
 const FAC = Object.fromEntries(FACADES.map((f, i) => [f.id, i]));
 export const LAT0 = 48.8590, LON0 = 2.3400;
@@ -165,6 +166,12 @@ export class Scenery {
     const inZone = (b) => { const c = b.kind === 'box' ? [b.cx, b.cz] : b.pts.reduce((a, q) => [a[0] + q[0] / b.pts.length, a[1] + q[1] / b.pts.length], [0, 0]); return zones.some((zn) => Math.hypot(c[0] - zn.x, c[1] - zn.z) < zn.r); };
     const put = (s, b) => {
       if (!b.custom && inZone(b)) return;
+      // v28 : bâtiments de premier rang du tronçon relevé — façade et hauteur d'après Look Around
+      if (!b.custom && b.dist < 75 && b.s != null) {
+        const pj = b.kind === 'box' ? this.index.project(b.cx, b.cz) : null;
+        const sd = pj ? (pj.lat > 0 ? 1 : -1) : 0;
+        for (const [a, e, side, fac, h] of FRONT28) if (b.s >= a && b.s < e && (!sd || sd === side)) { b.fac = FAC[fac]; b.h = h * (0.94 + b.seed * 0.1); break; }
+      }
       // aucune emprise ne doit mordre sur la chaussée, les bretelles ou les ouvrages
       const near = b.custom || !(b.dist > 55);
       const res = near ? this.clearance(b.kind === 'box' ? rectPts(b) : b.pts) : { ok: true };
